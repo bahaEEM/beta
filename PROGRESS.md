@@ -10,7 +10,7 @@
 | G4 | bitti | bbdc8a0 | atış için atıcının kendi görüş hattı da şart |
 | G5 | bitti | (bu commit) | iz 1 = 500 m hücre merkezi; kayıp iz hep bölge |
 | G6 | bitti | (bu commit) | G5 olaylarına göre küçük ayar gerekebilir; docs/protocol.md testten üretilir |
-| G7 | bekliyor | | |
+| G7 | bitti | (bu commit) | 5 uçtan uca test; data/scenarios/hasandag.toml |
 | G8 | araç bitti, gerçek harita GDAL bekliyor | 635029a | docs/maps.md |
 | G9 | bekliyor | | |
 | G10 | bekliyor | | |

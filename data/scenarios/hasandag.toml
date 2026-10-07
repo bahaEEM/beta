@@ -1,0 +1,130 @@
+# Faz 0 start: 6 infantry + 2 MBT per side, ~2.6 km apart, south-west of the summit.
+# Map metres: x east, y south, summit at about (20000, 20000). placeholder positions.
+
+[[unit]]
+id = 1
+owner = 0
+type = "infantry"
+x = 15000.0
+y = 25600.0
+heading_deg = 0.0
+
+[[unit]]
+id = 2
+owner = 0
+type = "infantry"
+x = 15000.0
+y = 25800.0
+heading_deg = 0.0
+
+[[unit]]
+id = 3
+owner = 0
+type = "infantry"
+x = 15000.0
+y = 26000.0
+heading_deg = 0.0
+
+[[unit]]
+id = 4
+owner = 0
+type = "infantry"
+x = 15000.0
+y = 26200.0
+heading_deg = 0.0
+
+[[unit]]
+id = 5
+owner = 0
+type = "infantry"
+x = 15000.0
+y = 26400.0
+heading_deg = 0.0
+
+[[unit]]
+id = 6
+owner = 0
+type = "infantry"
+x = 15000.0
+y = 26600.0
+heading_deg = 0.0
+
+[[unit]]
+id = 7
+owner = 0
+type = "mbt"
+x = 14900.0
+y = 25900.0
+heading_deg = 0.0
+
+[[unit]]
+id = 8
+owner = 0
+type = "mbt"
+x = 14900.0
+y = 26300.0
+heading_deg = 0.0
+
+[[unit]]
+id = 9
+owner = 1
+type = "infantry"
+x = 17600.0
+y = 25600.0
+heading_deg = 180.0
+
+[[unit]]
+id = 10
+owner = 1
+type = "infantry"
+x = 17600.0
+y = 25800.0
+heading_deg = 180.0
+
+[[unit]]
+id = 11
+owner = 1
+type = "infantry"
+x = 17600.0
+y = 26000.0
+heading_deg = 180.0
+
+[[unit]]
+id = 12
+owner = 1
+type = "infantry"
+x = 17600.0
+y = 26200.0
+heading_deg = 180.0
+
+[[unit]]
+id = 13
+owner = 1
+type = "infantry"
+x = 17600.0
+y = 26400.0
+heading_deg = 180.0
+
+[[unit]]
+id = 14
+owner = 1
+type = "infantry"
+x = 17600.0
+y = 26600.0
+heading_deg = 180.0
+
+[[unit]]
+id = 15
+owner = 1
+type = "mbt"
+x = 17700.0
+y = 25900.0
+heading_deg = 180.0
+
+[[unit]]
+id = 16
+owner = 1
+type = "mbt"
+x = 17700.0
+y = 26300.0
+heading_deg = 180.0
