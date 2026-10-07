@@ -1,0 +1,23 @@
+[graph]
+all-features = true
+
+[licenses]
+allow = ["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "Zlib", "MPL-2.0", "Unicode-3.0", "Unicode-DFS-2016"]
+confidence-threshold = 0.9
+unused-allowed-license = "allow"
+
+# Our own crates are AGPL and unpublished; only third-party crates are checked.
+[licenses.private]
+ignore = true
+
+[bans]
+multiple-versions = "warn"
+# Golden rule 2: no randomness. tungstenite needs rand for WebSocket masking only.
+deny = [{ name = "rand", wrappers = ["tungstenite"] }]
+
+[advisories]
+yanked = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

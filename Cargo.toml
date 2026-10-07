@@ -1,0 +1,14 @@
+[workspace]
+resolver = "2"
+members = ["sim", "protocol", "server", "tools"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+publish = false
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"

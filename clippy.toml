@@ -1,0 +1,11 @@
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+disallowed-types = [
+  { path = "std::collections::HashMap", reason = "nondeterministic order; use BTreeMap" },
+  { path = "std::collections::HashSet", reason = "nondeterministic order; use BTreeSet" },
+]
+disallowed-methods = [
+  { path = "std::time::Instant::now", reason = "no clock reads inside the simulation" },
+  { path = "std::time::SystemTime::now", reason = "no clock reads inside the simulation" },
+]
