@@ -98,7 +98,7 @@ pub enum EventKind {
     },
     TrackLost {
         unit: UnitId,
-        last_known: Vec2,
+        last_known: Position,
     },
 }
 
@@ -325,7 +325,7 @@ mod tests {
                         tick: 90,
                         kind: EventKind::TrackLost {
                             unit: 13,
-                            last_known: P,
+                            last_known: area.clone(),
                         },
                     },
                 ],

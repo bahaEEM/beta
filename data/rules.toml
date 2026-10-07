@@ -8,3 +8,13 @@ contact_quality = 1       # quality between range and range * factor
 [combat]
 damaged_threshold = 0.7     # penetration >= 70% of effective armour -> damaged
 damaged_speed_factor = 0.5  # damaged units move at half speed
+
+[kbg]
+budget_per_turn = 8   # command points per player per turn
+move_order_cost = 1
+
+[visibility]
+contact_cell_m = 500.0  # placeholder; quality-1 contacts snap to this grid
+
+[turn]
+planning_secs = 45

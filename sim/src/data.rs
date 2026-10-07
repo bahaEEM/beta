@@ -118,6 +118,30 @@ fn validate(t: &UnitType) -> Result<(), DataError> {
 pub struct Rules {
     pub sensor: SensorRules,
     pub combat: CombatRules,
+    pub kbg: KbgRules,
+    pub visibility: VisibilityRules,
+    pub turn: TurnRules,
+}
+
+/// Command budget (KBG) per player per turn.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KbgRules {
+    pub budget_per_turn: u32,
+    pub move_order_cost: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct VisibilityRules {
+    /// Quality-1 contacts are reported as the centre of this grid cell, not the exact position.
+    pub contact_cell_m: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TurnRules {
+    pub planning_secs: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -168,6 +192,16 @@ pub fn load_rules(toml_text: &str) -> Result<Rules, DataError> {
     }
     if !(c.damaged_speed_factor > 0.0 && c.damaged_speed_factor <= 1.0) {
         return Err(DataError::InvalidRule("combat.damaged_speed_factor"));
+    }
+    if rules.kbg.move_order_cost == 0 {
+        return Err(DataError::InvalidRule("kbg.move_order_cost"));
+    }
+    let cell = rules.visibility.contact_cell_m;
+    if !(cell.is_finite() && cell > 0.0) {
+        return Err(DataError::InvalidRule("visibility.contact_cell_m"));
+    }
+    if rules.turn.planning_secs == 0 {
+        return Err(DataError::InvalidRule("turn.planning_secs"));
     }
     Ok(rules)
 }

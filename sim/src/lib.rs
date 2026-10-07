@@ -6,6 +6,8 @@ pub mod data;
 pub mod event;
 pub mod movement;
 pub mod sensor;
+pub mod turn;
+pub mod visibility;
 pub mod world;
 
 /// Fixed simulation step: 10 ticks per second.

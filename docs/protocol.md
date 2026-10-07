@@ -161,8 +161,12 @@ Bu dosya `protocol/src/lib.rs` testlerinden üretilir; elle düzenleme. Güncell
       "type": "track_lost",
       "unit": 13,
       "last_known": {
-        "x": 1200.0,
-        "y": 850.5
+        "kind": "area",
+        "center": {
+          "x": 1200.0,
+          "y": 850.5
+        },
+        "radius_m": 500.0
       }
     }
   ]

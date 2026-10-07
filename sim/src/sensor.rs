@@ -78,9 +78,27 @@ pub struct Track {
 }
 
 /// Every track ever gained, keyed by (observer player, target unit).
-#[derive(Debug, Clone, PartialEq, Default)]
+/// Serialised as a list because JSON maps cannot have tuple keys.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(from = "Vec<Track>", into = "Vec<Track>")]
 pub struct TrackTable {
     pub tracks: BTreeMap<(PlayerId, UnitId), Track>,
+}
+
+impl From<Vec<Track>> for TrackTable {
+    fn from(v: Vec<Track>) -> Self {
+        let tracks = v
+            .into_iter()
+            .map(|t| ((t.observer_player, t.target_unit), t))
+            .collect();
+        Self { tracks }
+    }
+}
+
+impl From<TrackTable> for Vec<Track> {
+    fn from(t: TrackTable) -> Self {
+        t.tracks.into_values().collect()
+    }
 }
 
 impl TrackTable {
