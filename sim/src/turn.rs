@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! G5: turn engine. Planning validates orders (KBG budget); resolution runs 200 ticks.
 
-use crate::combat::{step_combat, Reloads};
+use crate::combat::{step_combat, CombatState};
 use crate::data::{Rules, UnitCatalog};
 use crate::event::{Event, TickEvent};
 use crate::logistics::{end_of_turn, step_capture, MatchResult, Zone};
 use crate::movement::{plan_route, step_movement, MoveError, MoveOrder, Routes};
 use crate::sensor::{update_tracks, TrackTable};
-use crate::world::{PlayerId, UnitId, Vec2, World};
+use crate::world::{PlayerId, Stance, UnitId, Vec2, World};
 use crate::TICKS_PER_TURN;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -20,7 +20,7 @@ pub struct Game {
     pub world: World,
     pub routes: Routes,
     pub tracks: TrackTable,
-    pub reloads: Reloads,
+    pub combat: CombatState,
     #[serde(default)]
     pub zones: Vec<Zone>,
     #[serde(default)]
@@ -40,7 +40,7 @@ impl Game {
             world,
             routes: Routes::new(),
             tracks,
-            reloads: Reloads::default(),
+            combat: CombatState::default(),
             zones: Vec::new(),
             scores: BTreeMap::new(),
             result: None,
@@ -59,14 +59,17 @@ pub enum Order {
     Stop { units: Vec<UnitId> },
     /// Switches radars/jammers on or off (takes effect from the first tick).
     SetEmitter { units: Vec<UnitId>, on: bool },
+    /// Rules of engagement.
+    SetStance { units: Vec<UnitId>, stance: Stance },
 }
 
 impl Order {
     pub fn units(&self) -> &[UnitId] {
         match self {
-            Order::Move { units, .. } | Order::Stop { units } | Order::SetEmitter { units, .. } => {
-                units
-            }
+            Order::Move { units, .. }
+            | Order::Stop { units }
+            | Order::SetEmitter { units, .. }
+            | Order::SetStance { units, .. } => units,
         }
     }
 }
@@ -108,6 +111,7 @@ pub struct Validated {
     pub changes: RouteChanges,
     /// Emitter switches: unit -> on.
     pub emitters: BTreeMap<UnitId, bool>,
+    pub stances: BTreeMap<UnitId, Stance>,
     pub rejected: Vec<Rejection>,
     pub kbg_spent: u32,
 }
@@ -170,7 +174,11 @@ pub fn validate_orders(
     let mut seen = BTreeSet::new();
     for order in orders {
         let units = order.units();
-        let kind = matches!(order, Order::SetEmitter { .. });
+        let kind = match order {
+            Order::Move { .. } | Order::Stop { .. } => 0,
+            Order::SetEmitter { .. } => 1,
+            Order::SetStance { .. } => 2,
+        };
         let cost = order_cost(rules, units.len());
         let unique: BTreeSet<_> = units.iter().collect();
         let reason = if units.is_empty() {
@@ -217,6 +225,10 @@ pub fn validate_orders(
                         Some(RejectReason::NotEmitter)
                     }
                 }
+                Order::SetStance { units, stance } => {
+                    v.stances.extend(units.iter().map(|&id| (id, *stance)));
+                    None
+                }
             }
         };
         match reason {
@@ -252,6 +264,11 @@ pub fn plan_phase(
         for (id, on) in v.emitters {
             if let Some(u) = game.world.unit_mut(id) {
                 u.emitting = on;
+            }
+        }
+        for (id, stance) in v.stances {
+            if let Some(u) = game.world.unit_mut(id) {
+                u.stance = stance;
             }
         }
         all_rejected.insert(player, v.rejected);
@@ -305,7 +322,7 @@ pub fn step_tick(game: &mut Game, catalog: &UnitCatalog, rules: &Rules) -> Vec<E
         catalog,
         rules,
         &game.tracks,
-        &mut game.reloads,
+        &mut game.combat,
     ));
     events.extend(step_capture(game, catalog, rules));
     events

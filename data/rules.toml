@@ -16,8 +16,11 @@ min_cross_deg = 20.0      # placeholder
 bearing_update_deg = 2.0  # re-report a bearing-only track when it moves this much
 
 [combat]
-damaged_threshold = 0.7     # penetration >= 70% of effective armour -> damaged
-damaged_speed_factor = 0.5  # damaged units move at half speed
+partial_pen_threshold = 0.7  # penetration >= 70% of effective armour -> partial damage
+partial_damage_factor = 0.25 # placeholder; fraction of damage on a partial penetration
+damaged_hp_fraction = 0.5    # at or below this share of hp a unit is damaged (half speed)
+damaged_speed_factor = 0.5   # damaged units move at half speed
+return_fire_s = 60.0         # 'return' stance may fire this long after being shot at
 
 [kbg]
 budget_per_turn = 8   # command points per player per turn

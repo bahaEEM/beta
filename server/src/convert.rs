@@ -5,7 +5,15 @@ use protocol as p;
 use sim::logistics::Zone;
 use sim::turn::Order;
 use sim::visibility::{Contact, Position, SeenEvent, SeenTickEvent};
-use sim::world::{UnitId, UnitState, Vec2};
+use sim::world::{Stance, UnitId, UnitState, Vec2};
+
+pub fn stance(s: Stance) -> p::Stance {
+    match s {
+        Stance::Free => p::Stance::Free,
+        Stance::Return => p::Stance::Return,
+        Stance::Hold => p::Stance::Hold,
+    }
+}
 
 pub fn vec2(v: Vec2) -> p::Vec2 {
     p::Vec2 { x: v.x, y: v.y }
@@ -54,6 +62,14 @@ pub fn order(o: &p::Order) -> Order {
         p::Order::SetEmitter { units: ids, on } => Order::SetEmitter {
             units: units(ids),
             on: *on,
+        },
+        p::Order::SetStance { units: ids, stance } => Order::SetStance {
+            units: units(ids),
+            stance: match stance {
+                p::Stance::Free => Stance::Free,
+                p::Stance::Return => Stance::Return,
+                p::Stance::Hold => Stance::Hold,
+            },
         },
     }
 }

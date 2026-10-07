@@ -49,6 +49,14 @@ Bu dosya `protocol/src/lib.rs` testlerinden üretilir; elle düzenleme. Güncell
         10
       ],
       "on": true
+    },
+    {
+      "type": "set_stance",
+      "units": [
+        7,
+        8
+      ],
+      "stance": "return"
     }
   ]
 }
@@ -107,7 +115,8 @@ Bu dosya `protocol/src/lib.rs` testlerinden üretilir; elle düzenleme. Güncell
         "fuel": 1100.0,
         "ammo": 38,
         "supply_fuel": 0.0,
-        "supply_ammo": 0
+        "supply_ammo": 0,
+        "stance": "free"
       }
     ],
     "contacts": [

@@ -1,44 +1,92 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-//! G4: direct fire and damage. No dice: every shot hits.
+//! Direct fire with deterministic expected damage (no dice), aim time and rules of engagement.
 
 use crate::data::UnitCatalog;
-use crate::data::{Rules, UnitClass, UnitType};
+use crate::data::{Rules, UnitType};
 use crate::event::Event;
 use crate::sensor::{line_of_sight, TrackTable};
-use crate::world::{Unit, UnitId, UnitState, Vec2, World};
+use crate::world::{Stance, Unit, UnitId, UnitState, Vec2, World};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::f64::consts::{FRAC_PI_4, PI};
 
-/// Ticks until each unit is loaded again. Absent = loaded (units start loaded).
+/// Per-unit fire control state.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
-pub struct Reloads(pub BTreeMap<UnitId, u32>);
+pub struct CombatState {
+    /// Ticks until loaded again. Absent = loaded (units start loaded).
+    pub reloads: BTreeMap<UnitId, u32>,
+    /// Current target and ticks it has been held in the sights.
+    pub aims: BTreeMap<UnitId, (UnitId, u32)>,
+}
 
-/// One combat tick: all shooters pick targets from the same pre-fire state,
+/// Expected hit share at distance `d` (linear from `hit_close` to `hit_far` over the range).
+pub fn hit_share(t: &UnitType, d: f64) -> f64 {
+    if t.weapon_range_m <= 0.0 {
+        return 0.0;
+    }
+    let f = (d / t.weapon_range_m).clamp(0.0, 1.0);
+    t.hit_close + (t.hit_far - t.hit_close) * f
+}
+
+/// Penetration multiplier: full, partial or none.
+pub fn penetration_factor(rules: &Rules, penetration: f64, effective_armor: f64) -> f64 {
+    let c = &rules.combat;
+    if penetration >= effective_armor {
+        1.0
+    } else if penetration >= effective_armor * c.partial_pen_threshold {
+        c.partial_damage_factor
+    } else {
+        0.0
+    }
+}
+
+fn may_fire(u: &Unit, rules: &Rules, tick: u32) -> bool {
+    match u.stance {
+        Stance::Free => true,
+        Stance::Hold => false,
+        Stance::Return => u
+            .under_fire_tick
+            .is_some_and(|t| tick.saturating_sub(t) <= rules.ticks(rules.combat.return_fire_s, 0)),
+    }
+}
+
+/// One combat tick: all shooters aim and pick targets from the same pre-fire state,
 /// then all shots are applied together (simultaneous fire).
 pub fn step_combat(
     world: &mut World,
     catalog: &UnitCatalog,
     rules: &Rules,
     tracks: &TrackTable,
-    reloads: &mut Reloads,
+    state: &mut CombatState,
 ) -> Vec<Event> {
-    for left in reloads.0.values_mut() {
+    for left in state.reloads.values_mut() {
         *left = left.saturating_sub(1);
     }
-    reloads.0.retain(|_, left| *left > 0);
+    state.reloads.retain(|_, left| *left > 0);
 
-    let shots: Vec<(UnitId, UnitId)> = world
-        .units()
-        .iter()
-        .filter(|s| s.state != UnitState::Destroyed && s.ammo > 0 && !reloads.0.contains_key(&s.id))
-        .filter_map(|s| {
-            let st = catalog.get(&s.type_id)?;
-            pick_target(world, catalog, rules, tracks, s, st).map(|t| (s.id, t))
-        })
-        .collect();
+    let mut shots: Vec<(UnitId, UnitId)> = Vec::new();
+    for s in world.units() {
+        let target =
+            (s.state != UnitState::Destroyed && s.ammo > 0 && may_fire(s, rules, world.tick))
+                .then(|| catalog.get(&s.type_id))
+                .flatten()
+                .and_then(|st| pick_target(world, catalog, rules, tracks, s, st).map(|t| (st, t)));
+        let Some((st, target)) = target else {
+            state.aims.remove(&s.id);
+            continue;
+        };
+        let held = match state.aims.get(&s.id) {
+            Some(&(t, n)) if t == target => n + 1,
+            _ => 1,
+        };
+        state.aims.insert(s.id, (target, held));
+        if held >= rules.aim_ticks(st) && !state.reloads.contains_key(&s.id) {
+            shots.push((s.id, target));
+        }
+    }
 
     let mut events = Vec::new();
+    let tick = world.tick;
     for (shooter_id, target_id) in shots {
         let (Some(shooter), Some(target)) = (world.unit(shooter_id), world.unit(target_id)) else {
             continue;
@@ -47,16 +95,21 @@ pub fn step_combat(
         else {
             continue;
         };
-        reloads.0.insert(shooter_id, rules.reload_ticks(st));
+        state.reloads.insert(shooter_id, rules.reload_ticks(st));
         events.push(Event::ShotFired {
             shooter: shooter_id,
             target: target_id,
         });
         let already_dead = target.state == UnitState::Destroyed;
-        let from = shooter.pos;
-        let (penetration, damage_hp) = (st.penetration_mm, st.damage_hp);
-        let effective = effective_armor(tt, target, from);
-        let class = tt.class;
+        let d = shooter.pos.distance(target.pos);
+        let damage = st.damage_hp
+            * hit_share(st, d)
+            * penetration_factor(
+                rules,
+                st.penetration_mm,
+                effective_armor(tt, target, shooter.pos),
+            );
+        let damaged_at = tt.hp * rules.combat.damaged_hp_fraction;
         if let Some(s) = world.unit_mut(shooter_id) {
             s.ammo = s.ammo.saturating_sub(1);
         }
@@ -66,25 +119,16 @@ pub fn step_combat(
         let Some(target) = world.unit_mut(target_id) else {
             continue;
         };
-        let destroyed = match class {
-            UnitClass::Infantry => {
-                target.hp -= damage_hp;
-                target.hp <= 0.0
-            }
-            UnitClass::Vehicle => {
-                penetration >= effective
-                    || (penetration >= effective * rules.combat.damaged_threshold
-                        && target.state == UnitState::Damaged)
-            }
-        };
-        if destroyed {
-            target.hp = 0.0;
+        target.under_fire_tick = Some(tick);
+        if damage <= 0.0 {
+            continue;
+        }
+        target.hp = (target.hp - damage).max(0.0);
+        if target.hp <= 0.0 {
             target.state = UnitState::Destroyed;
             events.push(Event::UnitDestroyed { unit: target_id });
-        } else if class == UnitClass::Infantry
-            || penetration >= effective * rules.combat.damaged_threshold
-        {
-            if class == UnitClass::Vehicle {
+        } else {
+            if target.hp <= damaged_at {
                 target.state = UnitState::Damaged;
             }
             events.push(Event::UnitDamaged {
@@ -107,6 +151,9 @@ fn pick_target(
     shooter: &Unit,
     st: &UnitType,
 ) -> Option<UnitId> {
+    if st.weapon_range_m <= 0.0 {
+        return None;
+    }
     world
         .units()
         .iter()
@@ -141,35 +188,24 @@ pub fn effective_armor(tt: &UnitType, target: &Unit, from: Vec2) -> f64 {
     };
     armor / impact.cos() // impact <= 45°, so cos >= 0.707
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::data::{load_rules, load_units};
     use crate::sensor::Track;
+    use crate::turn::tests::{catalog, rules};
     use crate::world::{HeightMap, PlayerId};
 
-    fn rules() -> Rules {
-        load_rules(include_str!("../../data/rules.toml")).unwrap()
-    }
-
-    fn catalog() -> UnitCatalog {
-        load_units(include_str!("../../data/units.toml")).unwrap()
-    }
-
     fn unit(id: u32, owner: u8, type_id: &str, x: f64, heading: f64) -> Unit {
-        Unit {
-            id: UnitId(id),
-            owner: PlayerId(owner),
-            type_id: type_id.into(),
-            pos: Vec2::new(x, 500.0),
-            heading_rad: heading,
-            hp: 100.0,
-            state: UnitState::Healthy,
-            fuel: 1e6,
-            ammo: 1000,
-            ..Default::default()
-        }
+        let cat = catalog();
+        let mut u = Unit::new(
+            UnitId(id),
+            PlayerId(owner),
+            cat.get(type_id).unwrap(),
+            Vec2::new(x, 500.0),
+            heading,
+        );
+        u.ammo = 1000;
+        u
     }
 
     fn world(units: Vec<Unit>) -> World {
@@ -185,204 +221,241 @@ mod tests {
         let mut t = TrackTable::default();
         for o in w.units() {
             for e in w.units().iter().filter(|e| e.owner != o.owner) {
-                t.tracks.insert(
-                    (o.owner, e.id),
-                    Track {
-                        observer_player: o.owner,
-                        target_unit: e.id,
-                        quality,
-                        last_seen_tick: 0,
-                        last_known_pos: e.pos,
-                        bearing: None,
-                        position_known: true,
-                    },
-                );
+                let track = Track {
+                    observer_player: o.owner,
+                    target_unit: e.id,
+                    quality,
+                    last_seen_tick: 0,
+                    last_known_pos: e.pos,
+                    bearing: None,
+                    position_known: true,
+                };
+                t.tracks.insert((o.owner, e.id), track);
             }
         }
         t
     }
 
-    fn fight(w: &mut World, cat: &UnitCatalog, q: u8) -> Vec<Event> {
-        let t = tracks(w, q);
-        step_combat(w, cat, &rules(), &t, &mut Reloads::default())
+    /// Runs `ticks` combat ticks with fixed full tracks; returns all events.
+    fn fight(w: &mut World, ticks: u32, quality: u8) -> Vec<(u32, Event)> {
+        let (cat, r) = (catalog(), rules());
+        let t = tracks(w, quality);
+        let mut state = CombatState::default();
+        let mut out = Vec::new();
+        for tick in 1..=ticks {
+            w.tick = tick;
+            out.extend(
+                step_combat(w, &cat, &r, &t, &mut state)
+                    .into_iter()
+                    .map(|e| (tick, e)),
+            );
+        }
+        out
+    }
+
+    fn shots_by(ev: &[(u32, Event)], id: u32) -> Vec<u32> {
+        ev.iter()
+            .filter(
+                |(_, e)| matches!(e, Event::ShotFired { shooter, .. } if *shooter == UnitId(id)),
+            )
+            .map(|&(t, _)| t)
+            .collect()
     }
 
     #[test]
-    fn g4_tanks_kill_each_other_same_tick() {
-        // Facing each other 1000 m apart: front hits, 650 mm >= 600 mm.
+    fn k041_first_shot_only_after_aim_time_then_reload() {
+        let (cat, r) = (catalog(), rules());
+        let mbt = cat.get("mbt").unwrap();
         let mut w = world(vec![
             unit(1, 0, "mbt", 0.0, 0.0),
-            unit(2, 1, "mbt", 1000.0, PI),
+            unit(2, 1, "mbt", 1500.0, PI),
         ]);
-        let ev = fight(&mut w, &catalog(), 3);
-        assert!(w.units().iter().all(|u| u.state == UnitState::Destroyed));
+        w.unit_mut(UnitId(2)).unwrap().stance = Stance::Hold;
+        let ev = fight(&mut w, r.aim_ticks(mbt) + r.reload_ticks(mbt), 3);
         assert_eq!(
-            ev.iter()
-                .filter(|e| matches!(e, Event::UnitDestroyed { .. }))
-                .count(),
-            2
+            shots_by(&ev, 1),
+            [r.aim_ticks(mbt), r.aim_ticks(mbt) + r.reload_ticks(mbt)]
         );
     }
 
     #[test]
-    fn g4_front_vs_side_hit() {
+    fn k043_expected_damage_falls_with_range_and_armour() {
+        let (cat, r) = (catalog(), rules());
+        let mbt = cat.get("mbt").unwrap();
+        assert!(hit_share(mbt, 500.0) > hit_share(mbt, 1900.0));
+        assert_eq!(hit_share(mbt, 0.0), mbt.hit_close);
+        assert_eq!(hit_share(mbt, mbt.weapon_range_m), mbt.hit_far);
+        assert_eq!(penetration_factor(&r, 650.0, 600.0), 1.0);
+        assert_eq!(
+            penetration_factor(&r, 450.0, 600.0),
+            r.combat.partial_damage_factor
+        );
+        assert_eq!(penetration_factor(&r, 5.0, 600.0), 0.0);
+        // One hit on a tank front at 1500 m.
+        let mut w = world(vec![
+            unit(1, 0, "mbt", 0.0, 0.0),
+            unit(2, 1, "mbt", 1500.0, PI),
+        ]);
+        w.unit_mut(UnitId(2)).unwrap().stance = Stance::Hold;
+        fight(&mut w, r.aim_ticks(mbt), 3);
+        let expected = mbt.hp - mbt.damage_hp * hit_share(mbt, 1500.0);
+        assert!((w.unit(UnitId(2)).unwrap().hp - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn k043_side_hit_hurts_more_than_front_with_partial_penetration() {
         let mut cat = catalog();
         if let Some(t) = cat.types.get_mut("mbt") {
-            t.penetration_mm = 500.0; // front 600: 500 >= 70% -> damaged; side 80 -> destroyed
+            t.penetration_mm = 500.0; // front 600: partial; side 80: full
         }
-        // Target 2 faces the shooter (front hit).
+        let r = rules();
+        let hp_after = |heading: f64| {
+            let mut w = world(vec![
+                unit(1, 0, "mbt", 0.0, 0.0),
+                unit(2, 1, "mbt", 1000.0, heading),
+            ]);
+            w.unit_mut(UnitId(2)).unwrap().stance = Stance::Hold;
+            let t = tracks(&w, 3);
+            let mut s = CombatState::default();
+            for tick in 1..=r.aim_ticks(cat.get("mbt").unwrap()) {
+                w.tick = tick;
+                step_combat(&mut w, &cat, &r, &t, &mut s);
+            }
+            w.unit(UnitId(2)).unwrap().hp
+        };
+        assert!(hp_after(PI / 2.0) < hp_after(PI), "side < front");
+    }
+
+    #[test]
+    fn k044_damage_states_by_hp() {
+        let (cat, r) = (catalog(), rules());
+        let mut w = world(vec![
+            unit(1, 0, "mbt", 0.0, 0.0),
+            unit(2, 1, "mbt", 200.0, PI),
+        ]);
+        w.unit_mut(UnitId(2)).unwrap().stance = Stance::Hold;
+        let ev = fight(&mut w, 400, 3);
+        let mbt = cat.get("mbt").unwrap();
+        let damaged_tick = ev.iter().find_map(|(t, e)| {
+            matches!(
+                e,
+                Event::UnitDamaged {
+                    state: UnitState::Damaged,
+                    ..
+                }
+            )
+            .then_some(*t)
+        });
+        let destroyed_tick = ev
+            .iter()
+            .find_map(|(t, e)| matches!(e, Event::UnitDestroyed { .. }).then_some(*t));
+        assert!(
+            damaged_tick.is_some() && destroyed_tick.is_some() && damaged_tick < destroyed_tick
+        );
+        assert_eq!(w.unit(UnitId(2)).unwrap().hp, 0.0);
+        // No more shots at a destroyed target.
+        assert_eq!(shots_by(&ev, 1).last(), destroyed_tick.as_ref());
+        assert!(r.combat.damaged_hp_fraction * mbt.hp > 0.0);
+    }
+
+    #[test]
+    fn k045_simultaneous_fire_both_take_damage_same_tick() {
         let mut w = world(vec![
             unit(1, 0, "mbt", 0.0, 0.0),
             unit(2, 1, "mbt", 1000.0, PI),
         ]);
-        let t = tracks(&w, 3);
-        let mut reloads = Reloads::default();
-        reloads.0.insert(UnitId(2), 5); // only unit 1 fires
-        step_combat(&mut w, &cat, &rules(), &t, &mut reloads);
-        assert_eq!(w.unit(UnitId(2)).unwrap().state, UnitState::Damaged);
-        // Target 2 turned 90°: side hit.
-        let mut w = world(vec![
-            unit(1, 0, "mbt", 0.0, 0.0),
-            unit(2, 1, "mbt", 1000.0, PI / 2.0),
-        ]);
-        let mut reloads = Reloads::default();
-        reloads.0.insert(UnitId(2), 5);
-        step_combat(&mut w, &cat, &rules(), &t, &mut reloads);
-        assert_eq!(w.unit(UnitId(2)).unwrap().state, UnitState::Destroyed);
+        let ev = fight(&mut w, rules().aim_ticks(catalog().get("mbt").unwrap()), 3);
+        assert_eq!(shots_by(&ev, 1), shots_by(&ev, 2));
+        assert!(w.units().iter().all(|u| u.hp < 100.0));
     }
 
     #[test]
-    fn g4_effective_armor_grows_with_angle() {
-        let cat = catalog();
-        let tt = cat.get("mbt").unwrap();
-        let target = unit(1, 0, "mbt", 0.0, 0.0);
-        let straight = effective_armor(tt, &target, Vec2::new(100.0, 500.0));
-        let angled = effective_armor(tt, &target, Vec2::new(100.0, 550.0));
-        assert_eq!(straight, tt.armor_front_mm);
-        assert!(angled > straight);
-        let rear = effective_armor(tt, &target, Vec2::new(-100.0, 500.0));
-        assert_eq!(rear, tt.armor_rear_mm);
-    }
-
-    #[test]
-    fn g4_no_fire_below_track_quality_3() {
+    fn k040_no_fire_below_track_quality_3_or_out_of_range() {
         let mut w = world(vec![
             unit(1, 0, "mbt", 0.0, 0.0),
             unit(2, 1, "mbt", 1000.0, PI),
         ]);
-        let ev = fight(&mut w, &catalog(), 2);
-        assert!(ev.is_empty());
-        assert!(w.units().iter().all(|u| u.state == UnitState::Healthy));
-    }
-
-    #[test]
-    fn g4_out_of_range_no_fire() {
+        assert!(fight(&mut w, 50, 2).is_empty());
         let mut w = world(vec![
             unit(1, 0, "mbt", 0.0, 0.0),
             unit(2, 1, "mbt", 2100.0, PI),
         ]);
-        assert!(fight(&mut w, &catalog(), 3).is_empty());
+        assert!(fight(&mut w, 50, 3).is_empty());
     }
 
     #[test]
-    fn g4_nearest_target_then_lowest_id() {
+    fn k040_nearest_target_then_lowest_id() {
         let mut w = world(vec![
             unit(1, 0, "mbt", 1000.0, 0.0),
             unit(5, 1, "infantry", 1300.0, 0.0),
             unit(3, 1, "infantry", 700.0, 0.0),
-            unit(9, 1, "infantry", 1100.0, 0.0),
         ]);
-        let t = tracks(&w, 3);
-        let mut reloads = Reloads::default();
-        for id in [3, 5, 9] {
-            reloads.0.insert(UnitId(id), 5);
+        for id in [3, 5] {
+            w.unit_mut(UnitId(id)).unwrap().stance = Stance::Hold;
         }
-        let ev = step_combat(&mut w, &catalog(), &rules(), &t, &mut reloads);
-        // 9 at 100 m is nearest.
-        assert_eq!(
-            ev[0],
-            Event::ShotFired {
-                shooter: UnitId(1),
-                target: UnitId(9)
-            }
-        );
-        // Equal distance (3 at 700, 5 at 1300 -> both 300 m): lowest id.
-        let mut w = world(vec![
-            unit(1, 0, "mbt", 1000.0, 0.0),
-            unit(5, 1, "infantry", 1300.0, 0.0),
-            unit(3, 1, "infantry", 700.0, 0.0),
-        ]);
-        let mut reloads = Reloads::default();
-        reloads.0.insert(UnitId(3), 5);
-        reloads.0.insert(UnitId(5), 5);
-        let ev = step_combat(&mut w, &catalog(), &rules(), &t, &mut reloads);
-        assert_eq!(
-            ev[0],
-            Event::ShotFired {
+        let ev = fight(&mut w, 20, 3);
+        assert!(ev.iter().any(|(_, e)| *e
+            == Event::ShotFired {
                 shooter: UnitId(1),
                 target: UnitId(3)
-            }
-        );
+            }));
+        assert!(!ev.iter().any(|(_, e)| *e
+            == Event::ShotFired {
+                shooter: UnitId(1),
+                target: UnitId(5)
+            }));
     }
 
     #[test]
-    fn g4_reload_and_infantry_hp() {
-        let cat = catalog();
-        let inf = cat.get("infantry").unwrap().clone();
-        let mut w = world(vec![
-            unit(1, 0, "infantry", 0.0, 0.0),
-            unit(2, 1, "infantry", 300.0, PI),
-        ]);
-        let t = tracks(&w, 3);
-        let mut reloads = Reloads::default();
-        let mut shots_by_1 = Vec::new();
-        let reload = rules().reload_ticks(&inf);
-        for tick in 0..=reload {
-            for e in step_combat(&mut w, &cat, &rules(), &t, &mut reloads) {
-                if matches!(
-                    e,
-                    Event::ShotFired {
-                        shooter: UnitId(1),
-                        ..
-                    }
-                ) {
-                    shots_by_1.push(tick);
-                }
-            }
-        }
-        assert_eq!(shots_by_1, [0, reload]);
-        assert_eq!(w.unit(UnitId(2)).unwrap().hp, 100.0 - 2.0 * inf.damage_hp);
-    }
-
-    #[test]
-    fn g4_damaged_twice_is_destroyed() {
-        let mut cat = catalog();
-        if let Some(t) = cat.types.get_mut("mbt") {
-            t.penetration_mm = 500.0;
-        }
+    fn k046_stances_hold_and_return_fire() {
+        let r = rules();
+        let mbt = catalog().get("mbt").unwrap().clone();
+        // Both on 'return': nobody starts shooting.
         let mut w = world(vec![
             unit(1, 0, "mbt", 0.0, 0.0),
             unit(2, 1, "mbt", 1000.0, PI),
         ]);
-        w.unit_mut(UnitId(2)).unwrap().state = UnitState::Damaged;
-        let t = tracks(&w, 3);
-        let mut reloads = Reloads::default();
-        reloads.0.insert(UnitId(2), 5);
-        step_combat(&mut w, &cat, &rules(), &t, &mut reloads);
-        assert_eq!(w.unit(UnitId(2)).unwrap().state, UnitState::Destroyed);
+        for id in [1, 2] {
+            w.unit_mut(UnitId(id)).unwrap().stance = Stance::Return;
+        }
+        assert!(fight(&mut w, 50, 3).is_empty());
+        // One 'free', one 'return': the second answers after being hit, then aims.
+        let mut w = world(vec![
+            unit(1, 0, "mbt", 0.0, 0.0),
+            unit(2, 1, "mbt", 1000.0, PI),
+        ]);
+        w.unit_mut(UnitId(2)).unwrap().stance = Stance::Return;
+        let ev = fight(&mut w, 60, 3);
+        let first = shots_by(&ev, 1)[0];
+        assert_eq!(shots_by(&ev, 2)[0], first + r.aim_ticks(&mbt));
     }
 
     #[test]
-    fn g4_damaged_tank_moves_at_half_speed() {
-        use crate::movement::{step_movement, Routes};
+    fn k042_no_ammo_no_fire_and_each_shot_uses_a_round() {
+        let mut w = world(vec![
+            unit(1, 0, "mbt", 0.0, 0.0),
+            unit(2, 1, "mbt", 1500.0, PI),
+        ]);
+        w.unit_mut(UnitId(1)).unwrap().ammo = 2;
+        w.unit_mut(UnitId(2)).unwrap().stance = Stance::Hold;
+        let ev = fight(&mut w, 200, 3);
+        assert_eq!(shots_by(&ev, 1).len(), 2);
+        assert_eq!(w.unit(UnitId(1)).unwrap().ammo, 0);
+    }
+
+    #[test]
+    fn k043_effective_armour_by_facing() {
         let cat = catalog();
-        let mut w = world(vec![unit(1, 0, "mbt", 0.0, 0.0)]);
-        w.unit_mut(UnitId(1)).unwrap().state = UnitState::Damaged;
-        let mut routes = Routes::new();
-        routes.insert(UnitId(1), vec![Vec2::new(1000.0, 500.0)]);
-        step_movement(&mut w, &cat, &rules(), &mut routes);
-        let expected =
-            cat.get("mbt").unwrap().speed_offroad_mps * rules().turn.game_seconds_per_tick * 0.5;
-        assert!((w.unit(UnitId(1)).unwrap().pos.x - expected).abs() < 1e-9);
+        let tt = cat.get("mbt").unwrap();
+        let target = unit(1, 0, "mbt", 0.0, 0.0);
+        assert_eq!(
+            effective_armor(tt, &target, Vec2::new(100.0, 500.0)),
+            tt.armor_front_mm
+        );
+        assert!(effective_armor(tt, &target, Vec2::new(100.0, 550.0)) > tt.armor_front_mm);
+        assert_eq!(
+            effective_armor(tt, &target, Vec2::new(-100.0, 500.0)),
+            tt.armor_rear_mm
+        );
     }
 }

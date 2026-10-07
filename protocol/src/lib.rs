@@ -58,6 +58,16 @@ pub enum Order {
     Stop { units: Vec<UnitId> },
     /// Radar/jammer on or off. Emitting units can be heard by enemy ESM.
     SetEmitter { units: Vec<UnitId>, on: bool },
+    /// Rules of engagement: free (fire at will), return (only after being shot at), hold.
+    SetStance { units: Vec<UnitId>, stance: Stance },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Stance {
+    Free,
+    Return,
+    Hold,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -73,6 +83,7 @@ pub struct OwnUnit {
     pub ammo: u32,
     pub supply_fuel: f64,
     pub supply_ammo: u32,
+    pub stance: Stance,
 }
 
 /// An enemy unit as known to this player. `type_id` is only present at quality >= 2.
@@ -301,6 +312,10 @@ mod tests {
                         units: vec![10],
                         on: true,
                     },
+                    Order::SetStance {
+                        units: vec![7, 8],
+                        stance: Stance::Return,
+                    },
                 ],
             },
             ClientMsg::RequestPreview {
@@ -338,6 +353,7 @@ mod tests {
                         ammo: 38,
                         supply_fuel: 0.0,
                         supply_ammo: 0,
+                        stance: Stance::Free,
                     }],
                     contacts: vec![
                         Contact {

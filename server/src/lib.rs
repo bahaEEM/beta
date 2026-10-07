@@ -423,6 +423,7 @@ impl Match {
                 ammo: u.ammo,
                 supply_fuel: u.supply_fuel,
                 supply_ammo: u.supply_ammo,
+                stance: convert::stance(u.stance),
             })
             .collect();
         let contacts = contacts(&self.game.tracks, &self.game.world, &self.rules, player)

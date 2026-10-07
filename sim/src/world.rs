@@ -40,6 +40,19 @@ pub enum UnitState {
     Destroyed,
 }
 
+/// Rules of engagement.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Stance {
+    /// Fire at will.
+    #[default]
+    Free,
+    /// Fire only for a while after being shot at.
+    Return,
+    /// Never fire.
+    Hold,
+}
+
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct Unit {
     pub id: UnitId,
@@ -64,6 +77,11 @@ pub struct Unit {
     pub supply_fuel: f64,
     #[serde(default)]
     pub supply_ammo: u32,
+    #[serde(default)]
+    pub stance: Stance,
+    /// Tick this unit was last shot at.
+    #[serde(default)]
+    pub under_fire_tick: Option<u32>,
 }
 
 impl Unit {

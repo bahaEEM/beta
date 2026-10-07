@@ -6,7 +6,7 @@
 id = 1
 owner = 0
 type = "infantry"
-x = 15000.0
+x = 13500.0
 y = 25600.0
 heading_deg = 0.0
 
@@ -14,7 +14,7 @@ heading_deg = 0.0
 id = 2
 owner = 0
 type = "infantry"
-x = 15000.0
+x = 13500.0
 y = 25800.0
 heading_deg = 0.0
 
@@ -22,7 +22,7 @@ heading_deg = 0.0
 id = 3
 owner = 0
 type = "infantry"
-x = 15000.0
+x = 13500.0
 y = 26000.0
 heading_deg = 0.0
 
@@ -30,23 +30,23 @@ heading_deg = 0.0
 id = 4
 owner = 0
 type = "infantry"
-x = 15000.0
+x = 13500.0
 y = 26200.0
 heading_deg = 0.0
 
 [[unit]]
 id = 5
 owner = 0
-type = "infantry"
-x = 15000.0
+type = "atgm"
+x = 13500.0
 y = 26400.0
 heading_deg = 0.0
 
 [[unit]]
 id = 6
 owner = 0
-type = "infantry"
-x = 15000.0
+type = "atgm"
+x = 13500.0
 y = 26600.0
 heading_deg = 0.0
 
@@ -54,7 +54,7 @@ heading_deg = 0.0
 id = 7
 owner = 0
 type = "mbt"
-x = 14900.0
+x = 13400.0
 y = 25900.0
 heading_deg = 0.0
 
@@ -62,7 +62,7 @@ heading_deg = 0.0
 id = 8
 owner = 0
 type = "mbt"
-x = 14900.0
+x = 13400.0
 y = 26300.0
 heading_deg = 0.0
 
@@ -70,7 +70,7 @@ heading_deg = 0.0
 id = 9
 owner = 1
 type = "infantry"
-x = 17600.0
+x = 19100.0
 y = 25600.0
 heading_deg = 180.0
 
@@ -78,7 +78,7 @@ heading_deg = 180.0
 id = 10
 owner = 1
 type = "infantry"
-x = 17600.0
+x = 19100.0
 y = 25800.0
 heading_deg = 180.0
 
@@ -86,7 +86,7 @@ heading_deg = 180.0
 id = 11
 owner = 1
 type = "infantry"
-x = 17600.0
+x = 19100.0
 y = 26000.0
 heading_deg = 180.0
 
@@ -94,23 +94,23 @@ heading_deg = 180.0
 id = 12
 owner = 1
 type = "infantry"
-x = 17600.0
+x = 19100.0
 y = 26200.0
 heading_deg = 180.0
 
 [[unit]]
 id = 13
 owner = 1
-type = "infantry"
-x = 17600.0
+type = "atgm"
+x = 19100.0
 y = 26400.0
 heading_deg = 180.0
 
 [[unit]]
 id = 14
 owner = 1
-type = "infantry"
-x = 17600.0
+type = "atgm"
+x = 19100.0
 y = 26600.0
 heading_deg = 180.0
 
@@ -118,7 +118,7 @@ heading_deg = 180.0
 id = 15
 owner = 1
 type = "mbt"
-x = 17700.0
+x = 19200.0
 y = 25900.0
 heading_deg = 180.0
 
@@ -126,7 +126,7 @@ heading_deg = 180.0
 id = 16
 owner = 1
 type = "mbt"
-x = 17700.0
+x = 19200.0
 y = 26300.0
 heading_deg = 180.0
 
@@ -134,7 +134,7 @@ heading_deg = 180.0
 id = 17
 owner = 0
 type = "gsr"
-x = 13500.0
+x = 12000.0
 y = 25400.0
 heading_deg = 0.0
 
@@ -142,7 +142,7 @@ heading_deg = 0.0
 id = 18
 owner = 0
 type = "esm"
-x = 13500.0
+x = 12000.0
 y = 25800.0
 heading_deg = 0.0
 
@@ -150,7 +150,7 @@ heading_deg = 0.0
 id = 19
 owner = 0
 type = "jammer"
-x = 13500.0
+x = 12000.0
 y = 26200.0
 heading_deg = 0.0
 
@@ -158,7 +158,7 @@ heading_deg = 0.0
 id = 20
 owner = 0
 type = "supply"
-x = 13500.0
+x = 12000.0
 y = 26600.0
 heading_deg = 0.0
 
@@ -166,7 +166,7 @@ heading_deg = 0.0
 id = 21
 owner = 1
 type = "gsr"
-x = 19100.0
+x = 20600.0
 y = 25400.0
 heading_deg = 180.0
 
@@ -174,7 +174,7 @@ heading_deg = 180.0
 id = 22
 owner = 1
 type = "esm"
-x = 19100.0
+x = 20600.0
 y = 25800.0
 heading_deg = 180.0
 
@@ -182,7 +182,7 @@ heading_deg = 180.0
 id = 23
 owner = 1
 type = "jammer"
-x = 19100.0
+x = 20600.0
 y = 26200.0
 heading_deg = 180.0
 
@@ -190,14 +190,14 @@ heading_deg = 180.0
 id = 24
 owner = 1
 type = "supply"
-x = 19100.0
+x = 20600.0
 y = 26600.0
 heading_deg = 180.0
 
 [[zone]]
 id = 1
 name_tr = "Batı Depo"
-x = 13300.0
+x = 11800.0
 y = 26000.0
 radius_m = 500.0
 points = 1
@@ -207,7 +207,7 @@ owner = 0
 [[zone]]
 id = 2
 name_tr = "Doğu Depo"
-x = 19300.0
+x = 20800.0
 y = 26000.0
 radius_m = 500.0
 points = 1

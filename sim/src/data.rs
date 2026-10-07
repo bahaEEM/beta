@@ -29,6 +29,11 @@ pub struct UnitType {
     pub damage_hp: f64,
     /// Game seconds between shots.
     pub reload_s: f64,
+    /// Expected hit share at point blank and at maximum range (linear in between).
+    pub hit_close: f64,
+    pub hit_far: f64,
+    /// Game seconds a target must be held in the sights before the first shot.
+    pub aim_s: f64,
     /// Sensor/target height above ground, used for line of sight.
     pub height_m: f64,
     pub hp: f64,
@@ -161,6 +166,7 @@ fn validate(t: &UnitType) -> Result<(), DataError> {
         ("penetration_mm", t.penetration_mm),
         ("damage_hp", t.damage_hp),
         ("reload_s", t.reload_s),
+        ("aim_s", t.aim_s),
         ("height_m", t.height_m),
         ("hp", t.hp),
         ("fuel_l", t.fuel_l),
@@ -169,6 +175,14 @@ fn validate(t: &UnitType) -> Result<(), DataError> {
     ];
     for (field, v) in fields {
         if !v.is_finite() || v < 0.0 {
+            return Err(DataError::Invalid {
+                unit: t.id.clone(),
+                field,
+            });
+        }
+    }
+    for (field, v) in [("hit_close", t.hit_close), ("hit_far", t.hit_far)] {
+        if !(0.0..=1.0).contains(&v) {
             return Err(DataError::Invalid {
                 unit: t.id.clone(),
                 field,
@@ -247,11 +261,19 @@ pub struct TurnRules {
 }
 
 impl Rules {
+    /// Game seconds -> whole ticks (at least `min`).
+    pub fn ticks(&self, seconds: f64, min: u32) -> u32 {
+        ((seconds / self.turn.game_seconds_per_tick).ceil() as u32).max(min)
+    }
+
     /// Reload time of a unit type in ticks (at least 1).
     pub fn reload_ticks(&self, t: &UnitType) -> u32 {
-        (t.reload_s / self.turn.game_seconds_per_tick)
-            .ceil()
-            .max(1.0) as u32
+        self.ticks(t.reload_s, 1)
+    }
+
+    /// Aim time of a unit type in ticks (at least 1: the tick the target is acquired).
+    pub fn aim_ticks(&self, t: &UnitType) -> u32 {
+        self.ticks(t.aim_s, 1)
     }
 }
 
@@ -259,7 +281,13 @@ impl Rules {
 #[serde(deny_unknown_fields)]
 pub struct CombatRules {
     /// penetration >= effective armour * this (but below full armour) -> damaged.
-    pub damaged_threshold: f64,
+    pub partial_pen_threshold: f64,
+    /// Share of damage dealt by a partial penetration.
+    pub partial_damage_factor: f64,
+    /// At or below this share of max hp a unit counts as damaged.
+    pub damaged_hp_fraction: f64,
+    /// 'return' stance may fire this long (game seconds) after being shot at.
+    pub return_fire_s: f64,
     /// Speed multiplier for damaged units.
     pub damaged_speed_factor: f64,
 }
@@ -335,8 +363,17 @@ pub fn load_rules(toml_text: &str) -> Result<Rules, DataError> {
         return Err(DataError::InvalidRule("zones/supply"));
     }
     let c = &rules.combat;
-    if !(c.damaged_threshold > 0.0 && c.damaged_threshold <= 1.0) {
-        return Err(DataError::InvalidRule("combat.damaged_threshold"));
+    for (name, v) in [
+        ("combat.partial_pen_threshold", c.partial_pen_threshold),
+        ("combat.partial_damage_factor", c.partial_damage_factor),
+        ("combat.damaged_hp_fraction", c.damaged_hp_fraction),
+    ] {
+        if !(v > 0.0 && v <= 1.0) {
+            return Err(DataError::InvalidRule(name));
+        }
+    }
+    if !(c.return_fire_s.is_finite() && c.return_fire_s >= 0.0) {
+        return Err(DataError::InvalidRule("combat.return_fire_s"));
     }
     if !(c.damaged_speed_factor > 0.0 && c.damaged_speed_factor <= 1.0) {
         return Err(DataError::InvalidRule("combat.damaged_speed_factor"));
@@ -372,7 +409,7 @@ mod tests {
         let cat = load_units(UNITS).unwrap();
         assert_eq!(
             cat.types.keys().collect::<Vec<_>>(),
-            ["esm", "gsr", "infantry", "jammer", "mbt", "supply"]
+            ["atgm", "esm", "gsr", "infantry", "jammer", "mbt", "supply"]
         );
         assert!(cat.get("gsr").unwrap().is_emitter());
         assert!(!cat.get("esm").unwrap().is_emitter());
