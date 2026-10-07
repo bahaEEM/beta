@@ -28,6 +28,8 @@ pub struct UnitType {
     pub damage_hp: f64,
     pub reload_ticks: u32,
     pub sensor_optical_range_m: f64,
+    /// Sensor/target height above ground, used for line of sight.
+    pub height_m: f64,
     pub hp: f64,
 }
 
@@ -36,6 +38,7 @@ pub enum DataError {
     Parse(String),
     Invalid { unit: String, field: &'static str },
     DuplicateId(String),
+    InvalidRule(&'static str),
 }
 
 impl fmt::Display for DataError {
@@ -46,6 +49,7 @@ impl fmt::Display for DataError {
                 write!(f, "unit '{unit}': field '{field}' must be finite and >= 0")
             }
             DataError::DuplicateId(id) => write!(f, "duplicate unit id '{id}'"),
+            DataError::InvalidRule(field) => write!(f, "rules: invalid value for '{field}'"),
         }
     }
 }
@@ -95,6 +99,7 @@ fn validate(t: &UnitType) -> Result<(), DataError> {
         ("penetration_mm", t.penetration_mm),
         ("damage_hp", t.damage_hp),
         ("sensor_optical_range_m", t.sensor_optical_range_m),
+        ("height_m", t.height_m),
         ("hp", t.hp),
     ];
     for (field, v) in fields {
@@ -106,6 +111,48 @@ fn validate(t: &UnitType) -> Result<(), DataError> {
         }
     }
     Ok(())
+}
+
+/// Game rules from `rules.toml`. One field per top-level section.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Rules {
+    pub sensor: SensorRules,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SensorRules {
+    pub optical: OpticalRules,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OpticalRules {
+    /// Contact range = sensor_optical_range_m * this factor.
+    pub track_range_factor: f64,
+    /// Track quality inside the optical range.
+    pub fire_quality: u8,
+    /// Track quality between the optical range and the contact range.
+    pub contact_quality: u8,
+}
+
+/// Highest track quality (0 none .. 3 fire quality).
+pub const MAX_TRACK_QUALITY: u8 = 3;
+
+/// Parses and validates the contents of `rules.toml`.
+pub fn load_rules(toml_text: &str) -> Result<Rules, DataError> {
+    let rules: Rules = toml::from_str(toml_text).map_err(|e| DataError::Parse(e.to_string()))?;
+    let o = &rules.sensor.optical;
+    if !(o.track_range_factor.is_finite() && o.track_range_factor >= 1.0) {
+        return Err(DataError::InvalidRule("sensor.optical.track_range_factor"));
+    }
+    if o.fire_quality == 0 || o.fire_quality > MAX_TRACK_QUALITY {
+        return Err(DataError::InvalidRule("sensor.optical.fire_quality"));
+    }
+    if o.contact_quality == 0 || o.contact_quality > o.fire_quality {
+        return Err(DataError::InvalidRule("sensor.optical.contact_quality"));
+    }
+    Ok(rules)
 }
 
 #[cfg(test)]
@@ -121,6 +168,44 @@ mod tests {
         assert_eq!(cat.get("infantry").unwrap().weapon_range_m, 400.0);
         assert_eq!(cat.get("mbt").unwrap().weapon_range_m, 2000.0);
         assert_eq!(cat.get("mbt").unwrap().class, UnitClass::Vehicle);
+    }
+
+    const RULES: &str = include_str!("../../data/rules.toml");
+
+    #[test]
+    fn g3_loads_shipped_rules_toml() {
+        let r = load_rules(RULES).unwrap();
+        assert_eq!(r.sensor.optical.track_range_factor, 1.5);
+        assert_eq!(r.sensor.optical.fire_quality, 3);
+        assert_eq!(r.sensor.optical.contact_quality, 1);
+    }
+
+    #[test]
+    fn g3_rejects_invalid_rules() {
+        let bad = RULES.replacen("track_range_factor = 1.5", "track_range_factor = 0.5", 1);
+        assert_eq!(
+            load_rules(&bad),
+            Err(DataError::InvalidRule("sensor.optical.track_range_factor"))
+        );
+        let bad = RULES.replacen("fire_quality = 3", "fire_quality = 4", 1);
+        assert_eq!(
+            load_rules(&bad),
+            Err(DataError::InvalidRule("sensor.optical.fire_quality"))
+        );
+        let bad = RULES.replacen("contact_quality = 1", "contact_quality = 1\nfoo = 2", 1);
+        assert!(matches!(load_rules(&bad), Err(DataError::Parse(_))));
+    }
+
+    #[test]
+    fn g3_rejects_negative_height() {
+        let bad = UNITS.replacen("height_m = 1.8", "height_m = -1.0", 1);
+        assert_eq!(
+            load_units(&bad),
+            Err(DataError::Invalid {
+                unit: "infantry".into(),
+                field: "height_m"
+            })
+        );
     }
 
     #[test]
