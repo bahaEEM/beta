@@ -210,6 +210,9 @@ mod tests {
                 heading_rad: 0.0,
                 hp: 100.0,
                 state: UnitState::Healthy,
+                fuel: 1e6,
+                ammo: 1000,
+                ..Default::default()
             })
             .unwrap();
         }

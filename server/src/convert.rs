@@ -21,6 +21,10 @@ pub fn position(pos: &Position) -> p::Position {
             center: vec2(center),
             radius_m,
         },
+        Position::Bearing { origin, angle_rad } => p::Position::Bearing {
+            origin: vec2(origin),
+            angle_rad,
+        },
     }
 }
 
@@ -46,6 +50,10 @@ pub fn order(o: &p::Order) -> Order {
             waypoints: waypoints.iter().copied().map(from_vec2).collect(),
         },
         p::Order::Stop { units: ids } => Order::Stop { units: units(ids) },
+        p::Order::SetEmitter { units: ids, on } => Order::SetEmitter {
+            units: units(ids),
+            on: *on,
+        },
     }
 }
 

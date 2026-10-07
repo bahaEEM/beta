@@ -229,6 +229,8 @@ func _apply_turn_start(m: Dictionary) -> void:
 func _position(pos: Dictionary) -> Array:
 	if pos.kind == "exact":
 		return [Vector2(pos.pos.x, pos.pos.y), false]
+	if pos.kind == "bearing":
+		return [Vector2(pos.origin.x, pos.origin.y), true]  # TODO F1-6: draw the bearing ray
 	return [Vector2(pos.center.x, pos.center.y), true]
 
 

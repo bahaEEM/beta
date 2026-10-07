@@ -1,10 +1,14 @@
 # Unit type definitions. Values marked "placeholder" are untuned guesses.
+# Sensors: optical {range_m}; radar {range_m, min_target_speed_mps} (active, emits when on);
+# esm {range_m} (passive, bearings to emitters); jammer {range_m} (emits when on, degrades enemy radar in range).
+# Supply: supply_fuel_l / supply_ammo are the stock a supply unit carries for others.
 
 [[unit]]
 id = "infantry"
 name_tr = "Piyade"
 class = "infantry"
 speed_offroad_mps = 1.5          # placeholder
+speed_road_mps = 1.8             # placeholder
 max_slope_deg = 40.0             # placeholder
 armor_front_mm = 0.0
 armor_side_mm = 0.0
@@ -13,15 +17,19 @@ weapon_range_m = 400.0
 penetration_mm = 5.0             # placeholder
 damage_hp = 10.0                 # placeholder; hp removed per hit on infantry
 reload_s = 3.0                   # placeholder; game seconds between shots
-sensor_optical_range_m = 1000.0  # placeholder
 height_m = 1.8                   # placeholder
 hp = 100.0                       # placeholder
+fuel_l = 0.0                     # on foot: no fuel
+fuel_l_per_km = 0.0
+ammo = 60                        # placeholder; bursts
+sensors = [{ kind = "optical", range_m = 1000.0 }]  # placeholder
 
 [[unit]]
 id = "mbt"
 name_tr = "Ana Muharebe Tankı"
 class = "vehicle"
 speed_offroad_mps = 10.0         # placeholder
+speed_road_mps = 16.0            # placeholder
 max_slope_deg = 30.0             # placeholder
 armor_front_mm = 600.0           # placeholder
 armor_side_mm = 80.0             # placeholder
@@ -30,6 +38,104 @@ weapon_range_m = 2000.0
 penetration_mm = 650.0           # placeholder
 damage_hp = 100.0                # placeholder
 reload_s = 8.0                   # placeholder
-sensor_optical_range_m = 2500.0  # placeholder
 height_m = 2.4                   # placeholder
 hp = 100.0                       # placeholder
+fuel_l = 1200.0                  # placeholder
+fuel_l_per_km = 4.0              # placeholder
+ammo = 40                        # placeholder
+sensors = [{ kind = "optical", range_m = 2500.0 }]  # placeholder
+
+[[unit]]
+id = "gsr"
+name_tr = "Kara Gözetleme Radarı"
+class = "vehicle"
+speed_offroad_mps = 8.0          # placeholder
+speed_road_mps = 15.0            # placeholder
+max_slope_deg = 25.0             # placeholder
+armor_front_mm = 15.0            # placeholder
+armor_side_mm = 10.0             # placeholder
+armor_rear_mm = 10.0             # placeholder
+weapon_range_m = 0.0
+penetration_mm = 0.0
+damage_hp = 0.0
+reload_s = 1.0
+height_m = 8.0                   # placeholder; mast
+hp = 100.0
+fuel_l = 300.0                   # placeholder
+fuel_l_per_km = 0.6              # placeholder
+ammo = 0
+sensors = [
+  { kind = "optical", range_m = 2000.0 },                              # placeholder
+  { kind = "radar", range_m = 20000.0, min_target_speed_mps = 1.0 },   # placeholder; moving targets only
+]
+
+[[unit]]
+id = "esm"
+name_tr = "ESM Aracı"
+class = "vehicle"
+speed_offroad_mps = 8.0          # placeholder
+speed_road_mps = 15.0            # placeholder
+max_slope_deg = 25.0             # placeholder
+armor_front_mm = 15.0            # placeholder
+armor_side_mm = 10.0             # placeholder
+armor_rear_mm = 10.0             # placeholder
+weapon_range_m = 0.0
+penetration_mm = 0.0
+damage_hp = 0.0
+reload_s = 1.0
+height_m = 10.0                  # placeholder; mast
+hp = 100.0
+fuel_l = 300.0                   # placeholder
+fuel_l_per_km = 0.6              # placeholder
+ammo = 0
+sensors = [
+  { kind = "optical", range_m = 2000.0 },  # placeholder
+  { kind = "esm", range_m = 40000.0 },     # placeholder
+]
+
+[[unit]]
+id = "jammer"
+name_tr = "Karıştırıcı"
+class = "vehicle"
+speed_offroad_mps = 8.0          # placeholder
+speed_road_mps = 15.0            # placeholder
+max_slope_deg = 25.0             # placeholder
+armor_front_mm = 15.0            # placeholder
+armor_side_mm = 10.0             # placeholder
+armor_rear_mm = 10.0             # placeholder
+weapon_range_m = 0.0
+penetration_mm = 0.0
+damage_hp = 0.0
+reload_s = 1.0
+height_m = 8.0                   # placeholder; mast
+hp = 100.0
+fuel_l = 300.0                   # placeholder
+fuel_l_per_km = 0.6              # placeholder
+ammo = 0
+sensors = [
+  { kind = "optical", range_m = 2000.0 },  # placeholder
+  { kind = "jammer", range_m = 15000.0 },  # placeholder
+]
+
+[[unit]]
+id = "supply"
+name_tr = "İkmal Kamyonu"
+class = "vehicle"
+speed_offroad_mps = 7.0          # placeholder
+speed_road_mps = 18.0            # placeholder
+max_slope_deg = 20.0             # placeholder
+armor_front_mm = 5.0             # placeholder
+armor_side_mm = 5.0              # placeholder
+armor_rear_mm = 5.0              # placeholder
+weapon_range_m = 0.0
+penetration_mm = 0.0
+damage_hp = 0.0
+reload_s = 1.0
+height_m = 3.0                   # placeholder
+hp = 100.0
+fuel_l = 400.0                   # placeholder
+fuel_l_per_km = 0.5              # placeholder
+ammo = 0
+sensors = [{ kind = "optical", range_m = 1500.0 }]  # placeholder
+supply_fuel_l = 6000.0           # placeholder
+supply_ammo = 400                # placeholder

@@ -162,6 +162,9 @@ mod tests {
             heading_rad: heading,
             hp: 100.0,
             state: UnitState::Healthy,
+            fuel: 1e6,
+            ammo: 1000,
+            ..Default::default()
         }
     }
 
@@ -186,6 +189,8 @@ mod tests {
                         quality,
                         last_seen_tick: 0,
                         last_known_pos: e.pos,
+                        bearing: None,
+                        position_known: true,
                     },
                 );
             }

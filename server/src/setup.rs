@@ -5,7 +5,7 @@ use crate::{BoxError, PLAYERS};
 use serde::{Deserialize, Serialize};
 use sim::data::{Rules, UnitCatalog};
 use sim::turn::Game;
-use sim::world::{HeightMap, PlayerId, Unit, UnitId, UnitState, Vec2, World};
+use sim::world::{HeightMap, PlayerId, Unit, UnitId, Vec2, World};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -104,15 +104,13 @@ pub fn load_scenario(text: &str, map: HeightMap, catalog: &UnitCatalog) -> Resul
         let t = catalog
             .get(&u.type_id)
             .ok_or_else(|| format!("unit {}: unknown type '{}'", u.id, u.type_id))?;
-        world.add_unit(Unit {
-            id: UnitId(u.id),
-            owner: PlayerId(u.owner),
-            type_id: u.type_id,
-            pos: Vec2::new(u.x, u.y),
-            heading_rad: u.heading_deg.to_radians(),
-            hp: t.hp,
-            state: UnitState::Healthy,
-        })?;
+        world.add_unit(Unit::new(
+            UnitId(u.id),
+            PlayerId(u.owner),
+            t,
+            Vec2::new(u.x, u.y),
+            u.heading_deg.to_radians(),
+        ))?;
     }
     Ok(world)
 }

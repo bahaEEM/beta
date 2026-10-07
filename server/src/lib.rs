@@ -411,6 +411,11 @@ impl Match {
                 heading_rad: u.heading_rad,
                 hp: u.hp,
                 state: convert::state(u.state),
+                emitting: u.emitting,
+                fuel: u.fuel,
+                ammo: u.ammo,
+                supply_fuel: u.supply_fuel,
+                supply_ammo: u.supply_ammo,
             })
             .collect();
         let contacts = contacts(&self.game.tracks, &self.game.world, &self.rules, player)

@@ -3,16 +3,18 @@
 
 use crate::data::Rules;
 use crate::event::{Event, TickEvent};
-use crate::sensor::TrackTable;
+use crate::sensor::{Bearing, TrackTable};
 use crate::world::{PlayerId, UnitId, UnitState, Vec2, World};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-/// Exact for own units and quality >= 2; otherwise a coarse area.
+/// Exact for own units and quality >= 2; a coarse area for quality 1;
+/// only a direction for bearing-only (single ESM line) tracks.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Position {
     Exact(Vec2),
     Area { center: Vec2, radius_m: f64 },
+    Bearing { origin: Vec2, angle_rad: f64 },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -82,9 +84,25 @@ fn position(rules: &Rules, level: u8, pos: Vec2) -> Position {
     }
 }
 
+/// What a player knows about one enemy unit while filtering.
+#[derive(Clone, Copy, Default)]
+struct Known {
+    quality: u8,
+    bearing: Option<Bearing>,
+    position_known: bool,
+}
+
+fn bearing_position(b: Bearing) -> Position {
+    Position::Bearing {
+        origin: b.origin,
+        angle_rad: b.angle_rad,
+    }
+}
+
 /// Filters one turn's events for `player`. `start_tracks` is the track table at the start
 /// of the turn; visibility then follows the TrackGained/TrackLost events in the stream,
 /// which `step_tick` emits before the other events of the same tick.
+/// Bearing-only tracks reveal the unit id and a direction, never a position.
 pub fn filter_for_player(
     events: &[TickEvent],
     start_tracks: &TrackTable,
@@ -92,15 +110,26 @@ pub fn filter_for_player(
     rules: &Rules,
     player: PlayerId,
 ) -> Vec<SeenTickEvent> {
-    let mut quality: BTreeMap<UnitId, u8> = start_tracks
+    let mut known: BTreeMap<UnitId, Known> = start_tracks
         .tracks
         .values()
         .filter(|t| t.observer_player == player)
-        .map(|t| (t.target_unit, t.quality))
+        .map(|t| {
+            let k = Known {
+                quality: t.quality,
+                bearing: t.bearing,
+                position_known: t.position_known,
+            };
+            (t.target_unit, k)
+        })
         .collect();
-    let level = |q: &BTreeMap<UnitId, u8>, id: UnitId| match world.unit(id) {
-        Some(u) if u.owner == player => OWN,
-        _ => q.get(&id).copied().unwrap_or(0),
+    let own = |id: UnitId| world.unit(id).is_some_and(|u| u.owner == player);
+    let level = |k: &BTreeMap<UnitId, Known>, id: UnitId| {
+        if own(id) {
+            OWN
+        } else {
+            k.get(&id).map_or(0, |k| k.quality)
+        }
     };
 
     let mut out = Vec::new();
@@ -111,12 +140,16 @@ pub fn filter_for_player(
                 unit,
                 quality: q,
                 pos,
+                bearing,
             } if p == player => {
-                quality.insert(unit, q);
+                let k = known.entry(unit).or_default();
+                k.quality = q;
+                k.bearing = bearing;
+                k.position_known |= bearing.is_none();
                 Some(SeenEvent::TrackGained {
                     unit,
                     quality: q,
-                    position: position(rules, q, pos),
+                    position: bearing.map_or_else(|| position(rules, q, pos), bearing_position),
                 })
             }
             Event::TrackLost {
@@ -124,11 +157,13 @@ pub fn filter_for_player(
                 unit,
                 last_known,
             } if p == player => {
-                quality.insert(unit, 0);
-                Some(SeenEvent::TrackLost {
-                    unit,
-                    last_known: area(rules, last_known),
-                })
+                let k = known.entry(unit).or_default();
+                k.quality = 0;
+                let last_known = match (k.position_known, k.bearing) {
+                    (false, Some(b)) => bearing_position(b),
+                    _ => area(rules, last_known),
+                };
+                Some(SeenEvent::TrackLost { unit, last_known })
             }
             Event::TrackGained { .. } | Event::TrackLost { .. } => None,
             Event::UnitMoved {
@@ -136,23 +171,25 @@ pub fn filter_for_player(
                 pos,
                 heading_rad,
             } => {
-                let l = level(&quality, unit);
-                (l > 0).then(|| SeenEvent::UnitMoved {
+                let l = level(&known, unit);
+                let bearing_only =
+                    l != OWN && known.get(&unit).is_some_and(|k| k.bearing.is_some());
+                (l > 0 && !bearing_only).then(|| SeenEvent::UnitMoved {
                     unit,
                     position: position(rules, l, pos),
                     heading_rad: (l >= EXACT_QUALITY).then_some(heading_rad),
                 })
             }
             Event::ShotFired { shooter, target } => {
-                let s = (level(&quality, shooter) > 0).then_some(shooter);
-                let t = (level(&quality, target) > 0).then_some(target);
+                let s = (level(&known, shooter) > 0).then_some(shooter);
+                let t = (level(&known, target) > 0).then_some(target);
                 (s.is_some() || t.is_some()).then_some(SeenEvent::ShotFired {
                     shooter: s,
                     target: t,
                 })
             }
             Event::UnitDamaged { unit, hp, state } => {
-                let l = level(&quality, unit);
+                let l = level(&known, unit);
                 (l > 0).then_some(SeenEvent::UnitDamaged {
                     unit,
                     hp: (l == OWN).then_some(hp),
@@ -160,7 +197,7 @@ pub fn filter_for_player(
                 })
             }
             Event::UnitDestroyed { unit } => {
-                (level(&quality, unit) > 0).then_some(SeenEvent::UnitDestroyed { unit })
+                (level(&known, unit) > 0).then_some(SeenEvent::UnitDestroyed { unit })
             }
         };
         if let Some(event) = seen {
@@ -170,7 +207,8 @@ pub fn filter_for_player(
     out
 }
 
-/// Enemy units this player has ever tracked. Lost tracks (quality 0) show the last known area.
+/// Enemy units this player has ever tracked. Lost tracks (quality 0) show the last known
+/// area, or the last bearing if the unit was never located.
 pub fn contacts(
     tracks: &TrackTable,
     world: &World,
@@ -181,18 +219,23 @@ pub fn contacts(
         .tracks
         .values()
         .filter(|t| t.observer_player == player)
-        .map(|t| Contact {
-            unit: t.target_unit,
-            quality: t.quality,
-            type_id: (t.quality >= EXACT_QUALITY)
-                .then(|| world.unit(t.target_unit).map(|u| u.type_id.clone()))
-                .flatten(),
-            position: if t.quality == 0 {
-                area(rules, t.last_known_pos)
-            } else {
-                position(rules, t.quality, t.last_known_pos)
-            },
-            last_seen_tick: t.last_seen_tick,
+        .filter_map(|t| {
+            let position = match (t.quality, t.bearing, t.position_known) {
+                (q, Some(b), _) if q > 0 => bearing_position(b),
+                (0, Some(b), false) => bearing_position(b),
+                (0, None, false) => return None,
+                (0, _, true) => area(rules, t.last_known_pos),
+                (q, _, _) => position(rules, q, t.last_known_pos),
+            };
+            Some(Contact {
+                unit: t.target_unit,
+                quality: t.quality,
+                type_id: (t.quality >= EXACT_QUALITY)
+                    .then(|| world.unit(t.target_unit).map(|u| u.type_id.clone()))
+                    .flatten(),
+                position,
+                last_seen_tick: t.last_seen_tick,
+            })
         })
         .collect()
 }
@@ -250,12 +293,15 @@ mod tests {
         let (cat, rules) = (catalog(), rules());
         let mut rng = Lcg(42);
         let mut checked = 0;
+        let mut bearings = 0;
         for _ in 0..20 {
             let map = hilly(&mut rng);
             let mut units = Vec::new();
             for id in 1..=16u32 {
                 let owner = u8::from(id > 8);
-                let kind = if id % 4 == 0 { "mbt" } else { "infantry" };
+                let kind = [
+                    "infantry", "infantry", "mbt", "gsr", "esm", "jammer", "infantry", "mbt",
+                ][(id % 8) as usize];
                 units.push(unit(
                     id,
                     owner,
@@ -266,6 +312,14 @@ mod tests {
             }
             let mut g = game(map, units);
             let mut orders: BTreeMap<PlayerId, Vec<Order>> = BTreeMap::new();
+            for u in g.world.units() {
+                if cat.get(&u.type_id).is_some_and(|t| t.is_emitter()) && rng.next() < 0.7 {
+                    orders.entry(u.owner).or_default().push(Order::SetEmitter {
+                        units: vec![u.id],
+                        on: true,
+                    });
+                }
+            }
             for u in g.world.units() {
                 orders.entry(u.owner).or_default().push(Order::Move {
                     units: vec![u.id],
@@ -290,6 +344,11 @@ mod tests {
                         .get(player, id)
                         .map_or(0, |t| t.quality)
                 };
+                let bearing_only = |tick: u32, id: UnitId| {
+                    snapshots[tick as usize]
+                        .get(player, id)
+                        .is_some_and(|t| t.quality > 0 && t.bearing.is_some())
+                };
                 for SeenTickEvent { tick, event } in
                     filter_for_player(&events, &start_tracks, &g.world, &rules, player)
                 {
@@ -309,10 +368,25 @@ mod tests {
                             | SeenEvent::TrackGained { position, .. } = &event
                             {
                                 assert!(
-                                    matches!(position, Position::Area { .. }),
+                                    !matches!(position, Position::Exact(_)),
                                     "exact pos leaked"
                                 );
                             }
+                        }
+                        if !own && bearing_only(tick, id) {
+                            match &event {
+                                SeenEvent::UnitMoved { .. } => {
+                                    panic!("bearing-only unit {id:?} moved event leaked")
+                                }
+                                SeenEvent::TrackGained { position, .. } => {
+                                    assert!(
+                                        matches!(position, Position::Bearing { .. }),
+                                        "bearing-only position leaked"
+                                    )
+                                }
+                                _ => {}
+                            }
+                            bearings += 1;
                         }
                         checked += 1;
                     }
@@ -320,6 +394,7 @@ mod tests {
             }
         }
         assert!(checked > 1000, "scenarios too quiet: {checked}");
+        assert!(bearings > 0, "no bearing-only tracks exercised");
     }
 
     #[test]

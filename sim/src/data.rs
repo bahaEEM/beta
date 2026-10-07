@@ -19,6 +19,7 @@ pub struct UnitType {
     pub name_tr: String,
     pub class: UnitClass,
     pub speed_offroad_mps: f64,
+    pub speed_road_mps: f64,
     pub max_slope_deg: f64,
     pub armor_front_mm: f64,
     pub armor_side_mm: f64,
@@ -28,10 +29,69 @@ pub struct UnitType {
     pub damage_hp: f64,
     /// Game seconds between shots.
     pub reload_s: f64,
-    pub sensor_optical_range_m: f64,
     /// Sensor/target height above ground, used for line of sight.
     pub height_m: f64,
     pub hp: f64,
+    pub fuel_l: f64,
+    pub fuel_l_per_km: f64,
+    pub ammo: u32,
+    #[serde(default)]
+    pub sensors: Vec<SensorSpec>,
+    /// Stock a supply unit carries for others.
+    #[serde(default)]
+    pub supply_fuel_l: f64,
+    #[serde(default)]
+    pub supply_ammo: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum SensorSpec {
+    Optical {
+        range_m: f64,
+    },
+    /// Active; only works while the unit emits; sees targets moving at least this fast.
+    Radar {
+        range_m: f64,
+        min_target_speed_mps: f64,
+    },
+    /// Passive; bearings to enemy emitters.
+    Esm {
+        range_m: f64,
+    },
+    /// Active; while emitting, degrades enemy radars within `range_m`.
+    Jammer {
+        range_m: f64,
+    },
+}
+
+impl SensorSpec {
+    pub fn range_m(&self) -> f64 {
+        match *self {
+            SensorSpec::Optical { range_m }
+            | SensorSpec::Radar { range_m, .. }
+            | SensorSpec::Esm { range_m }
+            | SensorSpec::Jammer { range_m } => range_m,
+        }
+    }
+
+    pub fn is_emitter(&self) -> bool {
+        matches!(self, SensorSpec::Radar { .. } | SensorSpec::Jammer { .. })
+    }
+}
+
+impl UnitType {
+    /// True if the type has a radar or jammer that can be switched on.
+    pub fn is_emitter(&self) -> bool {
+        self.sensors.iter().any(SensorSpec::is_emitter)
+    }
+
+    pub fn jammer_range_m(&self) -> Option<f64> {
+        self.sensors.iter().find_map(|s| match *s {
+            SensorSpec::Jammer { range_m } => Some(range_m),
+            _ => None,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -92,6 +152,7 @@ pub fn load_units(toml_text: &str) -> Result<UnitCatalog, DataError> {
 fn validate(t: &UnitType) -> Result<(), DataError> {
     let fields = [
         ("speed_offroad_mps", t.speed_offroad_mps),
+        ("speed_road_mps", t.speed_road_mps),
         ("max_slope_deg", t.max_slope_deg),
         ("armor_front_mm", t.armor_front_mm),
         ("armor_side_mm", t.armor_side_mm),
@@ -100,15 +161,32 @@ fn validate(t: &UnitType) -> Result<(), DataError> {
         ("penetration_mm", t.penetration_mm),
         ("damage_hp", t.damage_hp),
         ("reload_s", t.reload_s),
-        ("sensor_optical_range_m", t.sensor_optical_range_m),
         ("height_m", t.height_m),
         ("hp", t.hp),
+        ("fuel_l", t.fuel_l),
+        ("fuel_l_per_km", t.fuel_l_per_km),
+        ("supply_fuel_l", t.supply_fuel_l),
     ];
     for (field, v) in fields {
         if !v.is_finite() || v < 0.0 {
             return Err(DataError::Invalid {
                 unit: t.id.clone(),
                 field,
+            });
+        }
+    }
+    for s in &t.sensors {
+        let extra = match *s {
+            SensorSpec::Radar {
+                min_target_speed_mps,
+                ..
+            } => min_target_speed_mps,
+            _ => 0.0,
+        };
+        if !(s.range_m().is_finite() && s.range_m() > 0.0 && extra.is_finite() && extra >= 0.0) {
+            return Err(DataError::Invalid {
+                unit: t.id.clone(),
+                field: "sensors",
             });
         }
     }
@@ -172,12 +250,35 @@ pub struct CombatRules {
 #[serde(deny_unknown_fields)]
 pub struct SensorRules {
     pub optical: OpticalRules,
+    pub radar: RadarRules,
+    pub esm: EsmRules,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RadarRules {
+    /// Track quality a radar gives (position + class).
+    pub quality: u8,
+    /// Quality lost while an enemy jammer covers the radar.
+    pub jam_quality_drop: u8,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EsmRules {
+    /// Quality of a single bearing (direction only).
+    pub bearing_quality: u8,
+    /// Quality when two bearings cross at least `min_cross_deg` (triangulation).
+    pub triangulated_quality: u8,
+    pub min_cross_deg: f64,
+    /// A bearing-only track is re-reported when the bearing moves this much.
+    pub bearing_update_deg: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OpticalRules {
-    /// Contact range = sensor_optical_range_m * this factor.
+    /// Contact range = optical range_m * this factor.
     pub track_range_factor: f64,
     /// Track quality inside the optical range.
     pub fire_quality: u8,
@@ -200,6 +301,17 @@ pub fn load_rules(toml_text: &str) -> Result<Rules, DataError> {
     }
     if o.contact_quality == 0 || o.contact_quality > o.fire_quality {
         return Err(DataError::InvalidRule("sensor.optical.contact_quality"));
+    }
+    let s = &rules.sensor;
+    if s.radar.quality == 0 || s.radar.quality > MAX_TRACK_QUALITY {
+        return Err(DataError::InvalidRule("sensor.radar.quality"));
+    }
+    if s.esm.bearing_quality == 0 || s.esm.triangulated_quality > MAX_TRACK_QUALITY {
+        return Err(DataError::InvalidRule("sensor.esm"));
+    }
+    if !(s.esm.min_cross_deg > 0.0 && s.esm.min_cross_deg < 90.0 && s.esm.bearing_update_deg > 0.0)
+    {
+        return Err(DataError::InvalidRule("sensor.esm.min_cross_deg"));
     }
     let c = &rules.combat;
     if !(c.damaged_threshold > 0.0 && c.damaged_threshold <= 1.0) {
@@ -237,7 +349,12 @@ mod tests {
     #[test]
     fn g1_loads_shipped_units_toml() {
         let cat = load_units(UNITS).unwrap();
-        assert_eq!(cat.types.keys().collect::<Vec<_>>(), ["infantry", "mbt"]);
+        assert_eq!(
+            cat.types.keys().collect::<Vec<_>>(),
+            ["esm", "gsr", "infantry", "jammer", "mbt", "supply"]
+        );
+        assert!(cat.get("gsr").unwrap().is_emitter());
+        assert!(!cat.get("esm").unwrap().is_emitter());
         assert_eq!(cat.get("infantry").unwrap().weapon_range_m, 400.0);
         assert_eq!(cat.get("mbt").unwrap().weapon_range_m, 2000.0);
         assert_eq!(cat.get("mbt").unwrap().class, UnitClass::Vehicle);

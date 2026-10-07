@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Unfiltered simulation events. The server filters them per player before sending.
 
+use crate::sensor::Bearing;
 use crate::world::{PlayerId, UnitId, UnitState, Vec2};
 use serde::{Deserialize, Serialize};
 
@@ -27,7 +28,10 @@ pub enum Event {
         player: PlayerId,
         unit: UnitId,
         quality: u8,
+        /// True position; never shown to the observer when `bearing` is set.
         pos: Vec2,
+        /// Set for bearing-only (single ESM line) tracks.
+        bearing: Option<Bearing>,
     },
     TrackLost {
         player: PlayerId,

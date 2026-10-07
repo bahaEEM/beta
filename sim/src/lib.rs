@@ -10,5 +10,8 @@ pub mod turn;
 pub mod visibility;
 pub mod world;
 
+#[cfg(test)]
+mod ew_tests;
+
 /// Resolution phase length: 20 s = 200 ticks.
 pub const TICKS_PER_TURN: u32 = 200;

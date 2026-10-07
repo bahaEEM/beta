@@ -27,6 +27,6 @@
 | F1-2 yol ağı | bekliyor | | |
 | F1-3 bölgeler | bekliyor | | |
 | F1-4 ikmal | bekliyor | | |
-| F1-5 radar/ESM/karıştırma | bekliyor | | |
+| F1-5 radar/ESM/karıştırma | bitti | (bu commit) | 4 yeni birim tipi; kerteriz yalnızca yön verir; hile testi EW birimleriyle |
 | F1-6 istemci | bekliyor | | |
 | F1-7 kapı | bekliyor | | |

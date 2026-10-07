@@ -24,8 +24,18 @@ pub struct Vec2 {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Position {
-    Exact { pos: Vec2 },
-    Area { center: Vec2, radius_m: f64 },
+    Exact {
+        pos: Vec2,
+    },
+    Area {
+        center: Vec2,
+        radius_m: f64,
+    },
+    /// Direction only (one ESM bearing): the unit is somewhere along this ray.
+    Bearing {
+        origin: Vec2,
+        angle_rad: f64,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -46,6 +56,8 @@ pub enum Order {
     },
     /// Cancel routes continuing from earlier turns.
     Stop { units: Vec<UnitId> },
+    /// Radar/jammer on or off. Emitting units can be heard by enemy ESM.
+    SetEmitter { units: Vec<UnitId>, on: bool },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -56,6 +68,11 @@ pub struct OwnUnit {
     pub heading_rad: f64,
     pub hp: f64,
     pub state: UnitState,
+    pub emitting: bool,
+    pub fuel: f64,
+    pub ammo: u32,
+    pub supply_fuel: f64,
+    pub supply_ammo: u32,
 }
 
 /// An enemy unit as known to this player. `type_id` is only present at quality >= 2.
@@ -256,6 +273,10 @@ mod tests {
                         waypoints: vec![P],
                     },
                     Order::Stop { units: vec![9] },
+                    Order::SetEmitter {
+                        units: vec![10],
+                        on: true,
+                    },
                 ],
             },
             ClientMsg::RequestPreview {
@@ -288,14 +309,31 @@ mod tests {
                         heading_rad: 1.5,
                         hp: 100.0,
                         state: UnitState::Healthy,
+                        emitting: false,
+                        fuel: 1100.0,
+                        ammo: 38,
+                        supply_fuel: 0.0,
+                        supply_ammo: 0,
                     }],
-                    contacts: vec![Contact {
-                        unit: 12,
-                        quality: 1,
-                        type_id: None,
-                        position: area.clone(),
-                        last_seen_tick: 140,
-                    }],
+                    contacts: vec![
+                        Contact {
+                            unit: 12,
+                            quality: 1,
+                            type_id: None,
+                            position: area.clone(),
+                            last_seen_tick: 140,
+                        },
+                        Contact {
+                            unit: 14,
+                            quality: 1,
+                            type_id: None,
+                            position: Position::Bearing {
+                                origin: P,
+                                angle_rad: 0.8,
+                            },
+                            last_seen_tick: 150,
+                        },
+                    ],
                     kbg_budget: 8,
                 },
             },

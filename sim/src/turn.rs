@@ -46,12 +46,16 @@ pub enum Order {
     },
     /// Cancels a route that continues from an earlier turn.
     Stop { units: Vec<UnitId> },
+    /// Switches radars/jammers on or off (takes effect from the first tick).
+    SetEmitter { units: Vec<UnitId>, on: bool },
 }
 
 impl Order {
     pub fn units(&self) -> &[UnitId] {
         match self {
-            Order::Move { units, .. } | Order::Stop { units } => units,
+            Order::Move { units, .. } | Order::Stop { units } | Order::SetEmitter { units, .. } => {
+                units
+            }
         }
     }
 }
@@ -62,6 +66,7 @@ pub enum RejectReason {
     NotOwner,
     DuplicateUnit,
     NoUnits,
+    NotEmitter,
     Move(MoveError),
 }
 
@@ -72,6 +77,7 @@ impl fmt::Display for RejectReason {
             RejectReason::NotOwner => write!(f, "unit is not yours"),
             RejectReason::DuplicateUnit => write!(f, "more than one order for this unit"),
             RejectReason::NoUnits => write!(f, "order has no units"),
+            RejectReason::NotEmitter => write!(f, "unit has no radar or jammer"),
             RejectReason::Move(e) => write!(f, "{e}"),
         }
     }
@@ -89,6 +95,8 @@ pub type RouteChanges = BTreeMap<UnitId, Option<Vec<Vec2>>>;
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Validated {
     pub changes: RouteChanges,
+    /// Emitter switches: unit -> on.
+    pub emitters: BTreeMap<UnitId, bool>,
     pub rejected: Vec<Rejection>,
     pub kbg_spent: u32,
 }
@@ -181,6 +189,20 @@ pub fn validate_orders(
                     v.changes.extend(units.iter().map(|&id| (id, None)));
                     None
                 }
+                Order::SetEmitter { units, on } => {
+                    let emitter = |id: &UnitId| {
+                        game.world
+                            .unit(*id)
+                            .and_then(|u| catalog.get(&u.type_id))
+                            .is_some_and(|t| t.is_emitter())
+                    };
+                    if units.iter().all(emitter) {
+                        v.emitters.extend(units.iter().map(|&id| (id, *on)));
+                        None
+                    } else {
+                        Some(RejectReason::NotEmitter)
+                    }
+                }
             }
         };
         match reason {
@@ -213,6 +235,11 @@ pub fn plan_phase(
                 None => game.routes.remove(&id),
             };
         }
+        for (id, on) in v.emitters {
+            if let Some(u) = game.world.unit_mut(id) {
+                u.emitting = on;
+            }
+        }
         all_rejected.insert(player, v.rejected);
     }
     all_rejected
@@ -224,6 +251,10 @@ pub fn step_tick(game: &mut Game, catalog: &UnitCatalog, rules: &Rules) -> Vec<E
     game.world.tick += 1;
     let before: BTreeMap<UnitId, _> = game.world.units().iter().map(|u| (u.id, u.pos)).collect();
     step_movement(&mut game.world, catalog, rules, &mut game.routes);
+    let dt = rules.turn.game_seconds_per_tick;
+    for u in game.world.units_mut() {
+        u.speed_mps = before.get(&u.id).map_or(0.0, |p| p.distance(u.pos) / dt);
+    }
 
     let mut events = Vec::new();
     for c in update_tracks(&game.world, catalog, rules, &mut game.tracks) {
@@ -236,6 +267,7 @@ pub fn step_tick(game: &mut Game, catalog: &UnitCatalog, rules: &Rules) -> Vec<E
                 unit: c.unit,
                 quality: c.new_quality,
                 pos: track.last_known_pos,
+                bearing: track.bearing,
             }
         } else {
             Event::TrackLost {
@@ -301,6 +333,9 @@ pub(crate) mod tests {
             heading_rad: 0.0,
             hp: 100.0,
             state: UnitState::Healthy,
+            fuel: 1e6,
+            ammo: 1000,
+            ..Default::default()
         }
     }
 

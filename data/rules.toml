@@ -1,9 +1,19 @@
 # Game rules. Values marked "placeholder" are untuned guesses.
 
 [sensor.optical]
-track_range_factor = 1.5  # contact range = sensor_optical_range_m * factor
-fire_quality = 3          # quality inside sensor_optical_range_m
+track_range_factor = 1.5  # contact range = optical range_m * factor
+fire_quality = 3          # quality inside the optical range_m
 contact_quality = 1       # quality between range and range * factor
+
+[sensor.radar]
+quality = 2               # position + class; not enough to fire (needs 3)
+jam_quality_drop = 1      # an enemy jammer covering the radar lowers its tracks by this
+
+[sensor.esm]
+bearing_quality = 1       # one bearing: direction only
+triangulated_quality = 2  # two bearings crossing at >= min_cross_deg
+min_cross_deg = 20.0      # placeholder
+bearing_update_deg = 2.0  # re-report a bearing-only track when it moves this much
 
 [combat]
 damaged_threshold = 0.7     # penetration >= 70% of effective armour -> damaged

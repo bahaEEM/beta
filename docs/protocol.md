@@ -6,7 +6,7 @@ Bu dosya `protocol/src/lib.rs` testlerinden üretilir; elle düzenleme. Güncell
 - Godot'ta açma: `bytes.decompress(1048576, FileAccess.COMPRESSION_ZSTD)` (`decompress_dynamic` zstd desteklemez) sonra `JSON.parse_string(...)`.
 - JSON en fazla 1 MB (1048576 bayt); büyüğü hata.
 - Her mesajın `type` alanı vardır. Bağlantıdaki ilk mesaj `hello` olmalı; `protocol_version` sunucununkiyle (şu an 2) aynı değilse bağlantı `error` ile kapatılır.
-- Konumlar metre cinsinden; x doğuya, y güneye artar. `position.kind`: `exact` (kesin) veya `area` (iz kalitesi 1: merkez + yarıçap).
+- Konumlar metre cinsinden; x doğuya, y güneye artar. `position.kind`: `exact` (kesin), `area` (iz kalitesi 1: merkez + yarıçap) veya `bearing` (tek ESM kerterizi: `origin` noktasından `angle_rad` yönünde bir ışın; konum bilinmez). Açılar radyan, x eksenine göre, y güneye.
 - Görmediğiniz birimin kimliği hiçbir mesajda yer almaz (`shot_fired` içinde `null` olur).
 
 ## İstemci → sunucu
@@ -42,6 +42,13 @@ Bu dosya `protocol/src/lib.rs` testlerinden üretilir; elle düzenleme. Güncell
       "units": [
         9
       ]
+    },
+    {
+      "type": "set_emitter",
+      "units": [
+        10
+      ],
+      "on": true
     }
   ]
 }
@@ -95,7 +102,12 @@ Bu dosya `protocol/src/lib.rs` testlerinden üretilir; elle düzenleme. Güncell
         },
         "heading_rad": 1.5,
         "hp": 100.0,
-        "state": "healthy"
+        "state": "healthy",
+        "emitting": false,
+        "fuel": 1100.0,
+        "ammo": 38,
+        "supply_fuel": 0.0,
+        "supply_ammo": 0
       }
     ],
     "contacts": [
@@ -112,6 +124,20 @@ Bu dosya `protocol/src/lib.rs` testlerinden üretilir; elle düzenleme. Güncell
           "radius_m": 500.0
         },
         "last_seen_tick": 140
+      },
+      {
+        "unit": 14,
+        "quality": 1,
+        "type_id": null,
+        "position": {
+          "kind": "bearing",
+          "origin": {
+            "x": 1200.0,
+            "y": 850.5
+          },
+          "angle_rad": 0.8
+        },
+        "last_seen_tick": 150
       }
     ],
     "kbg_budget": 8

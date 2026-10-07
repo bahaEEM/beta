@@ -4,10 +4,14 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Serialize, Deserialize,
+)]
 pub struct UnitId(pub u32);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Serialize, Deserialize,
+)]
 pub struct PlayerId(pub u8);
 
 /// World position in metres. x grows east, y grows south (row direction of the height map).
@@ -36,7 +40,7 @@ pub enum UnitState {
     Destroyed,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct Unit {
     pub id: UnitId,
     pub owner: PlayerId,
@@ -45,6 +49,46 @@ pub struct Unit {
     pub heading_rad: f64,
     pub hp: f64,
     pub state: UnitState,
+    /// Radar/jammer switched on (only meaningful for emitter types).
+    #[serde(default)]
+    pub emitting: bool,
+    /// Ground speed during the last tick.
+    #[serde(default)]
+    pub speed_mps: f64,
+    #[serde(default)]
+    pub fuel: f64,
+    #[serde(default)]
+    pub ammo: u32,
+    /// Supply stock (supply units only).
+    #[serde(default)]
+    pub supply_fuel: f64,
+    #[serde(default)]
+    pub supply_ammo: u32,
+}
+
+impl Unit {
+    /// A fresh, fully supplied unit of type `t`.
+    pub fn new(
+        id: UnitId,
+        owner: PlayerId,
+        t: &crate::data::UnitType,
+        pos: Vec2,
+        heading_rad: f64,
+    ) -> Self {
+        Self {
+            id,
+            owner,
+            type_id: t.id.clone(),
+            pos,
+            heading_rad,
+            hp: t.hp,
+            fuel: t.fuel_l,
+            ammo: t.ammo,
+            supply_fuel: t.supply_fuel_l,
+            supply_ammo: t.supply_ammo,
+            ..Self::default()
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -202,6 +246,9 @@ mod tests {
             heading_rad: 0.0,
             hp: 100.0,
             state: UnitState::Healthy,
+            fuel: 1e6,
+            ammo: 1000,
+            ..Default::default()
         }
     }
 
