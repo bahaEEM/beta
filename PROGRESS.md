@@ -28,5 +28,5 @@
 | F1-3 bölgeler | bitti | (bu commit) | 5 bölge (2 depo); 60 sn piyade varlığı; tur sonu puan; 100 puan / 100 tur zafer |
 | F1-4 ikmal | bitti | (bu commit) | yakıt/mühimmat; ikmal kamyonu 300 m, depoda dolar |
 | F1-5 radar/ESM/karıştırma | bitti | (bu commit) | 4 yeni birim tipi; kerteriz yalnızca yön verir; hile testi EW birimleriyle |
-| F1-6 istemci | bekliyor | | |
-| F1-7 kapı | bekliyor | | |
+| F1-6 istemci | bitti (görsel test kullanıcıda) | 706c1d8 | alt ajan; ekransız testler OK, ~130 FPS |
+| F1-7 kapı | bitti | (bu commit) | G10 testi grup/EW emirleriyle; docs/faz1-rapor.md |
