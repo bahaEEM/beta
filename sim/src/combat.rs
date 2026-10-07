@@ -17,6 +17,9 @@ pub struct CombatState {
     pub reloads: BTreeMap<UnitId, u32>,
     /// Current target and ticks it has been held in the sights.
     pub aims: BTreeMap<UnitId, (UnitId, u32)>,
+    /// Indirect fire: ticks spent laying the gun on the current fire mission.
+    #[serde(default)]
+    pub lay: BTreeMap<UnitId, u32>,
 }
 
 /// Expected hit share at distance `d` (linear from `hit_close` to `hit_far` over the range).

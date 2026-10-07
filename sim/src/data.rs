@@ -44,6 +44,9 @@ pub struct UnitType {
     pub sensors: Vec<SensorSpec>,
     /// Radio reach; two units link if both are within each other's reach.
     pub radio_range_m: f64,
+    /// Indirect-fire weapon (artillery, rockets), fired by fire missions.
+    #[serde(default)]
+    pub indirect: Option<IndirectSpec>,
     /// Command post: the root of its side's command network.
     #[serde(default)]
     pub hq: bool,
@@ -52,6 +55,19 @@ pub struct UnitType {
     pub supply_fuel_l: f64,
     #[serde(default)]
     pub supply_ammo: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct IndirectSpec {
+    pub range_m: f64,
+    pub min_range_m: f64,
+    /// Average speed over the trajectory; flight time = distance / speed.
+    pub shell_speed_mps: f64,
+    /// Damage falls linearly from the impact point to zero at this radius.
+    pub radius_m: f64,
+    pub damage_hp: f64,
+    pub penetration_mm: f64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -204,6 +220,21 @@ fn validate(t: &UnitType) -> Result<(), DataError> {
             });
         }
     }
+    if let Some(g) = t.indirect {
+        let ok = [g.range_m, g.shell_speed_mps, g.radius_m]
+            .iter()
+            .all(|v| v.is_finite() && *v > 0.0)
+            && [g.min_range_m, g.damage_hp, g.penetration_mm]
+                .iter()
+                .all(|v| v.is_finite() && *v >= 0.0)
+            && g.min_range_m < g.range_m;
+        if !ok {
+            return Err(DataError::Invalid {
+                unit: t.id.clone(),
+                field: "indirect",
+            });
+        }
+    }
     for s in &t.sensors {
         let extra = match *s {
             SensorSpec::Radar {
@@ -233,6 +264,14 @@ pub struct Rules {
     pub zones: ZoneRules,
     pub supply: SupplyRules,
     pub comms: CommsRules,
+    pub indirect: IndirectRules,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct IndirectRules {
+    /// Track quality needed to fire a mission at an enemy unit.
+    pub min_track_quality: u8,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -435,7 +474,7 @@ mod tests {
         let cat = load_units(UNITS).unwrap();
         assert_eq!(
             cat.types.keys().collect::<Vec<_>>(),
-            ["atgm", "esm", "gsr", "hq", "infantry", "jammer", "mbt", "supply"]
+            ["atgm", "esm", "gsr", "hq", "infantry", "jammer", "mbt", "rocket", "spg", "supply"]
         );
         assert!(cat.get("gsr").unwrap().is_emitter());
         assert!(!cat.get("esm").unwrap().is_emitter());

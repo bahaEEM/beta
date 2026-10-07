@@ -5,6 +5,7 @@ use crate::combat::{step_combat, CombatState};
 use crate::comms::{connected_units, players_with_hq};
 use crate::data::{Rules, UnitCatalog};
 use crate::event::{Event, TickEvent};
+use crate::indirect::{step_impacts, step_launch, FireTarget, Shell};
 use crate::logistics::{end_of_turn, step_capture, MatchResult, Zone};
 use crate::movement::{plan_route, step_movement, MoveError, MoveOrder, Routes};
 use crate::sensor::{update_tracks, TrackTable};
@@ -35,6 +36,12 @@ pub struct Game {
     /// Units linked to their HQ at the start of the current planning phase.
     #[serde(default)]
     pub connected: BTreeMap<PlayerId, BTreeSet<UnitId>>,
+    /// Fire missions for the current turn.
+    #[serde(default)]
+    pub missions: BTreeMap<UnitId, FireTarget>,
+    /// Rounds in flight (may cross a turn boundary).
+    #[serde(default)]
+    pub shells: Vec<Shell>,
 }
 
 impl Game {
@@ -55,6 +62,8 @@ impl Game {
             result: None,
             hq_players,
             connected,
+            missions: BTreeMap::new(),
+            shells: Vec::new(),
         }
     }
 }
@@ -72,6 +81,11 @@ pub enum Order {
     SetEmitter { units: Vec<UnitId>, on: bool },
     /// Rules of engagement.
     SetStance { units: Vec<UnitId>, stance: Stance },
+    /// Indirect fire at a point or a tracked enemy for the rest of this turn.
+    FireMission {
+        units: Vec<UnitId>,
+        target: FireTarget,
+    },
 }
 
 impl Order {
@@ -80,7 +94,8 @@ impl Order {
             Order::Move { units, .. }
             | Order::Stop { units }
             | Order::SetEmitter { units, .. }
-            | Order::SetStance { units, .. } => units,
+            | Order::SetStance { units, .. }
+            | Order::FireMission { units, .. } => units,
         }
     }
 }
@@ -94,6 +109,7 @@ pub enum RejectReason {
     NotEmitter,
     /// The unit has no link to its HQ.
     NoComms,
+    NoIndirectWeapon,
     Move(MoveError),
 }
 
@@ -106,6 +122,7 @@ impl fmt::Display for RejectReason {
             RejectReason::NoUnits => write!(f, "order has no units"),
             RejectReason::NotEmitter => write!(f, "unit has no radar or jammer"),
             RejectReason::NoComms => write!(f, "no communication with the unit"),
+            RejectReason::NoIndirectWeapon => write!(f, "unit has no artillery or rockets"),
             RejectReason::Move(e) => write!(f, "{e}"),
         }
     }
@@ -126,6 +143,7 @@ pub struct Validated {
     /// Emitter switches: unit -> on.
     pub emitters: BTreeMap<UnitId, bool>,
     pub stances: BTreeMap<UnitId, Stance>,
+    pub missions: BTreeMap<UnitId, FireTarget>,
     pub rejected: Vec<Rejection>,
     pub kbg_spent: u32,
 }
@@ -192,6 +210,7 @@ pub fn validate_orders(
             Order::Move { .. } | Order::Stop { .. } => 0,
             Order::SetEmitter { .. } => 1,
             Order::SetStance { .. } => 2,
+            Order::FireMission { .. } => 3,
         };
         let cost = order_cost(rules, units.len());
         let unique: BTreeSet<_> = units.iter().collect();
@@ -249,6 +268,20 @@ pub fn validate_orders(
                     v.stances.extend(units.iter().map(|&id| (id, *stance)));
                     None
                 }
+                Order::FireMission { units, target } => {
+                    let armed = |id: &UnitId| {
+                        game.world
+                            .unit(*id)
+                            .and_then(|u| catalog.get(&u.type_id))
+                            .is_some_and(|t| t.indirect.is_some())
+                    };
+                    if units.iter().all(armed) {
+                        v.missions.extend(units.iter().map(|&id| (id, *target)));
+                        None
+                    } else {
+                        Some(RejectReason::NoIndirectWeapon)
+                    }
+                }
             }
         };
         match reason {
@@ -290,6 +323,10 @@ pub fn plan_phase(
             if let Some(u) = game.world.unit_mut(id) {
                 u.stance = stance;
             }
+        }
+        for (id, target) in v.missions {
+            game.missions.insert(id, target);
+            game.combat.lay.remove(&id);
         }
         all_rejected.insert(player, v.rejected);
     }
@@ -344,6 +381,21 @@ pub fn step_tick(game: &mut Game, catalog: &UnitCatalog, rules: &Rules) -> Vec<E
         &game.tracks,
         &mut game.combat,
     ));
+    events.extend(step_launch(
+        &mut game.world,
+        catalog,
+        rules,
+        &game.tracks,
+        &game.missions,
+        &mut game.combat,
+        &mut game.shells,
+    ));
+    events.extend(step_impacts(
+        &mut game.world,
+        catalog,
+        rules,
+        &mut game.shells,
+    ));
     events.extend(step_capture(game, catalog, rules));
     events
 }
@@ -358,6 +410,8 @@ pub fn resolve_phase(game: &mut Game, catalog: &UnitCatalog, rules: &Rules) -> V
                 .map(|event| TickEvent { tick, event }),
         );
     }
+    game.missions.clear();
+    game.combat.lay.clear();
     end_of_turn(game, catalog, rules);
     game.connected = connected_units(&game.world, catalog, rules, &game.hq_players);
     game.turn += 1;

@@ -38,6 +38,15 @@ pub enum Event {
         unit: UnitId,
         last_known: Vec2,
     },
+    /// An indirect-fire round left the tube.
+    ShellFired {
+        shooter: UnitId,
+    },
+    /// Public: explosions are seen and heard by everyone.
+    ShellImpact {
+        pos: Vec2,
+        radius_m: f64,
+    },
     /// Public: zone flags are visible to everyone.
     ZoneCaptured {
         zone: u32,

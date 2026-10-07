@@ -10,13 +10,13 @@ Yeni testlerin adı kural kimliğiyle başlar (`k043_...`). Eski testler aşağ�
   birimler kimlik sırasıyla işlenir, sıralı kaplar kullanılır.
 - **K-002 Tur.** Planlama (45 sn gerçek zaman; iki oyuncu "Hazır" derse erken biter) → çözüm 200 adım → tur sonu.
   Bir adım 0,6 sn oyun zamanıdır: bir tur = 2 dk oyun, ekranda 20 sn oynatılır.
-- **K-003 Adım sırası.** hareket → sensör/iz → ateş (eşzamanlı) → hasar → ele geçirme. Tur sonu: puan → ikmal → zafer kontrolü.
+- **K-003 Adım sırası.** hareket → sensör/iz → direkt ateş (eşzamanlı) → dolaylı atış → çarpma/hasar → ele geçirme. Tur sonu: puan → ikmal → zafer kontrolü.
 
 ## Emirler ve KBG
 - **K-010 KBG bütçesi.** Oyuncu başına tur başı 8 puan. Her emir, içindeki her başlayan 12 birim için 1 puan
   (1–12 birim = 1, 13–24 = 2). Bütçeyi aşan emir gerekçesiyle reddedilir; sonraki ucuz emirler yine geçerli olabilir.
 - **K-011 Emir türleri.** `move {units, waypoints}` (grup; birimler merkeze göre düzenini korur, ulaşılamazsa tam noktaya gider),
-  `stop {units}`, `set_emitter {units, on}` (sadece radar/karıştırıcı), `set_stance {units, stance}`.
+  `stop {units}`, `set_emitter {units, on}` (sadece radar/karıştırıcı), `set_stance {units, stance}`, `fire_mission {units, target}`.
   Bir birim tur başına hareket, yayın ve ateş kuralı türlerinin her birinden en fazla bir emir alabilir.
   Önceki turdan süren rota yeni emir ya da `stop` gelene kadar devam eder.
 
@@ -46,6 +46,15 @@ Yeni testlerin adı kural kimliğiyle başlar (`k043_...`). Eski testler aşağ�
 - **K-044 Hasar durumu.** Can ≤ %50 → hasarlı; 0 → imha.
 - **K-045 Eşzamanlılık.** Aynı adımdaki bütün atışlar önceki durumdan seçilir, sonra birlikte uygulanır.
 - **K-046 Ateş kuralları.** `free` serbest; `return` sadece son 60 sn içinde ateş altında kaldıysa; `hold` ateş yok.
+
+## Dolaylı ateş (topçu, füze)
+- **K-090 Atış görevi.** `fire_mission {units, target}` — hedef bir nokta ya da düşman birim; görev o turun sonuna kadar sürer.
+  İlk atıştan önce silah `aim_s` boyunca yatırılır (yeni görevde sıfırlanır), sonra `reload_s` aralıklarla atar; her atış 1 mühimmat.
+- **K-091 Menzil.** Hedef `min_range_m`…`range_m` arasında değilse ateş yok (obüs 3–30 km, füze 10–70 km).
+- **K-092 Birime atış.** Hedef birime atış, o an en az iz 2 (konum) ister; nişan noktası izin o anki konumudur.
+- **K-093 Uçuş ve etki.** Mermi `mesafe / shell_speed_mps` sonra düşer; hedef bu arada kaçabilir. Hasar merkezden `radius_m`'ye
+  doğrusal azalır, dost-düşman ayırmaz; zırh (üst zırh = arka plaka) direkt ateşteki delme kuralıyla azaltır.
+- **K-094 Görünürlük.** Patlamalar herkese açıktır; atan birim ancak görülüyorsa bildirilir. Adım sırasında: direkt ateş → atış → çarpma.
 
 ## Görünürlük
 - **K-050 Görünürlük filtresi.** Oyuncuya giden hiçbir mesaj, o an göremediği birimin kimliğini veya konumunu içermez.
@@ -108,6 +117,10 @@ Bütün sayılar yer tutucudur; görsel aşamadan önce oyun testiyle ayarlanaca
 | K-081 / K-082 | k081_enemy_jammer_cuts_radio_but_not_wire |
 | K-083 | k083_cut_off_units_reject_new_orders_but_keep_moving |
 | K-084 | k084_sides_without_hq_are_not_restricted |
+| K-090 / K-093 | k090_shell_lands_after_flight_time_and_hurts_everyone_in_radius, k093_armour_shrugs_off_high_explosive |
+| K-091 | k091_no_fire_outside_min_or_max_range |
+| K-092 | k092_unit_mission_needs_track_quality_2 |
+| K-090 (emir) | k094_fire_mission_needs_indirect_weapon_and_ends_with_the_turn |
 | K-071 | g6_client_messages_round_trip, g6_server_messages_round_trip, g6_version_mismatch_rejected, g6_oversized_message_rejected, g6_protocol_md_up_to_date |
 | K-072 | g7_resume_after_shutdown, g7_reconnect_same_name, g7_planning_deadline_starts_resolution |
 

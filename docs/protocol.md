@@ -57,6 +57,16 @@ Bu dosya `protocol/src/lib.rs` testlerinden üretilir; elle düzenleme. Güncell
         8
       ],
       "stance": "return"
+    },
+    {
+      "type": "fire_mission",
+      "units": [
+        11
+      ],
+      "target": {
+        "kind": "unit",
+        "unit": 12
+      }
     }
   ]
 }
@@ -221,6 +231,20 @@ Bu dosya `protocol/src/lib.rs` testlerinden üretilir; elle düzenleme. Güncell
       "tick": 83,
       "type": "unit_destroyed",
       "unit": 12
+    },
+    {
+      "tick": 100,
+      "type": "shell_fired",
+      "shooter": 11
+    },
+    {
+      "tick": 150,
+      "type": "shell_impact",
+      "pos": {
+        "x": 1200.0,
+        "y": 850.5
+      },
+      "radius_m": 60.0
     },
     {
       "tick": 120,

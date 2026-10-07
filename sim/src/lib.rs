@@ -5,6 +5,7 @@ pub mod combat;
 pub mod comms;
 pub mod data;
 pub mod event;
+pub mod indirect;
 pub mod logistics;
 pub mod movement;
 pub mod sensor;

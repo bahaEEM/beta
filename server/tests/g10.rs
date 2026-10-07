@@ -41,16 +41,21 @@ fn new_game() -> (Game, sim::data::UnitCatalog, sim::data::Rules) {
 enum Plan {
     Move(Vec<u32>, f64, f64),
     Emit(Vec<u32>),
+    Fire(Vec<u32>, f64, f64),
 }
 
 /// Fixed orders: the front group (infantry + tanks) advances 2 km, the rear group (radar,
 /// ESM, jammer, supply) follows 800 m; radars and jammers are switched on. 3 KBG points.
 fn orders_for(player: u8, own: &[(u32, String, f64, f64)]) -> Vec<Plan> {
     let sign = if player == 0 { 1.0 } else { -1.0 };
-    let front = |t: &str| t == "infantry" || t == "mbt";
+    let front = |t: &str| t == "infantry" || t == "mbt" || t == "atgm";
+    let guns = |t: &str| t == "spg" || t == "rocket";
     let mut plans = Vec::new();
     for (is_front, dx) in [(true, 2000.0), (false, 800.0)] {
-        let group: Vec<_> = own.iter().filter(|u| front(&u.1) == is_front).collect();
+        let group: Vec<_> = own
+            .iter()
+            .filter(|u| !guns(&u.1) && front(&u.1) == is_front)
+            .collect();
         if group.is_empty() {
             continue;
         }
@@ -71,6 +76,15 @@ fn orders_for(player: u8, own: &[(u32, String, f64, f64)]) -> Vec<Plan> {
         .collect();
     if !emitters.is_empty() {
         plans.push(Plan::Emit(emitters));
+    }
+    // Artillery shells a fixed point in front of the enemy's start line.
+    let artillery: Vec<u32> = own.iter().filter(|u| guns(&u.1)).map(|u| u.0).collect();
+    if !artillery.is_empty() {
+        plans.push(Plan::Fire(
+            artillery,
+            if player == 0 { 18000.0 } else { 14500.0 },
+            26100.0,
+        ));
     }
     plans
 }
@@ -102,6 +116,10 @@ fn g10_cheat_oracle_and_resolution_time() {
                     Plan::Emit(units) => Order::SetEmitter {
                         units: ids(units),
                         on: true,
+                    },
+                    Plan::Fire(units, x, y) => Order::FireMission {
+                        units: ids(units),
+                        target: sim::indirect::FireTarget::Point(Vec2::new(x, y)),
                     },
                 })
                 .collect();
@@ -138,6 +156,8 @@ fn g10_cheat_oracle_and_resolution_time() {
                         shooter.into_iter().chain(target).collect()
                     }
                     SeenEvent::ZoneCaptured { .. } => vec![],
+                    SeenEvent::ShellFired { shooter } => vec![shooter],
+                    SeenEvent::ShellImpact { .. } => vec![],
                 };
                 for id in ids {
                     let own = g.world.unit(id).is_some_and(|u| u.owner == player);
@@ -157,6 +177,10 @@ fn g10_cheat_oracle_and_resolution_time() {
             .iter()
             .filter(|e| matches!(e.event, sim::event::Event::ShotFired { .. }))
             .count();
+        let shells = events
+            .iter()
+            .filter(|e| matches!(e.event, sim::event::Event::ShellFired { .. }))
+            .count();
         let dead = g
             .world
             .units()
@@ -164,7 +188,7 @@ fn g10_cheat_oracle_and_resolution_time() {
             .filter(|u| u.state == sim::world::UnitState::Destroyed)
             .count();
         report.push(format!(
-            "turn {turn}: {:.1} ms, {} events, {shots} shots, {dead} destroyed",
+            "turn {turn}: {:.1} ms, {} events, {shots} shots, {shells} shells, {dead} destroyed",
             took.as_secs_f64() * 1000.0,
             events.len()
         ));
@@ -256,6 +280,12 @@ async fn network_match(run: u32) -> [Vec<Vec<u8>>; 2] {
                                 waypoints: vec![p::Vec2 { x, y }],
                             },
                             Plan::Emit(units) => p::Order::SetEmitter { units, on: true },
+                            Plan::Fire(units, x, y) => p::Order::FireMission {
+                                units,
+                                target: p::FireTarget::Point {
+                                    pos: p::Vec2 { x, y },
+                                },
+                            },
                         })
                         .collect();
                     for msg in [ClientMsg::SubmitOrders { turn, orders }, ClientMsg::Ready] {
@@ -279,6 +309,8 @@ async fn network_match(run: u32) -> [Vec<Vec<u8>>; 2] {
                                 shooter.into_iter().chain(target).collect()
                             }
                             p::EventKind::ZoneCaptured { .. } => vec![],
+                            p::EventKind::ShellFired { shooter } => vec![shooter],
+                            p::EventKind::ShellImpact { .. } => vec![],
                         };
                         for id in ids {
                             assert!(

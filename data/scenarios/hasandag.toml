@@ -210,6 +210,38 @@ x = 20800.0
 y = 26000.0
 heading_deg = 180.0
 
+[[unit]]
+id = 27
+owner = 0
+type = "spg"
+x = 11500.0
+y = 26400.0
+heading_deg = 0.0
+
+[[unit]]
+id = 28
+owner = 0
+type = "rocket"
+x = 11000.0
+y = 25600.0
+heading_deg = 0.0
+
+[[unit]]
+id = 29
+owner = 1
+type = "spg"
+x = 21100.0
+y = 26400.0
+heading_deg = 180.0
+
+[[unit]]
+id = 30
+owner = 1
+type = "rocket"
+x = 21600.0
+y = 25600.0
+heading_deg = 180.0
+
 [[zone]]
 id = 1
 name_tr = "Batı Depo"

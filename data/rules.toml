@@ -44,3 +44,6 @@ radius_m = 300.0       # placeholder; resupply reach at the end of a turn
 
 [comms]
 wire_reach_m = 150.0   # placeholder; distance to a road cell to plug into its wire network
+
+[indirect]
+min_track_quality = 2  # fire missions at a unit need its position (radar, triangulation or sight)

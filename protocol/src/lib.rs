@@ -60,6 +60,18 @@ pub enum Order {
     SetEmitter { units: Vec<UnitId>, on: bool },
     /// Rules of engagement: free (fire at will), return (only after being shot at), hold.
     SetStance { units: Vec<UnitId>, stance: Stance },
+    /// Artillery/rockets fire at a point or a tracked enemy (track quality >= 2) for this turn.
+    FireMission {
+        units: Vec<UnitId>,
+        target: FireTarget,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum FireTarget {
+    Point { pos: Vec2 },
+    Unit { unit: UnitId },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -150,6 +162,15 @@ pub enum EventKind {
     TrackLost {
         unit: UnitId,
         last_known: Position,
+    },
+    /// An artillery/rocket round was fired (shooter shown only if visible).
+    ShellFired {
+        shooter: UnitId,
+    },
+    /// Public: an explosion.
+    ShellImpact {
+        pos: Vec2,
+        radius_m: f64,
     },
     ZoneCaptured {
         zone: u32,
@@ -318,6 +339,10 @@ mod tests {
                         units: vec![7, 8],
                         stance: Stance::Return,
                     },
+                    Order::FireMission {
+                        units: vec![11],
+                        target: FireTarget::Unit { unit: 12 },
+                    },
                 ],
             },
             ClientMsg::RequestPreview {
@@ -427,6 +452,17 @@ mod tests {
                     VisibleEvent {
                         tick: 83,
                         kind: EventKind::UnitDestroyed { unit: 12 },
+                    },
+                    VisibleEvent {
+                        tick: 100,
+                        kind: EventKind::ShellFired { shooter: 11 },
+                    },
+                    VisibleEvent {
+                        tick: 150,
+                        kind: EventKind::ShellImpact {
+                            pos: P,
+                            radius_m: 60.0,
+                        },
                     },
                     VisibleEvent {
                         tick: 120,

@@ -168,6 +168,8 @@ fn event_ids(e: &p::EventKind) -> Vec<u32> {
         | p::EventKind::TrackLost { unit, .. } => vec![unit],
         p::EventKind::ShotFired { shooter, target } => shooter.into_iter().chain(target).collect(),
         p::EventKind::ZoneCaptured { .. } => vec![],
+        p::EventKind::ShellFired { shooter } => vec![shooter],
+        p::EventKind::ShellImpact { .. } => vec![],
     }
 }
 

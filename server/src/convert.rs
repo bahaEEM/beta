@@ -2,6 +2,7 @@
 //! sim (already filtered) -> protocol types. No game rules here.
 
 use protocol as p;
+use sim::indirect::FireTarget;
 use sim::logistics::Zone;
 use sim::turn::Order;
 use sim::visibility::{Contact, Position, SeenEvent, SeenTickEvent};
@@ -62,6 +63,13 @@ pub fn order(o: &p::Order) -> Order {
         p::Order::SetEmitter { units: ids, on } => Order::SetEmitter {
             units: units(ids),
             on: *on,
+        },
+        p::Order::FireMission { units: ids, target } => Order::FireMission {
+            units: units(ids),
+            target: match *target {
+                p::FireTarget::Point { pos } => FireTarget::Point(from_vec2(pos)),
+                p::FireTarget::Unit { unit } => FireTarget::Unit(UnitId(unit)),
+            },
         },
         p::Order::SetStance { units: ids, stance } => Order::SetStance {
             units: units(ids),
@@ -129,6 +137,11 @@ pub fn event(e: &SeenTickEvent) -> p::VisibleEvent {
         SeenEvent::TrackLost { unit, last_known } => p::EventKind::TrackLost {
             unit: unit.0,
             last_known: position(last_known),
+        },
+        SeenEvent::ShellFired { shooter } => p::EventKind::ShellFired { shooter: shooter.0 },
+        SeenEvent::ShellImpact { pos, radius_m } => p::EventKind::ShellImpact {
+            pos: vec2(*pos),
+            radius_m: *radius_m,
         },
         SeenEvent::ZoneCaptured { zone, player } => p::EventKind::ZoneCaptured {
             zone: *zone,
