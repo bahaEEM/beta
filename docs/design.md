@@ -58,6 +58,16 @@ Yeni testlerin adı kural kimliğiyle başlar (`k043_...`). Eski testler aşağ�
 - **K-062 İkmal.** Tur sonunda ikmal kamyonu 300 m içindeki dost birimlerin yakıt ve mühimmatını stokundan doldurur;
   kendisi kendi depo bölgesinde tam dolar.
 
+## Haberleşme
+- **K-080 Komuta ağı.** Her tarafın karargâhı (`hq`) ağın köküdür. Birim, karargâha bir bağlantı zinciriyle ulaşabiliyorsa bağlıdır;
+  zincir başka birimlerden geçebilir (röle). Bağlılık her planlama fazının başında hesaplanır.
+- **K-081 Telsiz.** İki birim, aradaki mesafe ikisinin `radio_range_m` değerinin küçüğünden kısaysa telsizle bağlanır.
+  Açık bir düşman karıştırıcısının `radio_range_m` yarıçapındaki birimin telsizi çalışmaz.
+- **K-082 Kablolu hat.** Yol hücresine 150 m'den yakın birim o yolun ağına bağlanır; aynı yol ağındaki iki birim kabloyla bağlıdır. Kablo karıştırılamaz.
+- **K-083 Kopuk birim.** Bağlı olmayan birim yeni emir almaz (emir gerekçesiyle reddedilir; grup emrinde tek kopuk birim bütün emri reddettirir);
+  eski rotasına ve ateş kuralına devam eder. Karargâh yok olursa hiçbir birim emir alamaz.
+- **K-084 Kapsam.** Karargâhla başlamayan taraf için bu kural uygulanmaz (testler ve eğitim senaryoları).
+
 ## Sunucu ve protokol
 - **K-070 Yetkili sunucu.** Bütün kurallar sunucuda; istemci sadece gösterir ve emir yollar.
 - **K-071 Protokol.** JSON + zstd, en fazla 1 MB, sürüm uyuşmazlığında ret (`docs/protocol.md`).
@@ -94,6 +104,10 @@ Bütün sayılar yer tutucudur; görsel aşamadan önce oyun testiyle ayarlanaca
 | K-060 | f1_3_infantry_captures_after_capture_time, f1_3_only_infantry_captures_and_contest_freezes |
 | K-061 | f1_3_owner_scores_each_turn_and_wins_at_victory_points |
 | K-062 | f1_4_supply_refills_nearby_units_and_restocks_at_depot |
+| K-080 | k080_radio_links_relay_through_units, k082_no_hq_no_command |
+| K-081 / K-082 | k081_enemy_jammer_cuts_radio_but_not_wire |
+| K-083 | k083_cut_off_units_reject_new_orders_but_keep_moving |
+| K-084 | k084_sides_without_hq_are_not_restricted |
 | K-071 | g6_client_messages_round_trip, g6_server_messages_round_trip, g6_version_mismatch_rejected, g6_oversized_message_rejected, g6_protocol_md_up_to_date |
 | K-072 | g7_resume_after_shutdown, g7_reconnect_same_name, g7_planning_deadline_starts_resolution |
 

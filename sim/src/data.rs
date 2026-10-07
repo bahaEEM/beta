@@ -42,6 +42,11 @@ pub struct UnitType {
     pub ammo: u32,
     #[serde(default)]
     pub sensors: Vec<SensorSpec>,
+    /// Radio reach; two units link if both are within each other's reach.
+    pub radio_range_m: f64,
+    /// Command post: the root of its side's command network.
+    #[serde(default)]
+    pub hq: bool,
     /// Stock a supply unit carries for others.
     #[serde(default)]
     pub supply_fuel_l: f64,
@@ -64,9 +69,11 @@ pub enum SensorSpec {
     Esm {
         range_m: f64,
     },
-    /// Active; while emitting, degrades enemy radars within `range_m`.
+    /// Active; while emitting, degrades enemy radars within `range_m` and blocks enemy
+    /// radios within `radio_range_m`.
     Jammer {
         range_m: f64,
+        radio_range_m: f64,
     },
 }
 
@@ -76,7 +83,7 @@ impl SensorSpec {
             SensorSpec::Optical { range_m }
             | SensorSpec::Radar { range_m, .. }
             | SensorSpec::Esm { range_m }
-            | SensorSpec::Jammer { range_m } => range_m,
+            | SensorSpec::Jammer { range_m, .. } => range_m,
         }
     }
 
@@ -93,7 +100,14 @@ impl UnitType {
 
     pub fn jammer_range_m(&self) -> Option<f64> {
         self.sensors.iter().find_map(|s| match *s {
-            SensorSpec::Jammer { range_m } => Some(range_m),
+            SensorSpec::Jammer { range_m, .. } => Some(range_m),
+            _ => None,
+        })
+    }
+
+    pub fn radio_jam_range_m(&self) -> Option<f64> {
+        self.sensors.iter().find_map(|s| match *s {
+            SensorSpec::Jammer { radio_range_m, .. } => Some(radio_range_m),
             _ => None,
         })
     }
@@ -172,6 +186,7 @@ fn validate(t: &UnitType) -> Result<(), DataError> {
         ("fuel_l", t.fuel_l),
         ("fuel_l_per_km", t.fuel_l_per_km),
         ("supply_fuel_l", t.supply_fuel_l),
+        ("radio_range_m", t.radio_range_m),
     ];
     for (field, v) in fields {
         if !v.is_finite() || v < 0.0 {
@@ -217,6 +232,14 @@ pub struct Rules {
     pub turn: TurnRules,
     pub zones: ZoneRules,
     pub supply: SupplyRules,
+    pub comms: CommsRules,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CommsRules {
+    /// A unit this close to a road cell is on the wire network of that road.
+    pub wire_reach_m: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -359,6 +382,9 @@ pub fn load_rules(toml_text: &str) -> Result<Rules, DataError> {
     {
         return Err(DataError::InvalidRule("sensor.esm.min_cross_deg"));
     }
+    if !(rules.comms.wire_reach_m.is_finite() && rules.comms.wire_reach_m >= 0.0) {
+        return Err(DataError::InvalidRule("comms.wire_reach_m"));
+    }
     if !(rules.zones.capture_s > 0.0 && rules.supply.radius_m > 0.0) || rules.zones.max_turns == 0 {
         return Err(DataError::InvalidRule("zones/supply"));
     }
@@ -409,7 +435,7 @@ mod tests {
         let cat = load_units(UNITS).unwrap();
         assert_eq!(
             cat.types.keys().collect::<Vec<_>>(),
-            ["atgm", "esm", "gsr", "infantry", "jammer", "mbt", "supply"]
+            ["atgm", "esm", "gsr", "hq", "infantry", "jammer", "mbt", "supply"]
         );
         assert!(cat.get("gsr").unwrap().is_emitter());
         assert!(!cat.get("esm").unwrap().is_emitter());

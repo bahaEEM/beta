@@ -424,6 +424,12 @@ impl Match {
                 supply_fuel: u.supply_fuel,
                 supply_ammo: u.supply_ammo,
                 stance: convert::stance(u.stance),
+                connected: !self.game.hq_players.contains(&player)
+                    || self
+                        .game
+                        .connected
+                        .get(&player)
+                        .is_some_and(|c| c.contains(&u.id)),
             })
             .collect();
         let contacts = contacts(&self.game.tracks, &self.game.world, &self.rules, player)

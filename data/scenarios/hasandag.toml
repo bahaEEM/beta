@@ -194,6 +194,22 @@ x = 20600.0
 y = 26600.0
 heading_deg = 180.0
 
+[[unit]]
+id = 25
+owner = 0
+type = "hq"
+x = 11800.0
+y = 26000.0
+heading_deg = 0.0
+
+[[unit]]
+id = 26
+owner = 1
+type = "hq"
+x = 20800.0
+y = 26000.0
+heading_deg = 180.0
+
 [[zone]]
 id = 1
 name_tr = "Batı Depo"

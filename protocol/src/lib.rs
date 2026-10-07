@@ -84,6 +84,8 @@ pub struct OwnUnit {
     pub supply_fuel: f64,
     pub supply_ammo: u32,
     pub stance: Stance,
+    /// Linked to the HQ: only connected units accept new orders.
+    pub connected: bool,
 }
 
 /// An enemy unit as known to this player. `type_id` is only present at quality >= 2.
@@ -354,6 +356,7 @@ mod tests {
                         supply_fuel: 0.0,
                         supply_ammo: 0,
                         stance: Stance::Free,
+                        connected: true,
                     }],
                     contacts: vec![
                         Contact {

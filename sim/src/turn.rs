@@ -2,6 +2,7 @@
 //! G5: turn engine. Planning validates orders (KBG budget); resolution runs 200 ticks.
 
 use crate::combat::{step_combat, CombatState};
+use crate::comms::{connected_units, players_with_hq};
 use crate::data::{Rules, UnitCatalog};
 use crate::event::{Event, TickEvent};
 use crate::logistics::{end_of_turn, step_capture, MatchResult, Zone};
@@ -28,6 +29,12 @@ pub struct Game {
     /// Set when the match is over.
     #[serde(default)]
     pub result: Option<MatchResult>,
+    /// Players that started with an HQ (the command-network rule applies to them).
+    #[serde(default)]
+    pub hq_players: BTreeSet<PlayerId>,
+    /// Units linked to their HQ at the start of the current planning phase.
+    #[serde(default)]
+    pub connected: BTreeMap<PlayerId, BTreeSet<UnitId>>,
 }
 
 impl Game {
@@ -35,6 +42,8 @@ impl Game {
     pub fn new(world: World, catalog: &UnitCatalog, rules: &Rules) -> Self {
         let mut tracks = TrackTable::default();
         update_tracks(&world, catalog, rules, &mut tracks);
+        let hq_players = players_with_hq(&world, catalog);
+        let connected = connected_units(&world, catalog, rules, &hq_players);
         Self {
             turn: 1,
             world,
@@ -44,6 +53,8 @@ impl Game {
             zones: Vec::new(),
             scores: BTreeMap::new(),
             result: None,
+            hq_players,
+            connected,
         }
     }
 }
@@ -81,6 +92,8 @@ pub enum RejectReason {
     DuplicateUnit,
     NoUnits,
     NotEmitter,
+    /// The unit has no link to its HQ.
+    NoComms,
     Move(MoveError),
 }
 
@@ -92,6 +105,7 @@ impl fmt::Display for RejectReason {
             RejectReason::DuplicateUnit => write!(f, "more than one order for this unit"),
             RejectReason::NoUnits => write!(f, "order has no units"),
             RejectReason::NotEmitter => write!(f, "unit has no radar or jammer"),
+            RejectReason::NoComms => write!(f, "no communication with the unit"),
             RejectReason::Move(e) => write!(f, "{e}"),
         }
     }
@@ -190,6 +204,12 @@ pub fn validate_orders(
             .any(|&id| game.world.unit(id).is_some_and(|u| u.owner != player))
         {
             Some(RejectReason::NotOwner)
+        } else if game.hq_players.contains(&player)
+            && units
+                .iter()
+                .any(|id| !game.connected.get(&player).is_some_and(|c| c.contains(id)))
+        {
+            Some(RejectReason::NoComms)
         } else if unique.len() != units.len() || units.iter().any(|&id| seen.contains(&(id, kind)))
         {
             Some(RejectReason::DuplicateUnit)
@@ -339,6 +359,7 @@ pub fn resolve_phase(game: &mut Game, catalog: &UnitCatalog, rules: &Rules) -> V
         );
     }
     end_of_turn(game, catalog, rules);
+    game.connected = connected_units(&game.world, catalog, rules, &game.hq_players);
     game.turn += 1;
     out
 }

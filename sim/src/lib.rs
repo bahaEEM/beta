@@ -2,6 +2,7 @@
 //! Game rules. Pure, deterministic, no I/O.
 
 pub mod combat;
+pub mod comms;
 pub mod data;
 pub mod event;
 pub mod logistics;

@@ -36,5 +36,5 @@
 | Görev | Durum | Commit | Not |
 |---|---|---|---|
 | F2-1 muharebe modeli + denge + design.md | bitti | (bu commit) | beklenen hasar, nişan, ateş kuralı (set_stance), tanksavar timi, senaryo 5,6 km; istemcide ateş kuralı tuşu F2 sonunda |
-| F2-2 haberleşme ağı | bekliyor | | |
+| F2-2 haberleşme ağı | bitti | (bu commit) | karargâh, telsiz röle, yol kablosu, karıştırıcı telsizi keser, kopuk birime emir yok |
 | F2-3 topçu ve füze | bekliyor | | |

@@ -289,7 +289,13 @@ async fn network_match(run: u32) -> [Vec<Vec<u8>>; 2] {
                     }
                     out[i].push(serde_json::to_vec(&events).unwrap());
                 }
-                ServerMsg::OrderRejected { reason } => panic!("order rejected: {reason}"),
+                ServerMsg::OrderRejected { reason } => {
+                    // Cut-off units (enemy radio jamming) legitimately refuse orders.
+                    assert!(
+                        reason.contains("no communication"),
+                        "order rejected: {reason}"
+                    );
+                }
                 ServerMsg::Error { code, message } => panic!("server error {code}: {message}"),
                 ServerMsg::PreviewResult { .. } | ServerMsg::OrdersAccepted { .. } => {}
                 ServerMsg::GameOver { .. } => done[i] = true,

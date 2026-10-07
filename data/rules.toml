@@ -41,3 +41,6 @@ max_turns = 100        # highest score wins after this turn
 
 [supply]
 radius_m = 300.0       # placeholder; resupply reach at the end of a turn
+
+[comms]
+wire_reach_m = 150.0   # placeholder; distance to a road cell to plug into its wire network

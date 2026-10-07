@@ -116,7 +116,8 @@ Bu dosya `protocol/src/lib.rs` testlerinden üretilir; elle düzenleme. Güncell
         "ammo": 38,
         "supply_fuel": 0.0,
         "supply_ammo": 0,
-        "stance": "free"
+        "stance": "free",
+        "connected": true
       }
     ],
     "contacts": [
