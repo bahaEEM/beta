@@ -1,0 +1,33 @@
+# Unit type definitions. Values marked "placeholder" are untuned guesses.
+
+[[unit]]
+id = "infantry"
+name_tr = "Piyade"
+class = "infantry"
+speed_offroad_mps = 1.5          # placeholder
+max_slope_deg = 40.0             # placeholder
+armor_front_mm = 0.0
+armor_side_mm = 0.0
+armor_rear_mm = 0.0
+weapon_range_m = 400.0
+penetration_mm = 5.0             # placeholder
+damage_hp = 10.0                 # placeholder; hp removed per hit on infantry
+reload_ticks = 10                # placeholder
+sensor_optical_range_m = 1000.0  # placeholder
+hp = 100.0                       # placeholder
+
+[[unit]]
+id = "mbt"
+name_tr = "Ana Muharebe Tankı"
+class = "vehicle"
+speed_offroad_mps = 10.0         # placeholder
+max_slope_deg = 30.0             # placeholder
+armor_front_mm = 600.0           # placeholder
+armor_side_mm = 80.0             # placeholder
+armor_rear_mm = 40.0             # placeholder
+weapon_range_m = 2000.0
+penetration_mm = 650.0           # placeholder
+damage_hp = 100.0                # placeholder
+reload_ticks = 80                # placeholder
+sensor_optical_range_m = 2500.0  # placeholder
+hp = 100.0                       # placeholder
