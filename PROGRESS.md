@@ -11,7 +11,7 @@
 | G5 | bitti | (bu commit) | iz 1 = 500 m hücre merkezi; kayıp iz hep bölge |
 | G6 | bitti | (bu commit) | G5 olaylarına göre küçük ayar gerekebilir; docs/protocol.md testten üretilir |
 | G7 | bitti | (bu commit) | 5 uçtan uca test; data/scenarios/hasandag.toml |
-| G8 | araç bitti, gerçek harita GDAL bekliyor | 635029a | docs/maps.md |
+| G8 | bitti | 635029a + (bu commit) | gerçek harita rasterio ile üretildi; 954–3262 m |
 | G9 | kod bitti, görsel test bekliyor | (bu commit) | Godot 4.6.3; Terrain3D 1.0.2 çalışma anında import; tests/smoke.gd iki Godot istemcisiyle tam tur OK. Gerçek harita GDAL bekliyor |
 | G10 | bekliyor | | |
 

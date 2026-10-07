@@ -87,3 +87,18 @@ aralığı `min_height_m`..`max_height_m`, piksel boyu `pixel_size_x_m` (30 m).
   Hasandağı kutusunda nodata beklenmez.
 - Bu dosyalar Copernicus DEM lisansına tabidir, oyunun CC BY-SA varlık lisansına
   **değil**. Ayrıntı: `ASSETS.md`.
+
+## GDAL kurulu değilse (sudo'suz yol)
+
+`rasterio` Python paketi GDAL'ı kendi içinde getirir:
+
+```sh
+python3 -m venv venv-rio && venv-rio/bin/pip install rasterio
+export LC_ALL=C   # Türkçe dil ayarında GDAL gereksiz uyarılar basar
+venv-rio/bin/rio merge Copernicus_DSM_COG_10_*_DEM.tif merged.tif --overwrite
+venv-rio/bin/rio warp merged.tif hasandag_utm36.tif --dst-crs EPSG:32636 --res 30 \
+  --dst-bounds 582240 4200590 622260 4240610 --resampling bilinear --overwrite
+```
+
+2026-10-07 üretimi: kaynak 1334 x 1334 @ 30 m, sim 800 x 800 @ 50 m,
+yükseklik 953,98 – 3262,29 m, zirve sim hücresi (397, 402) ≈ (19850, 20100) m.
