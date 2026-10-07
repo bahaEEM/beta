@@ -130,7 +130,9 @@ pub struct Rules {
 #[serde(deny_unknown_fields)]
 pub struct KbgRules {
     pub budget_per_turn: u32,
-    pub move_order_cost: u32,
+    /// Cost of one order per started `units_per_point` units.
+    pub order_cost: u32,
+    pub units_per_point: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -206,8 +208,11 @@ pub fn load_rules(toml_text: &str) -> Result<Rules, DataError> {
     if !(c.damaged_speed_factor > 0.0 && c.damaged_speed_factor <= 1.0) {
         return Err(DataError::InvalidRule("combat.damaged_speed_factor"));
     }
-    if rules.kbg.move_order_cost == 0 {
-        return Err(DataError::InvalidRule("kbg.move_order_cost"));
+    if rules.kbg.order_cost == 0 {
+        return Err(DataError::InvalidRule("kbg.order_cost"));
+    }
+    if rules.kbg.units_per_point == 0 {
+        return Err(DataError::InvalidRule("kbg.units_per_point"));
     }
     let cell = rules.visibility.contact_cell_m;
     if !(cell.is_finite() && cell > 0.0) {

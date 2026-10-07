@@ -2,7 +2,7 @@
 //! sim (already filtered) -> protocol types. No game rules here.
 
 use protocol as p;
-use sim::movement::MoveOrder;
+use sim::turn::Order;
 use sim::visibility::{Contact, Position, SeenEvent, SeenTickEvent};
 use sim::world::{UnitId, UnitState, Vec2};
 
@@ -32,12 +32,20 @@ pub fn state(s: UnitState) -> p::UnitState {
     }
 }
 
-pub fn order(o: &p::Order) -> MoveOrder {
+pub fn units(ids: &[p::UnitId]) -> Vec<UnitId> {
+    ids.iter().copied().map(UnitId).collect()
+}
+
+pub fn order(o: &p::Order) -> Order {
     match o {
-        p::Order::Move { unit, waypoints } => MoveOrder {
-            unit: UnitId(*unit),
+        p::Order::Move {
+            units: ids,
+            waypoints,
+        } => Order::Move {
+            units: units(ids),
             waypoints: waypoints.iter().copied().map(from_vec2).collect(),
         },
+        p::Order::Stop { units: ids } => Order::Stop { units: units(ids) },
     }
 }
 

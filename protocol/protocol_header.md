@@ -5,6 +5,6 @@ Bu dosya `protocol/src/lib.rs` testlerinden üretilir; elle düzenleme. Güncell
 - Taşıma: WebSocket ikili (binary) mesaj. İçerik: JSON, sonra zstd (seviye 3).
 - Godot'ta açma: `bytes.decompress(1048576, FileAccess.COMPRESSION_ZSTD)` (`decompress_dynamic` zstd desteklemez) sonra `JSON.parse_string(...)`.
 - JSON en fazla 1 MB (1048576 bayt); büyüğü hata.
-- Her mesajın `type` alanı vardır. Bağlantıdaki ilk mesaj `hello` olmalı; `protocol_version` sunucununkiyle (şu an 1) aynı değilse bağlantı `error` ile kapatılır.
+- Her mesajın `type` alanı vardır. Bağlantıdaki ilk mesaj `hello` olmalı; `protocol_version` sunucununkiyle (şu an 2) aynı değilse bağlantı `error` ile kapatılır.
 - Konumlar metre cinsinden; x doğuya, y güneye artar. `position.kind`: `exact` (kesin) veya `area` (iz kalitesi 1: merkez + yarıçap).
 - Görmediğiniz birimin kimliği hiçbir mesajda yer almaz (`shot_fired` içinde `null` olur).

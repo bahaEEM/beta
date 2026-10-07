@@ -11,7 +11,8 @@ damaged_speed_factor = 0.5  # damaged units move at half speed
 
 [kbg]
 budget_per_turn = 8   # command points per player per turn
-move_order_cost = 1
+order_cost = 1        # points per order...
+units_per_point = 12  # ...for every started 12 units in it (group orders)
 
 [visibility]
 contact_cell_m = 500.0  # placeholder; quality-1 contacts snap to this grid

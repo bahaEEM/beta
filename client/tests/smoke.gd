@@ -24,7 +24,7 @@ func _on_message(i: int, m: Dictionary) -> void:
 	log_lines[i].append(m.type)
 	if m.type == "turn_start" and int(m.turn) == 1:
 		var u = m.view.own_units[0]
-		clients[i].send({"type": "submit_orders", "turn": 1, "orders": [{"type": "move", "unit": int(u.id),
+		clients[i].send({"type": "submit_orders", "turn": 1, "orders": [{"type": "move", "units": [int(u.id)],
 			"waypoints": [{"x": u.pos.x + 300.0, "y": u.pos.y}]}]})
 		clients[i].send({"type": "ready"})
 	if m.type == "resolution":

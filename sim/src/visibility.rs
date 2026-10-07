@@ -200,9 +200,8 @@ pub fn contacts(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::movement::MoveOrder;
     use crate::turn::tests::{catalog, game, rules, unit};
-    use crate::turn::{plan_phase, step_tick};
+    use crate::turn::{plan_phase, step_tick, Order};
     use crate::world::HeightMap;
     use crate::TICKS_PER_TURN;
 
@@ -266,10 +265,10 @@ mod tests {
                 ));
             }
             let mut g = game(map, units);
-            let mut orders: BTreeMap<PlayerId, Vec<MoveOrder>> = BTreeMap::new();
+            let mut orders: BTreeMap<PlayerId, Vec<Order>> = BTreeMap::new();
             for u in g.world.units() {
-                orders.entry(u.owner).or_default().push(MoveOrder {
-                    unit: u.id,
+                orders.entry(u.owner).or_default().push(Order::Move {
+                    units: vec![u.id],
                     waypoints: vec![Vec2::new(rng.next() * 5900.0, rng.next() * 5900.0)],
                 });
             }

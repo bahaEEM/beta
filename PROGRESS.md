@@ -23,7 +23,7 @@
 | Görev | Durum | Commit | Not |
 |---|---|---|---|
 | F1-0 ölçek | bitti | (bu commit) | 2 dk/tur; Hasandağı 5 turda 8 atış, 7 imha |
-| F1-1 grup emirleri + KBG | bekliyor | | |
+| F1-1 grup emirleri + KBG | bitti | (bu commit) | protokol v2: move{units}, stop, orders_accepted; istemci arayüzü F1-6 |
 | F1-2 yol ağı | bekliyor | | |
 | F1-3 bölgeler | bekliyor | | |
 | F1-4 ikmal | bekliyor | | |

@@ -6,7 +6,7 @@ use crate::data::{Rules, UnitCatalog};
 use crate::event::{Event, TickEvent};
 use crate::movement::{plan_route, step_movement, MoveError, MoveOrder, Routes};
 use crate::sensor::{update_tracks, TrackTable};
-use crate::world::{PlayerId, UnitId, World};
+use crate::world::{PlayerId, UnitId, Vec2, World};
 use crate::TICKS_PER_TURN;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -37,11 +37,31 @@ impl Game {
     }
 }
 
+/// A player's order. Group orders keep the units' relative layout around the waypoints.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum Order {
+    Move {
+        units: Vec<UnitId>,
+        waypoints: Vec<Vec2>,
+    },
+    /// Cancels a route that continues from an earlier turn.
+    Stop { units: Vec<UnitId> },
+}
+
+impl Order {
+    pub fn units(&self) -> &[UnitId] {
+        match self {
+            Order::Move { units, .. } | Order::Stop { units } => units,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum RejectReason {
     KbgExceeded,
     NotOwner,
     DuplicateUnit,
+    NoUnits,
     Move(MoveError),
 }
 
@@ -51,6 +71,7 @@ impl fmt::Display for RejectReason {
             RejectReason::KbgExceeded => write!(f, "kbg budget exceeded"),
             RejectReason::NotOwner => write!(f, "unit is not yours"),
             RejectReason::DuplicateUnit => write!(f, "more than one order for this unit"),
+            RejectReason::NoUnits => write!(f, "order has no units"),
             RejectReason::Move(e) => write!(f, "{e}"),
         }
     }
@@ -58,61 +79,141 @@ impl fmt::Display for RejectReason {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Rejection {
-    pub order: MoveOrder,
+    pub order: Order,
     pub reason: RejectReason,
 }
 
-/// Validates one player's orders in submission order. Accepted orders come back as routes;
-/// an order that would exceed the KBG budget is rejected (later cheaper orders still count).
+/// Per unit: `Some(route)` = new route, `None` = stop.
+pub type RouteChanges = BTreeMap<UnitId, Option<Vec<Vec2>>>;
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct Validated {
+    pub changes: RouteChanges,
+    pub rejected: Vec<Rejection>,
+    pub kbg_spent: u32,
+}
+
+/// KBG cost of an order for `n` units: `order_cost` per started `units_per_point` units.
+pub fn order_cost(rules: &Rules, n: usize) -> u32 {
+    let per = rules.kbg.units_per_point.max(1) as usize;
+    n.div_ceil(per) as u32 * rules.kbg.order_cost
+}
+
+/// Routes for a group: each unit keeps its offset from the group's centre; if the offset
+/// point is unreachable the unit goes to the exact waypoints instead.
+pub fn group_routes(
+    world: &World,
+    catalog: &UnitCatalog,
+    units: &[UnitId],
+    waypoints: &[Vec2],
+) -> Result<Vec<(UnitId, Vec<Vec2>)>, MoveError> {
+    let mut positions = Vec::with_capacity(units.len());
+    for &id in units {
+        positions.push((id, world.unit(id).ok_or(MoveError::UnknownUnit(id))?.pos));
+    }
+    let n = positions.len().max(1) as f64;
+    let (sx, sy) = positions
+        .iter()
+        .fold((0.0, 0.0), |(x, y), (_, p)| (x + p.x, y + p.y));
+    let centre = Vec2::new(sx / n, sy / n);
+    let mut out = Vec::with_capacity(positions.len());
+    for (unit, pos) in positions {
+        let (ox, oy) = (pos.x - centre.x, pos.y - centre.y);
+        let shifted = MoveOrder {
+            unit,
+            waypoints: waypoints
+                .iter()
+                .map(|w| Vec2::new(w.x + ox, w.y + oy))
+                .collect(),
+        };
+        let exact = MoveOrder {
+            unit,
+            waypoints: waypoints.to_vec(),
+        };
+        let route =
+            plan_route(world, catalog, &shifted).or_else(|_| plan_route(world, catalog, &exact))?;
+        out.push((unit, route));
+    }
+    Ok(out)
+}
+
+/// Validates one player's orders in submission order. An order that would exceed the KBG
+/// budget is rejected; later cheaper orders still count.
 pub fn validate_orders(
     game: &Game,
     catalog: &UnitCatalog,
     rules: &Rules,
     player: PlayerId,
-    orders: &[MoveOrder],
-) -> (Routes, Vec<Rejection>) {
-    let mut routes = Routes::new();
-    let mut rejected = Vec::new();
+    orders: &[Order],
+) -> Validated {
+    let mut v = Validated::default();
     let mut seen = BTreeSet::new();
-    let mut spent = 0u32;
     for order in orders {
-        let reason = match game.world.unit(order.unit) {
-            Some(u) if u.owner != player => Some(RejectReason::NotOwner),
-            _ if !seen.insert(order.unit) => Some(RejectReason::DuplicateUnit),
-            _ if spent + rules.kbg.move_order_cost > rules.kbg.budget_per_turn => {
-                Some(RejectReason::KbgExceeded)
-            }
-            _ => match plan_route(&game.world, catalog, order) {
-                Ok(route) => {
-                    routes.insert(order.unit, route);
-                    spent += rules.kbg.move_order_cost;
+        let units = order.units();
+        let cost = order_cost(rules, units.len());
+        let unique: BTreeSet<_> = units.iter().collect();
+        let reason = if units.is_empty() {
+            Some(RejectReason::NoUnits)
+        } else if let Some(&id) = units.iter().find(|&&id| game.world.unit(id).is_none()) {
+            Some(RejectReason::Move(MoveError::UnknownUnit(id)))
+        } else if units
+            .iter()
+            .any(|&id| game.world.unit(id).is_some_and(|u| u.owner != player))
+        {
+            Some(RejectReason::NotOwner)
+        } else if unique.len() != units.len() || units.iter().any(|id| seen.contains(id)) {
+            Some(RejectReason::DuplicateUnit)
+        } else if v.kbg_spent + cost > rules.kbg.budget_per_turn {
+            Some(RejectReason::KbgExceeded)
+        } else {
+            match order {
+                Order::Move { units, waypoints } => {
+                    match group_routes(&game.world, catalog, units, waypoints) {
+                        Ok(routes) => {
+                            v.changes
+                                .extend(routes.into_iter().map(|(id, r)| (id, Some(r))));
+                            None
+                        }
+                        Err(e) => Some(RejectReason::Move(e)),
+                    }
+                }
+                Order::Stop { units } => {
+                    v.changes.extend(units.iter().map(|&id| (id, None)));
                     None
                 }
-                Err(e) => Some(RejectReason::Move(e)),
-            },
+            }
         };
-        if let Some(reason) = reason {
-            rejected.push(Rejection {
+        match reason {
+            Some(reason) => v.rejected.push(Rejection {
                 order: order.clone(),
                 reason,
-            });
+            }),
+            None => {
+                seen.extend(units.iter().copied());
+                v.kbg_spent += cost;
+            }
         }
     }
-    (routes, rejected)
+    v
 }
 
-/// Validates every player's orders and installs the accepted routes (replacing old ones).
+/// Validates every player's orders and applies the accepted route changes.
 pub fn plan_phase(
     game: &mut Game,
     catalog: &UnitCatalog,
     rules: &Rules,
-    orders_by_player: &BTreeMap<PlayerId, Vec<MoveOrder>>,
+    orders_by_player: &BTreeMap<PlayerId, Vec<Order>>,
 ) -> BTreeMap<PlayerId, Vec<Rejection>> {
     let mut all_rejected = BTreeMap::new();
     for (&player, orders) in orders_by_player {
-        let (routes, rejected) = validate_orders(game, catalog, rules, player, orders);
-        game.routes.extend(routes);
-        all_rejected.insert(player, rejected);
+        let v = validate_orders(game, catalog, rules, player, orders);
+        for (id, change) in v.changes {
+            match change {
+                Some(route) => game.routes.insert(id, route),
+                None => game.routes.remove(&id),
+            };
+        }
+        all_rejected.insert(player, v.rejected);
     }
     all_rejected
 }
@@ -181,7 +282,7 @@ pub fn resolve_phase(game: &mut Game, catalog: &UnitCatalog, rules: &Rules) -> V
 pub(crate) mod tests {
     use super::*;
     use crate::data::{load_rules, load_units};
-    use crate::world::{HeightMap, Unit, UnitState, Vec2};
+    use crate::world::{HeightMap, Unit, UnitState};
 
     pub fn rules() -> Rules {
         load_rules(include_str!("../../data/rules.toml")).unwrap()
@@ -215,9 +316,9 @@ pub(crate) mod tests {
         HeightMap::new(200, 200, 50.0, vec![0.0; 40_000]).unwrap()
     }
 
-    fn mv(unit: u32, x: f64, y: f64) -> MoveOrder {
-        MoveOrder {
-            unit: UnitId(unit),
+    fn mv(unit: u32, x: f64, y: f64) -> Order {
+        Order::Move {
+            units: vec![UnitId(unit)],
             waypoints: vec![Vec2::new(x, y)],
         }
     }
@@ -237,7 +338,7 @@ pub(crate) mod tests {
         );
         let r = &rejected[&PlayerId(0)];
         assert_eq!(r.len(), 1);
-        assert_eq!(r[0].order.unit, UnitId(9));
+        assert_eq!(r[0].order.units(), [UnitId(9)]);
         assert_eq!(r[0].reason, RejectReason::KbgExceeded);
         assert_eq!(g.routes.len(), rules().kbg.budget_per_turn as usize);
     }
@@ -318,5 +419,96 @@ pub(crate) mod tests {
         let back: Game = serde_json::from_slice(&serde_json::to_vec(&g).unwrap()).unwrap();
         assert_eq!(back, g);
         assert!(!back.tracks.tracks.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod group_tests {
+    use super::tests::{catalog, game, rules, unit};
+    use super::*;
+    use crate::world::HeightMap;
+
+    fn flat() -> HeightMap {
+        HeightMap::new(200, 200, 50.0, vec![0.0; 40_000]).unwrap()
+    }
+
+    #[test]
+    fn f1_1_group_order_costs_one_point_per_12_units() {
+        let r = rules();
+        assert_eq!(order_cost(&r, 1), 1);
+        assert_eq!(order_cost(&r, 12), 1);
+        assert_eq!(order_cost(&r, 13), 2);
+        let units = (1..=13)
+            .map(|i| unit(i, 0, "infantry", 1000.0 + 50.0 * i as f64, 1000.0))
+            .collect();
+        let g = game(flat(), units);
+        let order = Order::Move {
+            units: (1..=13).map(UnitId).collect(),
+            waypoints: vec![Vec2::new(1350.0, 3000.0)],
+        };
+        let v = validate_orders(&g, &catalog(), &r, PlayerId(0), &[order]);
+        assert!(v.rejected.is_empty());
+        assert_eq!(v.kbg_spent, 2);
+        assert_eq!(v.changes.len(), 13);
+    }
+
+    #[test]
+    fn f1_1_group_keeps_formation() {
+        let g = game(
+            flat(),
+            vec![
+                unit(1, 0, "mbt", 1000.0, 1000.0),
+                unit(2, 0, "mbt", 1200.0, 1000.0),
+            ],
+        );
+        let routes = group_routes(
+            &g.world,
+            &catalog(),
+            &[UnitId(1), UnitId(2)],
+            &[Vec2::new(5100.0, 5000.0)],
+        )
+        .unwrap();
+        assert_eq!(routes[0].1.last(), Some(&Vec2::new(5000.0, 5000.0)));
+        assert_eq!(routes[1].1.last(), Some(&Vec2::new(5200.0, 5000.0)));
+    }
+
+    #[test]
+    fn f1_1_stop_cancels_route_and_duplicates_rejected() {
+        let mut g = game(
+            flat(),
+            vec![
+                unit(1, 0, "mbt", 1000.0, 1000.0),
+                unit(2, 0, "mbt", 1200.0, 1000.0),
+            ],
+        );
+        let go = Order::Move {
+            units: vec![UnitId(1), UnitId(2)],
+            waypoints: vec![Vec2::new(5000.0, 5000.0)],
+        };
+        plan_phase(
+            &mut g,
+            &catalog(),
+            &rules(),
+            &BTreeMap::from([(PlayerId(0), vec![go])]),
+        );
+        assert_eq!(g.routes.len(), 2);
+        let stop = Order::Stop {
+            units: vec![UnitId(1)],
+        };
+        let dup = Order::Stop {
+            units: vec![UnitId(1), UnitId(2)],
+        };
+        let rejected = plan_phase(
+            &mut g,
+            &catalog(),
+            &rules(),
+            &BTreeMap::from([(PlayerId(0), vec![stop, dup])]),
+        );
+        assert_eq!(
+            rejected[&PlayerId(0)][0].reason,
+            RejectReason::DuplicateUnit
+        );
+        assert!(!g.routes.contains_key(&UnitId(1)));
+        assert!(g.routes.contains_key(&UnitId(2)));
     }
 }

@@ -25,6 +25,7 @@ var player_id := -1
 var turn := 0
 var deadline := 0.0
 var kbg_budget := 0
+var kbg_spent := 0
 # id -> {owner, type, pos: Vector2, heading, state, quality, area: bool}
 var units := {}
 var selected := -1
@@ -198,6 +199,8 @@ func _on_message(m: Dictionary) -> void:
 				previews[int(m.unit)] = m.path.map(func(p): return Vector2(p.x, p.y))
 			else:
 				_status("Rota yok: %s" % m.reason)
+		"orders_accepted":
+			kbg_spent = int(m.kbg_spent)
 		"order_rejected":
 			_status("Emir reddedildi: %s" % m.reason)
 		"error":
@@ -211,6 +214,7 @@ func _apply_turn_start(m: Dictionary) -> void:
 	units.clear()
 	orders.clear()
 	previews.clear()
+	kbg_spent = 0
 	for u in m.view.own_units:
 		units[int(u.id)] = {"owner": player_id, "type": u.type_id, "pos": Vector2(u.pos.x, u.pos.y),
 			"heading": u.heading_rad, "state": u.state, "quality": 3, "area": false}
@@ -231,7 +235,7 @@ func _position(pos: Dictionary) -> Array:
 func _submit_orders() -> void:
 	var list := []
 	for id in orders:
-		list.append({"type": "move", "unit": id,
+		list.append({"type": "move", "units": [id],
 			"waypoints": orders[id].map(func(p): return {"x": p.x, "y": p.y})})
 	net.send({"type": "submit_orders", "turn": turn, "orders": list})
 
@@ -422,7 +426,7 @@ func _add_waypoint(screen: Vector2) -> void:
 		orders[selected] = []
 	orders[selected].append(Vector2(hit.x, hit.z))
 	var wps: Array = orders[selected].map(func(p): return {"x": p.x, "y": p.y})
-	net.send({"type": "request_preview", "unit": selected, "waypoints": wps})
+	net.send({"type": "request_preview", "units": [selected], "waypoints": wps})
 	_submit_orders()
 
 
@@ -483,7 +487,7 @@ func _update_hud() -> void:
 	if playing:
 		ui.hud.text = "  Tur %d  çözüm %.1f / 20 sn" % [turn, play_time]
 	elif turn > 0:
-		ui.hud.text = "  Tur %d  kalan %d sn  KBG: %d emir / bütçe %d" % [turn, ceil(deadline), orders.size(), kbg_budget]
+		ui.hud.text = "  Tur %d  kalan %d sn  KBG: %d / %d" % [turn, ceil(deadline), kbg_spent, kbg_budget]
 	ui.fps.text = "FPS %d" % Engine.get_frames_per_second()
 
 

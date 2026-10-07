@@ -130,7 +130,9 @@ impl Client {
         loop {
             match self.recv().await {
                 ServerMsg::TurnStart { turn, view, .. } => return (turn, view),
-                ServerMsg::OrderRejected { .. } | ServerMsg::PreviewResult { .. } => {}
+                ServerMsg::OrderRejected { .. }
+                | ServerMsg::OrdersAccepted { .. }
+                | ServerMsg::PreviewResult { .. } => {}
                 other => panic!("expected turn start, got {other:?}"),
             }
         }
@@ -140,7 +142,9 @@ impl Client {
         loop {
             match self.recv().await {
                 ServerMsg::Resolution { turn, events } => return (turn, events),
-                ServerMsg::OrderRejected { .. } | ServerMsg::PreviewResult { .. } => {}
+                ServerMsg::OrderRejected { .. }
+                | ServerMsg::OrdersAccepted { .. }
+                | ServerMsg::PreviewResult { .. } => {}
                 other => panic!("expected resolution, got {other:?}"),
             }
         }
@@ -151,7 +155,7 @@ fn move_order(unit: u32, x: f64, y: f64) -> ClientMsg {
     ClientMsg::SubmitOrders {
         turn: 1,
         orders: vec![p::Order::Move {
-            unit,
+            units: vec![unit],
             waypoints: vec![p::Vec2 { x, y }],
         }],
     }
@@ -182,7 +186,7 @@ async fn play_turn_one(addr: SocketAddr) -> (Client, Client, p::PlayerView, p::P
     assert!(view_a.contacts.iter().all(|c| c.unit != 4));
 
     a.send(&ClientMsg::RequestPreview {
-        unit: 2,
+        units: vec![2],
         waypoints: vec![p::Vec2 {
             x: 1000.0,
             y: 2000.0,

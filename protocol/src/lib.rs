@@ -6,7 +6,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt;
 use std::io::Read;
 
-pub const PROTOCOL_VERSION: u32 = 1;
+pub const PROTOCOL_VERSION: u32 = 2;
 /// Maximum size of a message's JSON (uncompressed).
 pub const MAX_MESSAGE_BYTES: usize = 1024 * 1024;
 const ZSTD_LEVEL: i32 = 3;
@@ -39,7 +39,13 @@ pub enum UnitState {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Order {
-    Move { unit: UnitId, waypoints: Vec<Vec2> },
+    /// Group move; units keep their layout around the waypoints. Cost: 1 KBG per started 12 units.
+    Move {
+        units: Vec<UnitId>,
+        waypoints: Vec<Vec2>,
+    },
+    /// Cancel routes continuing from earlier turns.
+    Stop { units: Vec<UnitId> },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -120,8 +126,9 @@ pub enum ClientMsg {
         turn: u32,
         orders: Vec<Order>,
     },
+    /// One `preview_result` comes back per unit.
     RequestPreview {
-        unit: UnitId,
+        units: Vec<UnitId>,
         waypoints: Vec<Vec2>,
     },
     Ready,
@@ -148,6 +155,12 @@ pub enum ServerMsg {
         unit: UnitId,
         path: Vec<Vec2>,
         reason: Option<String>,
+    },
+    /// Reply to `submit_orders` (the accepted part replaces the previous submission).
+    OrdersAccepted {
+        turn: u32,
+        kbg_spent: u32,
+        kbg_budget: u32,
     },
     OrderRejected {
         reason: String,
@@ -237,13 +250,16 @@ mod tests {
             },
             ClientMsg::SubmitOrders {
                 turn: 3,
-                orders: vec![Order::Move {
-                    unit: 7,
-                    waypoints: vec![P],
-                }],
+                orders: vec![
+                    Order::Move {
+                        units: vec![7, 8],
+                        waypoints: vec![P],
+                    },
+                    Order::Stop { units: vec![9] },
+                ],
             },
             ClientMsg::RequestPreview {
-                unit: 7,
+                units: vec![7, 8],
                 waypoints: vec![P],
             },
             ClientMsg::Ready,
@@ -334,6 +350,11 @@ mod tests {
                 unit: 7,
                 path: vec![P],
                 reason: None,
+            },
+            ServerMsg::OrdersAccepted {
+                turn: 3,
+                kbg_spent: 2,
+                kbg_budget: 8,
             },
             ServerMsg::OrderRejected {
                 reason: "kbg budget exceeded".into(),

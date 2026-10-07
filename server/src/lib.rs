@@ -11,8 +11,7 @@ use futures_util::{SinkExt, StreamExt};
 use protocol::{self as p, ClientMsg, ServerMsg};
 use setup::{save_game, SaveFile};
 use sim::data::{Rules, UnitCatalog};
-use sim::movement::{plan_route, MoveOrder};
-use sim::turn::{plan_phase, resolve_phase, validate_orders, Game};
+use sim::turn::{group_routes, plan_phase, resolve_phase, validate_orders, Game, Order};
 use sim::visibility::{contacts, filter_for_player, SeenTickEvent};
 use sim::world::PlayerId;
 use std::collections::BTreeMap;
@@ -215,7 +214,7 @@ enum Phase {
 struct Slot {
     name: Option<String>,
     conn: Option<(u64, Tx)>,
-    orders: Vec<MoveOrder>,
+    orders: Vec<Order>,
     ready: bool,
 }
 
@@ -443,49 +442,73 @@ impl Match {
                     );
                     return;
                 }
-                let orders: Vec<MoveOrder> = orders.iter().map(convert::order).collect();
-                let (routes, rejected) =
-                    validate_orders(&self.game, &self.catalog, &self.rules, player, &orders);
-                for r in &rejected {
+                let orders: Vec<Order> = orders.iter().map(convert::order).collect();
+                let v = validate_orders(&self.game, &self.catalog, &self.rules, player, &orders);
+                for r in &v.rejected {
+                    let ids: Vec<String> =
+                        r.order.units().iter().map(|u| u.0.to_string()).collect();
                     self.send(
                         p,
                         &ServerMsg::OrderRejected {
-                            reason: format!("unit {}: {}", r.order.unit.0, r.reason),
+                            reason: format!("units {}: {}", ids.join(","), r.reason),
                         },
                     );
                 }
+                self.send(
+                    p,
+                    &ServerMsg::OrdersAccepted {
+                        turn,
+                        kbg_spent: v.kbg_spent,
+                        kbg_budget: self.rules.kbg.budget_per_turn,
+                    },
+                );
                 if let Some(slot) = self.slots.get_mut(p) {
                     slot.orders = orders
                         .into_iter()
-                        .filter(|o| routes.contains_key(&o.unit))
+                        .filter(|o| !v.rejected.iter().any(|r| r.order == *o))
                         .collect();
                 }
             }
-            ClientMsg::RequestPreview { unit, waypoints } => {
-                let order = convert::order(&p::Order::Move { unit, waypoints });
-                let mine = self
-                    .game
-                    .world
-                    .unit(order.unit)
-                    .is_some_and(|u| u.owner == player);
+            ClientMsg::RequestPreview { units, waypoints } => {
+                let ids = convert::units(&units);
+                let wps: Vec<_> = waypoints.into_iter().map(convert::from_vec2).collect();
+                let mine = ids
+                    .iter()
+                    .all(|&id| self.game.world.unit(id).is_some_and(|u| u.owner == player));
                 let result = if mine {
-                    plan_route(&self.game.world, &self.catalog, &order).map_err(|e| e.to_string())
+                    group_routes(&self.game.world, &self.catalog, &ids, &wps)
+                        .map_err(|e| e.to_string())
                 } else {
                     Err("unit is not yours".into())
                 };
-                let msg = match result {
-                    Ok(path) => ServerMsg::PreviewResult {
-                        unit,
-                        path: path.into_iter().map(convert::vec2).collect(),
-                        reason: None,
-                    },
-                    Err(reason) => ServerMsg::PreviewResult {
-                        unit,
-                        path: vec![],
-                        reason: Some(reason),
-                    },
-                };
-                self.send(p, &msg);
+                match result {
+                    Ok(routes) => {
+                        for (id, path) in routes {
+                            let path = path.into_iter().map(convert::vec2).collect();
+                            self.send(
+                                p,
+                                &ServerMsg::PreviewResult {
+                                    unit: id.0,
+                                    path,
+                                    reason: None,
+                                },
+                            );
+                        }
+                    }
+                    Err(reason) => {
+                        for &unit in &units {
+                            let reason = Some(reason.clone());
+                            self.send(
+                                p,
+                                &ServerMsg::PreviewResult {
+                                    unit,
+                                    path: vec![],
+                                    reason,
+                                },
+                            );
+                        }
+                    }
+                }
             }
             ClientMsg::Ready => {
                 if self.phase == Phase::Planning {
@@ -505,7 +528,7 @@ impl Match {
         self.deadline = None;
         let mut game = self.game.clone();
         let (catalog, rules) = (Arc::clone(&self.catalog), Arc::clone(&self.rules));
-        let orders: BTreeMap<PlayerId, Vec<MoveOrder>> = self
+        let orders: BTreeMap<PlayerId, Vec<Order>> = self
             .slots
             .iter()
             .enumerate()

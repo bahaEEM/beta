@@ -13,8 +13,7 @@ use protocol::{self as p, ClientMsg, ServerMsg};
 use server::setup::{load_data, load_map, load_scenario};
 use server::{serve, MatchSetup};
 use sim::event::TickEvent;
-use sim::movement::MoveOrder;
-use sim::turn::{plan_phase, step_tick, Game};
+use sim::turn::{plan_phase, step_tick, Game, Order};
 use sim::visibility::{filter_for_player, SeenEvent};
 use sim::world::{PlayerId, UnitId, Vec2};
 use sim::TICKS_PER_TURN;
@@ -51,7 +50,7 @@ fn g10_cheat_oracle_and_resolution_time() {
     let (mut g, catalog, rules) = new_game();
     let mut report = Vec::new();
     for turn in 1..=TURNS {
-        let mut orders: BTreeMap<PlayerId, Vec<MoveOrder>> = BTreeMap::new();
+        let mut orders: BTreeMap<PlayerId, Vec<Order>> = BTreeMap::new();
         for player in [0u8, 1] {
             let own: Vec<_> = g
                 .world
@@ -64,8 +63,8 @@ fn g10_cheat_oracle_and_resolution_time() {
                 .collect();
             let list = orders_for(player, &own)
                 .into_iter()
-                .map(|(id, x, y)| MoveOrder {
-                    unit: UnitId(id),
+                .map(|(id, x, y)| Order::Move {
+                    units: vec![UnitId(id)],
                     waypoints: vec![Vec2::new(x, y)],
                 })
                 .collect();
@@ -214,7 +213,7 @@ async fn network_match(run: u32) -> [Vec<Vec<u8>>; 2] {
                     let orders = orders_for(player_of[i], &own)
                         .into_iter()
                         .map(|(unit, x, y)| p::Order::Move {
-                            unit,
+                            units: vec![unit],
                             waypoints: vec![p::Vec2 { x, y }],
                         })
                         .collect();
@@ -250,7 +249,7 @@ async fn network_match(run: u32) -> [Vec<Vec<u8>>; 2] {
                 }
                 ServerMsg::OrderRejected { reason } => panic!("order rejected: {reason}"),
                 ServerMsg::Error { code, message } => panic!("server error {code}: {message}"),
-                ServerMsg::PreviewResult { .. } => {}
+                ServerMsg::PreviewResult { .. } | ServerMsg::OrdersAccepted { .. } => {}
             }
         }
     }
