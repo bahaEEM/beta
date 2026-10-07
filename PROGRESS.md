@@ -30,3 +30,11 @@
 | F1-5 radar/ESM/karıştırma | bitti | (bu commit) | 4 yeni birim tipi; kerteriz yalnızca yön verir; hile testi EW birimleriyle |
 | F1-6 istemci | bitti (görsel test kullanıcıda) | 706c1d8 | alt ajan; ekransız testler OK, ~130 FPS |
 | F1-7 kapı | bitti | (bu commit) | G10 testi grup/EW emirleriyle; docs/faz1-rapor.md |
+
+# Faz 2
+
+| Görev | Durum | Commit | Not |
+|---|---|---|---|
+| F2-1 muharebe modeli + denge + design.md | yapılıyor | | beklenen hasar + nişan + ateş kuralları |
+| F2-2 haberleşme ağı | bekliyor | | |
+| F2-3 topçu ve füze | bekliyor | | |

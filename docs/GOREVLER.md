@@ -128,3 +128,21 @@ Varsayılan sayılar yer tutucudur ve hepsi data/*.toml içindedir.
 - F1-6 İstemci: çoklu seçim (sürükle), Ctrl+1–9 grupları, emir silme / durdurma, birim bilgi paneli (hp, yakıt, mühimmat),
   yol ve bölge çizimi, skor, radar aç/kapa, ESM kerteriz çizgileri.
 - F1-7 Kapı: Hasandağı senaryosu yeni birimlerle; determinizm ×3, hile testi (kerteriz dahil), süre; docs/faz1-rapor.md.
+
+# Faz 2 — denge, haberleşme, dolaylı ateş (2026-10-07)
+
+Kullanıcı kararları: sıra = denge + tasarım belgesi → haberleşme ağı → topçu/füze. Görsel tasarım (C&C Generals çizgisi,
+daha iyi; güncel askeri teknolojiden gerçekçi esintiler) en sona (Faz 3): önce mekanik kusursuz ve dengeli olacak.
+Hasar modeli kararı: "ikisi birden" = beklenen hasar + nişan süresi + ateş kuralları.
+
+- F2-1 Muharebe modeli ve denge:
+  - Beklenen hasar (zarsız): her atış `damage_hp × isabet(mesafe) × delme çarpanı` hasar verir. İsabet silah verisinden
+    (`hit_close` → `hit_far`, menzil boyunca doğrusal). Delme: pen ≥ etkin zırh → 1; ≥ %70 → kısmi çarpan; altı → 0.
+    Araçların da canı var: can ≤ %50 → hasarlı (hız yarıya), 0 → imha. ("İki kez hasarlı = imha" kuralı kalkar.)
+  - Nişan süresi: atıcı aynı hedefi `aim_s` boyunca ateş koşullarında tutmadan ilk atışı yapamaz; hedef değişirse sıfırlanır.
+  - Ateş kuralları (birim başına): `free` (serbest), `return` (son `return_fire_s` içinde ateş altında kaldıysa), `hold` (ateş yok).
+    `set_stance { units, stance }` emri (KBG).
+  - Sayılar yeniden: denge hedefi ve ölçümü docs/design.md'de. Senaryo başlangıç mesafesi gerçekçi.
+  - docs/design.md: tüm kurallar K-001… kimlikleriyle + her kuralın testleri (izlenebilirlik tablosu). Yeni testler K-kimliğiyle adlanır.
+- F2-2 Haberleşme ağı: kablolu hat + telsiz; karıştırıcı telsizi bozar; bağlantısı kopan birim emir alamaz / KBG etkisi.
+- F2-3 Topçu ve füze: iz 2 ile dolaylı ateş, uçuş süresi, alan hasarı.
