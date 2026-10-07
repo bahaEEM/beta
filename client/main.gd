@@ -13,12 +13,18 @@ const RESOLUTION_TICKS := 200
 const BOX_SIZE := {
 	"infantry": Vector3(40, 30, 40), "mbt": Vector3(60, 40, 100), "gsr": Vector3(50, 70, 70),
 	"esm": Vector3(50, 55, 80), "jammer": Vector3(55, 60, 75), "supply": Vector3(45, 45, 110),
+	"atgm": Vector3(28, 45, 28), "hq": Vector3(85, 50, 85), "spg": Vector3(55, 35, 125),
+	"rocket": Vector3(60, 75, 120),
 }
-const TYPE_SHADE := {"mbt": -0.25, "gsr": 0.35, "esm": 0.5, "jammer": 0.2, "supply": 0.6}
+const TYPE_SHADE := {"mbt": -0.25, "gsr": 0.35, "esm": 0.5, "jammer": 0.2, "supply": 0.6,
+	"atgm": -0.1, "hq": 0.75, "spg": -0.45, "rocket": -0.6}
+const STANCES := ["free", "return", "hold"]
 const TEAM_COLORS := [Color(0.25, 0.55, 1.0), Color(1.0, 0.3, 0.25)]
 const DEAD_COLOR := Color(0.2, 0.2, 0.2)
 const SELECTED_COLOR := Color.YELLOW
 const EMITTER_TYPES := ["gsr", "jammer"]
+const ARTILLERY_TYPES := ["spg", "rocket"]
+const MISSION_MARK_M := 150.0  # display only; the real blast radius comes with shell_impact
 const BEARING_LENGTH := 40000.0
 const DRAG_MIN_PX := 6.0
 
@@ -44,7 +50,7 @@ var scores: Array = []
 var zones: Array = []
 var game_over = null  # game_over message once received
 # id -> {id, owner, type, pos: Vector2, heading, state, quality, kind: exact|area|bearing, radius, angle,
-#        and for own units: hp, fuel, ammo, emitting, supply_fuel, supply_ammo}
+#        and for own units: hp, fuel, ammo, emitting, supply_fuel, supply_ammo, stance, connected}
 var units := {}
 var selection: Array = []
 var groups := {}  # digit -> Array of ids (client-side control groups)
@@ -52,6 +58,7 @@ var orders := Orders.new()
 var previews := {}  # id -> Array[Vector2] previewed path
 var drag_start = null  # Vector2 while the left button is held
 var drag_end := Vector2.ZERO
+var targeting: Array = []  # artillery ids waiting for a fire mission target click (T key)
 
 # Resolution playback
 var playing := false
@@ -259,13 +266,15 @@ func _apply_turn_start(m: Dictionary) -> void:
 		units[id] = {"id": id, "owner": player_id, "type": u.type_id, "pos": Vector2(u.pos.x, u.pos.y),
 			"heading": u.heading_rad, "state": u.state, "quality": 3, "kind": "exact", "hp": u.hp,
 			"fuel": u.fuel, "ammo": int(u.ammo), "emitting": u.emitting,
-			"supply_fuel": u.supply_fuel, "supply_ammo": int(u.supply_ammo)}
+			"supply_fuel": u.supply_fuel, "supply_ammo": int(u.supply_ammo),
+			"stance": u.get("stance", "free"), "connected": u.get("connected", true)}
 	for c in m.view.contacts:
 		var id := int(c.unit)
 		units[id] = {"id": id, "owner": 1 - player_id, "type": c.type_id if c.type_id != null else "",
 			"heading": 0.0, "state": "healthy", "quality": int(c.quality)}
 		units[id].merge(_position(c.position), true)
 	selection = selection.filter(_is_own_alive)
+	targeting.clear()
 	if game_over == null:
 		ui.ready_button.disabled = false
 		_status("Tur %d: planlama. Sol tık/sürükle seç, sağ tık rota noktası." % turn)
@@ -323,6 +332,7 @@ func _start_playback(evs: Array) -> void:
 				keyframes[id] = []
 			keyframes[id].append([float(e.tick), p.pos])
 	previews.clear()
+	targeting.clear()
 	ui.ready_button.disabled = true
 	_status("Tur %d: çözüm oynatılıyor." % turn)
 
@@ -387,6 +397,11 @@ func _apply_event(e: Dictionary) -> void:
 		"shot_fired":
 			if e.shooter != null and e.target != null and units.has(int(e.shooter)) and units.has(int(e.target)):
 				shots.append([to_world(units[int(e.shooter)].pos, 20), to_world(units[int(e.target)].pos, 20), 0.4])
+		"shell_fired":
+			if e.shooter != null and units.has(int(e.shooter)):
+				_blast(to_world(units[int(e.shooter)].pos, 30), 40.0, Color(1.0, 1.0, 0.6), 0.3)
+		"shell_impact":
+			_blast(to_world(Vector2(e.pos.x, e.pos.y)), float(e.radius_m), Color(1.0, 0.45, 0.1), 1.5)
 		"zone_captured":
 			for z in zones:
 				if int(z.id) == int(e.zone):
@@ -397,6 +412,24 @@ func _apply_event(e: Dictionary) -> void:
 
 
 # ---------------------------------------------------------------- drawing
+
+# Short-lived dome of radius r at p that grows from a third of r and fades out.
+func _blast(p: Vector3, r: float, color: Color, life: float) -> void:
+	var mi := MeshInstance3D.new()
+	mi.mesh = SphereMesh.new()  # radius 0.5
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color = Color(color, 0.8)
+	mi.material_override = mat
+	mi.position = p
+	mi.scale = Vector3.ONE * r * 0.66
+	add_child(mi)
+	var tw := create_tween().set_parallel()
+	tw.tween_property(mi, "scale", Vector3.ONE * r * 2.0, life)
+	tw.tween_property(mat, "albedo_color", Color(color, 0.0), life)
+	tw.chain().tween_callback(mi.queue_free)
+
 
 func _unit_color(id: int, u: Dictionary) -> Color:
 	if u.state == "destroyed":
@@ -453,10 +486,23 @@ func _draw_lines(delta: float) -> void:
 		var u: Dictionary = units[id]
 		if u.owner == player_id and u.get("emitting", false) and u.state != "destroyed":
 			_circle(segs, u.pos, 120.0 + 60.0 * pulse, Color(0.3, 1.0, 1.0, 0.4 + 0.5 * pulse))
-		elif u.owner != player_id and u.kind == "bearing":
+		if u.owner == player_id and u.state != "destroyed":
+			if u.type == "hq":  # HQ: a square frame around the box
+				_circle(segs, u.pos, 110.0, Color.WHITE, 4, 1, PI / 4)
+			if not u.get("connected", true):  # cut off from HQ: dashed grey ring
+				_circle(segs, u.pos, 90.0, Color(0.6, 0.6, 0.6), 24, 2)
+		if u.owner != player_id and u.kind == "bearing":
 			# ESM bearing: the enemy is somewhere along this ray; its position is unknown.
 			var dir := Vector2(cos(u.angle), sin(u.angle))
 			_polyline(segs, [u.pos, u.pos + dir * BEARING_LENGTH], Color(enemy, 0.45 if u.quality > 0 else 0.15))
+	for o in orders.missions():
+		var t = o.target.pos if o.target.kind == "point" else units.get(int(o.target.unit), {}).get("pos")
+		if t == null:
+			continue
+		_circle(segs, t, MISSION_MARK_M, Color.ORANGE_RED)
+		for id in o.units:
+			if units.has(id):
+				_polyline(segs, [units[id].pos, t], Color(1.0, 0.4, 0.2, 0.7))
 	for shot in shots:
 		segs.append([shot[0], shot[1], Color.ORANGE])
 		shot[2] -= delta
@@ -482,11 +528,11 @@ func _polyline(segs: Array, pts: Array, color: Color) -> void:
 				to_world(pts[i].lerp(pts[i + 1], float(k + 1) / n), 30), color])
 
 
-func _circle(segs: Array, c: Vector2, r: float, color: Color) -> void:
-	var n := 24
-	for k in n:
-		var a := TAU * k / n
-		var b := TAU * (k + 1) / n
+# Polygon of n sides around c; step 2 draws every other side (dashed).
+func _circle(segs: Array, c: Vector2, r: float, color: Color, n := 24, step := 1, rot := 0.0) -> void:
+	for k in range(0, n, step):
+		var a := TAU * k / n + rot
+		var b := TAU * (k + 1) / n + rot
 		segs.append([to_world(c + Vector2(cos(a), sin(a)) * r, 20), to_world(c + Vector2(cos(b), sin(b)) * r, 20), color])
 
 
@@ -520,7 +566,9 @@ func _mouse_button(event: InputEventMouseButton) -> void:
 			if event.pressed:
 				cam_dist = min(40000.0, cam_dist / 0.85)
 		MOUSE_BUTTON_LEFT:
-			if event.pressed:
+			if event.pressed and not targeting.is_empty():
+				_fire_at(event.position)
+			elif event.pressed:
 				drag_start = event.position
 				drag_end = event.position
 			elif drag_start != null:
@@ -533,8 +581,9 @@ func _mouse_button(event: InputEventMouseButton) -> void:
 		MOUSE_BUTTON_RIGHT:
 			if event.pressed and _can_order() and not selection.is_empty():
 				var p = _ground_point(event.position)
-				if p != null:
-					orders.add_waypoint(selection, p)
+				var ids := _orderable(selection)
+				if p != null and not ids.is_empty():
+					orders.add_waypoint(ids, p)
 					_orders_changed()
 
 
@@ -569,18 +618,42 @@ func _key(event: InputEventKey) -> void:
 		else:
 			selection = groups.get(digit, []).filter(_is_own_alive)
 		return
+	if event.keycode == KEY_ESCAPE and not targeting.is_empty():
+		targeting.clear()
+		_status("Atış görevi iptal.")
+		return
 	if not _can_order() or selection.is_empty():
 		return
+	if event.keycode in [KEY_DELETE, KEY_BACKSPACE]:
+		orders.remove(selection)
+		_orders_changed()
+		return
+	if not event.keycode in [KEY_S, KEY_F, KEY_T, KEY_R]:
+		return
+	var ids := _orderable(selection)
+	if ids.is_empty():
+		return
 	match event.keycode:
-		KEY_DELETE, KEY_BACKSPACE:
-			orders.remove(selection)
-			_orders_changed()
 		KEY_S:
-			orders.stop(selection)
+			orders.stop(ids)
 			_orders_changed()
+		KEY_F:
+			var cur = orders.pending_stance(ids[0])
+			if cur == null:
+				cur = units[ids[0]].stance
+			var next: String = STANCES[(STANCES.find(cur) + 1) % STANCES.size()]
+			orders.set_stance(ids, next)
+			_orders_changed()
+			_status("Ateş kuralı: %s (%d birim)" % [Hud.STANCE_NAMES[next], ids.size()])
+		KEY_T:
+			targeting = ids.filter(func(id): return units[id].type in ARTILLERY_TYPES)
+			if targeting.is_empty():
+				_status("Seçimde obüs veya füze rampası yok.")
+			else:
+				_status("Atış görevi: hedef için sol tık (arazi veya düşman), Esc iptal.")
 		KEY_R:
 			var emitting := {}
-			for id in selection:
+			for id in ids:
 				if units[id].type in EMITTER_TYPES:
 					emitting[id] = units[id].emitting
 			if emitting.is_empty():
@@ -590,11 +663,52 @@ func _key(event: InputEventKey) -> void:
 			_orders_changed()
 
 
+# Selected units that can take orders now; reports cut-off ones (K-083) in the status line.
+func _orderable(ids: Array) -> Array:
+	var out := ids.filter(func(id): return units[id].get("connected", true))
+	if out.size() < ids.size():
+		_status("Bağlantı yok: %d birim emir alamaz" % (ids.size() - out.size()))
+	return out
+
+
+# Targeting click: an enemy contact near the cursor gives a unit mission, else the ground point.
+func _fire_at(screen: Vector2) -> void:
+	var enemy := _pick_unit(screen, _is_enemy_target)
+	if enemy >= 0:
+		add_mission({"kind": "unit", "unit": enemy})
+		return
+	var p = _ground_point(screen)
+	if p == null:
+		_status("Hedef arazide değil.")
+		return
+	add_mission({"kind": "point", "pos": p})
+
+
+func add_mission(target: Dictionary) -> void:
+	if targeting.is_empty() or not _can_order():
+		return
+	orders.fire_mission(targeting, target)
+	_status("Atış görevi: %d birim -> %s" % [targeting.size(),
+		"nokta" if target.kind == "point" else "birim #%d" % target.unit])
+	targeting.clear()
+	_orders_changed()
+
+
+func _is_enemy_target(id) -> bool:
+	var u: Dictionary = units[id]
+	return u.owner != player_id and u.state != "destroyed" and u.kind != "bearing" and u.quality > 0
+
+
 func _pick_own_unit(screen: Vector2) -> int:
+	return _pick_unit(screen, _is_own_alive)
+
+
+# Unit (passing the filter) whose box is nearest the cursor within 30 px, or -1.
+func _pick_unit(screen: Vector2, filter: Callable) -> int:
 	var best := -1
 	var best_d := 30.0
 	for id in units:
-		if not _is_own_alive(id):
+		if not filter.call(id):
 			continue
 		var w := to_world(units[id].pos, 20)
 		if camera.is_position_behind(w):
@@ -645,12 +759,7 @@ func _update_hud() -> void:
 		ui.line.text = "  Tur %d  kalan %d sn  KBG: %d / %d  %s" % [turn, ceil(deadline), kbg_spent, kbg_budget, score]
 	ui.fps.text = "FPS %d" % Engine.get_frames_per_second()
 	var sel := selection.filter(func(id): return units.has(id)).map(func(id): return units[id])
-	var pending := {}
-	for id in selection:
-		var on = orders.pending_emitter(id)
-		if on != null:
-			pending[id] = on
-	ui.show_selection(sel, pending)
+	ui.show_selection(sel, orders)
 
 
 func _status(text: String) -> void:

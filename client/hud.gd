@@ -12,7 +12,12 @@ const TYPE_NAMES := {
 	"esm": "ESM Aracı",
 	"jammer": "Karıştırıcı",
 	"supply": "İkmal Kamyonu",
+	"atgm": "Tanksavar Timi",
+	"hq": "Karargâh",
+	"spg": "Obüs",
+	"rocket": "Füze Rampası",
 }
+const STANCE_NAMES := {"free": "Serbest", "return": "Karşılık", "hold": "Ateş Yok"}
 const STATE_NAMES := {"healthy": "Sağlam", "damaged": "Hasarlı", "destroyed": "Yok edildi"}
 
 var name_box := LineEdit.new()
@@ -92,8 +97,8 @@ func score_text(scores: Array, player_id: int) -> String:
 	return "Skor: biz %d - rakip %d" % [int(scores[player_id]), int(scores[1 - player_id])]
 
 
-# sel: Array of unit dicts (own units). pending_emitter: id -> bool for queued set_emitter orders.
-func show_selection(sel: Array, pending_emitter: Dictionary) -> void:
+# sel: Array of unit dicts (own units). orders: the pending orders (orders.gd).
+func show_selection(sel: Array, orders) -> void:
 	info_panel.visible = not sel.is_empty()
 	if sel.size() == 1:
 		var u: Dictionary = sel[0]
@@ -103,9 +108,19 @@ func show_selection(sel: Array, pending_emitter: Dictionary) -> void:
 			"Yakıt: %.0f   Mühimmat: %d" % [u.fuel, u.ammo],
 		]
 		var emit := "Yayın: %s" % ("Açık" if u.emitting else "Kapalı")
-		if pending_emitter.has(u.id):
-			emit += " -> %s (emir)" % ("Açık" if pending_emitter[u.id] else "Kapalı")
+		var on = orders.pending_emitter(u.id)
+		if on != null:
+			emit += " -> %s (emir)" % ("Açık" if on else "Kapalı")
 		lines.append(emit)
+		var stance := "Ateş kuralı: %s" % STANCE_NAMES.get(u.stance, u.stance)
+		var st = orders.pending_stance(u.id)
+		if st != null:
+			stance += " -> %s (emir)" % STANCE_NAMES.get(st, st)
+		lines.append(stance)
+		lines.append("Komuta: %s" % ("bağlı" if u.connected else "KOPUK (emir alamaz)"))
+		var t = orders.pending_mission(u.id)
+		if t != null:
+			lines.append("Atış görevi: %s" % ("nokta" if t.kind == "point" else "birim #%d" % t.unit))
 		if u.type == "supply":
 			lines.append("İkmal stoğu: yakıt %.0f, mühimmat %d" % [u.supply_fuel, u.supply_ammo])
 		info.text = "\n".join(lines)
@@ -114,6 +129,9 @@ func show_selection(sel: Array, pending_emitter: Dictionary) -> void:
 		for u in sel:
 			count[u.type] = count.get(u.type, 0) + 1
 		var lines := ["%d birim seçili" % sel.size()]
+		var cut := sel.filter(func(u): return not u.connected).size()
+		if cut > 0:
+			lines.append("%d birim KOPUK (emir alamaz)" % cut)
 		for t in count:
 			lines.append("%d x %s" % [count[t], TYPE_NAMES.get(t, t)])
 		info.text = "\n".join(lines)

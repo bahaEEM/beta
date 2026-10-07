@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Runs the real main scene headless against a live server for one turn (an idle second client
-# is the opponent): group move of two units, radar toggle via the R key handler, ready, playback.
+# is the opponent): group move of two units, radar toggle via the R key handler, howitzer stance (F)
+# and point fire mission (T), ready, playback with a shell_impact.
 #   godot --headless --path client --script res://tests/main_check.gd -- 127.0.0.1:7777
 # Exits 0 on success; check the output for SCRIPT ERROR as well.
 extends SceneTree
@@ -27,7 +28,10 @@ func _initialize() -> void:
 func _process(delta: float) -> bool:
 	elapsed += delta
 	rival.poll()
-	if step == 0 and main.turn == 1:
+	if main.ui.status.text.begins_with("Emir reddedildi"):
+		printerr("MAIN CHECK FAILED: ", main.ui.status.text)
+		quit(1)
+	elif step == 0 and main.turn == 1:
 		var inf: Array = main.units.keys().filter(func(id): return main.units[id].owner == main.player_id \
 			and main.units[id].type == "infantry")
 		main.selection = inf.slice(0, 2)
@@ -40,6 +44,18 @@ func _process(delta: float) -> bool:
 		key.keycode = KEY_R
 		key.pressed = true
 		main._key(key)
+		# Howitzer: F cycles the stance, T + target (the click handler's end) gives a point mission.
+		var spg: Array = main.units.keys().filter(func(id): return main.units[id].owner == main.player_id \
+			and main.units[id].type == "spg")
+		main.selection = spg
+		for k in [KEY_F, KEY_F, KEY_T]:
+			key.keycode = k
+			main._key(key)
+		var aim: Vector2 = main.units[spg[0]].pos + Vector2(8000.0 if main.player_id == 0 else -8000.0, 0)
+		main.add_mission({"kind": "point", "pos": aim})
+		if main.orders.pending_stance(spg[0]) != "hold" or main.orders.missions().size() != 1:
+			printerr("MAIN CHECK FAILED: stance/mission not queued: ", main.orders.list)
+			quit(1)
 		step = 1
 	elif step == 1 and main.previews.size() == 2 and main.kbg_spent > 0:
 		print("previews ", main.previews.keys(), " kbg ", main.kbg_spent, "/", main.kbg_budget,
@@ -48,8 +64,11 @@ func _process(delta: float) -> bool:
 		step = 2
 	elif step == 2 and main.turn == 2 and not main.playing:
 		var on: Array = main.units.values().filter(func(u): return u.get("emitting", false))
-		print("MAIN OK, emitting units: ", on.map(func(u): return u.id), " status: ", main.ui.status.text)
-		quit(0 if on.size() == 1 else 1)
+		var impacts: int = main.events.filter(func(e): return e.type == "shell_impact").size()
+		var spg: Array = main.units.values().filter(func(u): return u.owner == main.player_id and u.type == "spg")
+		print("MAIN OK, emitting units: ", on.map(func(u): return u.id), " impacts: ", impacts,
+			" spg stance: ", spg[0].stance, " status: ", main.ui.status.text)
+		quit(0 if on.size() == 1 and impacts > 0 and spg[0].stance == "hold" else 1)
 	elif elapsed > 60.0:
 		printerr("MAIN CHECK FAILED at step %d, status: %s" % [step, main.ui.status.text])
 		quit(1)

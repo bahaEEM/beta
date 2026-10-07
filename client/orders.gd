@@ -2,6 +2,8 @@
 # Pending orders of this turn (client-side bookkeeping only; the server validates and costs them).
 # Each order: {"type": "move", "units": [ids], "waypoints": [Vector2]} | {"type": "stop", "units": [ids]}
 #             | {"type": "set_emitter", "units": [ids], "on": bool}
+#             | {"type": "set_stance", "units": [ids], "stance": "free"|"return"|"hold"}
+#             | {"type": "fire_mission", "units": [ids], "target": {"kind": "point", "pos": Vector2} | {"kind": "unit", "unit": id}}
 extends RefCounted
 
 var list: Array = []
@@ -40,8 +42,36 @@ func toggle_emitter(emitting: Dictionary) -> void:
 			list.append({"type": "set_emitter", "units": by_state[on], "on": on})
 
 
+# One stance order for the selection; replaces earlier stance orders of these units.
+func set_stance(sel: Array, stance: String) -> void:
+	_remove_units(sel, ["set_stance"])
+	list.append({"type": "set_stance", "units": sel.duplicate(), "stance": stance})
+
+
+# One fire mission for the selection; replaces earlier missions of these units.
+func fire_mission(sel: Array, target: Dictionary) -> void:
+	_remove_units(sel, ["fire_mission"])
+	list.append({"type": "fire_mission", "units": sel.duplicate(), "target": target})
+
+
 func remove(sel: Array) -> void:
-	_remove_units(sel, ["move", "stop", "set_emitter"])
+	_remove_units(sel, ["move", "stop", "set_emitter", "set_stance", "fire_mission"])
+
+
+# Pending stance for a unit, or null.
+func pending_stance(id: int):
+	for o in list:
+		if o.type == "set_stance" and id in o.units:
+			return o.stance
+	return null
+
+
+# Pending fire mission target for a unit, or null.
+func pending_mission(id: int):
+	for o in list:
+		if o.type == "fire_mission" and id in o.units:
+			return o.target
+	return null
 
 
 # Pending set_emitter value for a unit, or null.
@@ -60,12 +90,18 @@ func moves() -> Array:
 	return list.filter(func(o): return o.type == "move")
 
 
+func missions() -> Array:
+	return list.filter(func(o): return o.type == "fire_mission")
+
+
 func to_wire() -> Array:
 	var out := []
 	for o in list:
 		var w: Dictionary = o.duplicate()
 		if o.type == "move":
 			w.waypoints = o.waypoints.map(func(p): return {"x": p.x, "y": p.y})
+		elif o.type == "fire_mission" and o.target.kind == "point":
+			w.target = {"kind": "point", "pos": {"x": o.target.pos.x, "y": o.target.pos.y}}
 		out.append(w)
 	return out
 
