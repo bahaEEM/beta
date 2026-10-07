@@ -9,7 +9,7 @@
 | G3 | bekliyor | | |
 | G4 | bekliyor | | |
 | G5 | bekliyor | | |
-| G6 | bekliyor | | |
+| G6 | bitti | (bu commit) | G5 olaylarına göre küçük ayar gerekebilir; docs/protocol.md testten üretilir |
 | G7 | bekliyor | | |
 | G8 | bekliyor | | |
 | G9 | bekliyor | | |
