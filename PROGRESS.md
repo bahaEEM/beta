@@ -38,4 +38,4 @@
 | F2-1 muharebe modeli + denge + design.md | bitti | (bu commit) | beklenen hasar, nişan, ateş kuralı (set_stance), tanksavar timi, senaryo 5,6 km; istemcide ateş kuralı tuşu F2 sonunda |
 | F2-2 haberleşme ağı | bitti | (bu commit) | karargâh, telsiz röle, yol kablosu, karıştırıcı telsizi keser, kopuk birime emir yok |
 | F2-3 topçu ve füze | bitti | (bu commit) | obüs 3–30 km, füze rampası 10–70 km; nokta/birim atışı; uçuş süresi; alan hasarı; G10'da tur başı 12 mermi |
-| F2-4 istemci (ateş kuralı, atış görevi, bağlantı durumu, patlamalar) | bekliyor | | |
+| F2-4 istemci (ateş kuralı, atış görevi, bağlantı durumu, patlamalar) | bitti | ddf6c08 | alt ajan; ekransız testler OK; docs/faz2-rapor.md |
