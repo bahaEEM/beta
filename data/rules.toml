@@ -1,0 +1,6 @@
+# Game rules. Values marked "placeholder" are untuned guesses.
+
+[sensor.optical]
+track_range_factor = 1.5  # contact range = sensor_optical_range_m * factor
+fire_quality = 3          # quality inside sensor_optical_range_m
+contact_quality = 1       # quality between range and range * factor

@@ -14,6 +14,7 @@ penetration_mm = 5.0             # placeholder
 damage_hp = 10.0                 # placeholder; hp removed per hit on infantry
 reload_ticks = 10                # placeholder
 sensor_optical_range_m = 1000.0  # placeholder
+height_m = 1.8                   # placeholder
 hp = 100.0                       # placeholder
 
 [[unit]]
@@ -30,4 +31,5 @@ penetration_mm = 650.0           # placeholder
 damage_hp = 100.0                # placeholder
 reload_ticks = 80                # placeholder
 sensor_optical_range_m = 2500.0  # placeholder
+height_m = 2.4                   # placeholder
 hp = 100.0                       # placeholder
