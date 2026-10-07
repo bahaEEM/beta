@@ -2,13 +2,25 @@
 # Client: display, input and UI only. Every game rule is computed by the server.
 extends Node3D
 
+const Orders := preload("res://orders.gd")
+const Hud := preload("res://hud.gd")
+const Overlays := preload("res://overlays.gd")
+
 const MAP_DIR := "../maps/hasandag"
 const TICKS_PER_SECOND := 10.0
 const RESOLUTION_TICKS := 200
-# Display sizes in metres (exaggerated so units are visible on a 40 km map).
-const BOX_SIZE := {"infantry": Vector3(40, 30, 40), "mbt": Vector3(60, 40, 100)}
+# Display sizes in metres (exaggerated so units are visible on a 40 km map) and colour shade per type.
+const BOX_SIZE := {
+	"infantry": Vector3(40, 30, 40), "mbt": Vector3(60, 40, 100), "gsr": Vector3(50, 70, 70),
+	"esm": Vector3(50, 55, 80), "jammer": Vector3(55, 60, 75), "supply": Vector3(45, 45, 110),
+}
+const TYPE_SHADE := {"mbt": -0.25, "gsr": 0.35, "esm": 0.5, "jammer": 0.2, "supply": 0.6}
 const TEAM_COLORS := [Color(0.25, 0.55, 1.0), Color(1.0, 0.3, 0.25)]
 const DEAD_COLOR := Color(0.2, 0.2, 0.2)
+const SELECTED_COLOR := Color.YELLOW
+const EMITTER_TYPES := ["gsr", "jammer"]
+const BEARING_LENGTH := 40000.0
+const DRAG_MIN_PX := 6.0
 
 var net := Net.new()
 var terrain: Terrain3D
@@ -20,18 +32,26 @@ var cam_dist := 9000.0
 var solid := MultiMeshInstance3D.new()
 var faded := MultiMeshInstance3D.new()
 var lines := MeshInstance3D.new()
+var overlays := Overlays.new(self)
+var ui := Hud.new()
 
 var player_id := -1
 var turn := 0
 var deadline := 0.0
 var kbg_budget := 0
 var kbg_spent := 0
-# id -> {owner, type, pos: Vector2, heading, state, quality, area: bool}
+var scores: Array = []
+var zones: Array = []
+var game_over = null  # game_over message once received
+# id -> {id, owner, type, pos: Vector2, heading, state, quality, kind: exact|area|bearing, radius, angle,
+#        and for own units: hp, fuel, ammo, emitting, supply_fuel, supply_ammo}
 var units := {}
-var selected := -1
-# id -> Array[Vector2] waypoints; id -> Array[Vector2] previewed path
-var orders := {}
-var previews := {}
+var selection: Array = []
+var groups := {}  # digit -> Array of ids (client-side control groups)
+var orders := Orders.new()
+var previews := {}  # id -> Array[Vector2] previewed path
+var drag_start = null  # Vector2 while the left button is held
+var drag_end := Vector2.ZERO
 
 # Resolution playback
 var playing := false
@@ -42,11 +62,20 @@ var keyframes := {}  # id -> Array of [tick, Vector2]
 var shots: Array = []  # [from Vector3, to Vector3, time_left]
 var pending_turn_start = null
 
-@onready var ui := _build_ui()
-
 
 func _ready() -> void:
 	_load_terrain()
+	add_child(overlays)
+	overlays.build_roads(ProjectSettings.globalize_path("res://").path_join(MAP_DIR).path_join("roads_lines.json"))
+	add_child(ui)
+	ui.connect_pressed.connect(func(addr):
+		if net.connect_to(addr) != OK:
+			_status("Adres geçersiz"))
+	ui.ready_pressed.connect(func():
+		_submit_orders()
+		net.send({"type": "ready"})
+		ui.ready_button.disabled = true
+		_status("Hazır. Rakip bekleniyor..."))
 	camera.far = 80000.0
 	camera.near = 2.0
 	add_child(camera)
@@ -78,6 +107,7 @@ func _ready() -> void:
 	var line_mat := StandardMaterial3D.new()
 	line_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	line_mat.vertex_color_use_as_albedo = true
+	line_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	lines.material_override = line_mat
 	add_child(lines)
 	net.opened.connect(_on_open)
@@ -198,11 +228,17 @@ func _on_message(m: Dictionary) -> void:
 			if m.reason == null:
 				previews[int(m.unit)] = m.path.map(func(p): return Vector2(p.x, p.y))
 			else:
-				_status("Rota yok: %s" % m.reason)
+				_status("Rota yok (birim %d): %s" % [int(m.unit), m.reason])
 		"orders_accepted":
 			kbg_spent = int(m.kbg_spent)
+			kbg_budget = int(m.kbg_budget)
 		"order_rejected":
 			_status("Emir reddedildi: %s" % m.reason)
+		"game_over":
+			game_over = m
+			ui.ready_button.disabled = true
+			if not playing:
+				_show_game_over()
 		"error":
 			_status("Sunucu hatası (%s): %s" % [m.code, m.message])
 
@@ -211,35 +247,60 @@ func _apply_turn_start(m: Dictionary) -> void:
 	turn = int(m.turn)
 	deadline = float(m.deadline_secs)
 	kbg_budget = int(m.view.kbg_budget)
+	scores = m.view.scores
+	zones = m.view.zones
+	overlays.set_zones(zones, player_id, TEAM_COLORS)
 	units.clear()
 	orders.clear()
 	previews.clear()
 	kbg_spent = 0
 	for u in m.view.own_units:
-		units[int(u.id)] = {"owner": player_id, "type": u.type_id, "pos": Vector2(u.pos.x, u.pos.y),
-			"heading": u.heading_rad, "state": u.state, "quality": 3, "area": false}
+		var id := int(u.id)
+		units[id] = {"id": id, "owner": player_id, "type": u.type_id, "pos": Vector2(u.pos.x, u.pos.y),
+			"heading": u.heading_rad, "state": u.state, "quality": 3, "kind": "exact", "hp": u.hp,
+			"fuel": u.fuel, "ammo": int(u.ammo), "emitting": u.emitting,
+			"supply_fuel": u.supply_fuel, "supply_ammo": int(u.supply_ammo)}
 	for c in m.view.contacts:
-		var p := _position(c.position)
-		units[int(c.unit)] = {"owner": 1 - player_id, "type": c.type_id if c.type_id != null else "", "pos": p[0],
-			"heading": 0.0, "state": "healthy", "quality": int(c.quality), "area": p[1]}
-	ui.ready_button.disabled = false
-	_status("Tur %d: planlama. Sol tık birim seç, sağ tık rota noktası." % turn)
+		var id := int(c.unit)
+		units[id] = {"id": id, "owner": 1 - player_id, "type": c.type_id if c.type_id != null else "",
+			"heading": 0.0, "state": "healthy", "quality": int(c.quality)}
+		units[id].merge(_position(c.position), true)
+	selection = selection.filter(_is_own_alive)
+	if game_over == null:
+		ui.ready_button.disabled = false
+		_status("Tur %d: planlama. Sol tık/sürükle seç, sağ tık rota noktası." % turn)
+	else:
+		_show_game_over()
 
 
-func _position(pos: Dictionary) -> Array:
-	if pos.kind == "exact":
-		return [Vector2(pos.pos.x, pos.pos.y), false]
-	if pos.kind == "bearing":
-		return [Vector2(pos.origin.x, pos.origin.y), true]  # TODO F1-6: draw the bearing ray
-	return [Vector2(pos.center.x, pos.center.y), true]
+# Position message -> {pos, kind, radius, angle}. A bearing has no position: pos is the ESM origin.
+func _position(pos: Dictionary) -> Dictionary:
+	match pos.kind:
+		"exact":
+			return {"pos": Vector2(pos.pos.x, pos.pos.y), "kind": "exact"}
+		"bearing":
+			return {"pos": Vector2(pos.origin.x, pos.origin.y), "kind": "bearing", "angle": float(pos.angle_rad)}
+	return {"pos": Vector2(pos.center.x, pos.center.y), "kind": "area", "radius": float(pos.radius_m)}
 
 
 func _submit_orders() -> void:
-	var list := []
-	for id in orders:
-		list.append({"type": "move", "units": [id],
-			"waypoints": orders[id].map(func(p): return {"x": p.x, "y": p.y})})
-	net.send({"type": "submit_orders", "turn": turn, "orders": list})
+	if turn > 0 and not playing and game_over == null:
+		net.send({"type": "submit_orders", "turn": turn, "orders": orders.to_wire()})
+
+
+# After any order change: re-preview every group move and re-send the full list (the server replaces it).
+func _orders_changed() -> void:
+	previews.clear()
+	for o in orders.moves():
+		net.send({"type": "request_preview", "units": o.units,
+			"waypoints": o.waypoints.map(func(p): return {"x": p.x, "y": p.y})})
+	_submit_orders()
+
+
+func _show_game_over() -> void:
+	ui.show_game_over(game_over.winner, game_over.scores, player_id)
+	scores = game_over.scores
+	_status("Oyun bitti.")
 
 
 # ---------------------------------------------------------------- playback
@@ -254,11 +315,13 @@ func _start_playback(evs: Array) -> void:
 		keyframes[id] = [[0.0, units[id].pos]]
 	for e in events:
 		if e.type == "unit_moved" or e.type == "track_gained":
+			var p := _position(e.position)
+			if p.kind == "bearing":
+				continue
 			var id := int(e.unit)
 			if not keyframes.has(id):
 				keyframes[id] = []
-			keyframes[id].append([float(e.tick), _position(e.position)[0]])
-	selected = -1
+			keyframes[id].append([float(e.tick), p.pos])
 	previews.clear()
 	ui.ready_button.disabled = true
 	_status("Tur %d: çözüm oynatılıyor." % turn)
@@ -271,13 +334,15 @@ func _advance_playback(delta: float) -> void:
 		_apply_event(events[event_index])
 		event_index += 1
 	for id in units:
-		var k: Array = keyframes.get(id, [])
-		units[id].pos = _interpolate(k, tick, units[id].pos)
+		if units[id].kind != "bearing":
+			units[id].pos = _interpolate(keyframes.get(id, []), tick, units[id].pos)
 	if tick >= RESOLUTION_TICKS:
 		playing = false
 		if pending_turn_start != null:
 			_apply_turn_start(pending_turn_start)
 			pending_turn_start = null
+		elif game_over != null:
+			_show_game_over()
 
 
 func _interpolate(k: Array, tick: float, fallback: Vector2) -> Vector2:
@@ -295,58 +360,75 @@ func _apply_event(e: Dictionary) -> void:
 		"unit_moved":
 			var id := int(e.unit)
 			if units.has(id):
-				units[id].area = _position(e.position)[1]
+				units[id].kind = _position(e.position).kind
 				if e.heading_rad != null:
 					units[id].heading = e.heading_rad
 		"track_gained":
-			var p := _position(e.position)
 			var id := int(e.unit)
 			if not units.has(id):
-				units[id] = {"owner": 1 - player_id, "type": "", "pos": p[0], "heading": 0.0, "state": "healthy"}
+				units[id] = {"id": id, "owner": 1 - player_id, "type": "", "heading": 0.0, "state": "healthy"}
 			units[id].quality = int(e.quality)
-			units[id].area = p[1]
+			units[id].merge(_position(e.position), true)
 		"track_lost":
 			var id := int(e.unit)
 			if units.has(id):
 				units[id].quality = 0
-				units[id].area = true
+				units[id].merge(_position(e.last_known), true)
 				keyframes.erase(id)
 		"unit_damaged":
-			if units.has(int(e.unit)):
-				units[int(e.unit)].state = e.state
+			var id := int(e.unit)
+			if units.has(id):
+				units[id].state = e.state
+				if e.get("hp") != null:
+					units[id].hp = e.hp
 		"unit_destroyed":
 			if units.has(int(e.unit)):
 				units[int(e.unit)].state = "destroyed"
 		"shot_fired":
 			if e.shooter != null and e.target != null and units.has(int(e.shooter)) and units.has(int(e.target)):
 				shots.append([to_world(units[int(e.shooter)].pos, 20), to_world(units[int(e.target)].pos, 20), 0.4])
+		"zone_captured":
+			for z in zones:
+				if int(z.id) == int(e.zone):
+					z.owner = e.player
+					var who := "Biz" if int(e.player) == player_id else "Rakip"
+					_status("%s bölgeyi ele geçirdi: %s" % [who, z.name_tr])
+			overlays.set_zones(zones, player_id, TEAM_COLORS)
 
 
 # ---------------------------------------------------------------- drawing
+
+func _unit_color(id: int, u: Dictionary) -> Color:
+	if u.state == "destroyed":
+		return DEAD_COLOR
+	if id in selection:
+		return SELECTED_COLOR
+	var color: Color = TEAM_COLORS[u.owner] if u.owner >= 0 and u.owner < 2 else Color.WHITE
+	var shade: float = TYPE_SHADE.get(u.type, 0.0)
+	color = color.lightened(shade) if shade > 0.0 else color.darkened(-shade)
+	return color.darkened(0.4) if u.state == "damaged" else color
+
 
 func _draw_units() -> void:
 	var s: Array = []
 	var f: Array = []
 	for id in units:
 		var u: Dictionary = units[id]
+		if u.kind == "bearing":
+			continue  # no position; drawn as a ray in _draw_lines
 		var size: Vector3 = BOX_SIZE.get(u.type, Vector3(50, 30, 50))
-		var color: Color = TEAM_COLORS[u.owner] if u.owner >= 0 and u.owner < 2 else Color.WHITE
-		if u.state == "destroyed":
-			color = DEAD_COLOR
-		elif u.state == "damaged":
-			color = color.darkened(0.4)
-		if id == selected:
-			color = Color.YELLOW
+		var color := _unit_color(id, u)
 		var basis := Basis.looking_at(Vector3(cos(u.heading), 0, sin(u.heading))).scaled(size)
 		var xf := Transform3D(basis, to_world(u.pos, size.y * 0.5))
-		if u.owner == player_id or u.quality >= 2:
+		if u.owner == player_id or (u.quality >= 2 and u.kind == "exact"):
 			s.append([xf, color])
-		elif u.area:
-			# Approximate contact: a large faded slab over the area.
-			xf = Transform3D(Basis.from_scale(Vector3(500, 10, 500)), to_world(u.pos, 5))
+		elif u.kind == "area":
+			# Approximate contact: a faded slab over the area.
+			var d: float = u.get("radius", 250.0) * 2.0
+			xf = Transform3D(Basis.from_scale(Vector3(d, 10, d)), to_world(u.pos, 5))
 			f.append([xf, Color(color, 0.25 if u.quality > 0 else 0.12)])
 		else:
-			f.append([xf, Color(color, 0.3)])
+			f.append([xf, Color(color, 0.3 if u.quality > 0 else 0.15)])
 	_fill(solid.multimesh, s)
 	_fill(faded.multimesh, f)
 
@@ -360,17 +442,27 @@ func _fill(mm: MultiMesh, items: Array) -> void:
 
 
 func _draw_lines(delta: float) -> void:
-	var im: ImmediateMesh = lines.mesh
-	im.clear_surfaces()
 	var segs: Array = []
 	for id in previews:
 		var pts: Array = [units[id].pos] + previews[id] if units.has(id) else previews[id]
 		for i in range(pts.size() - 1):
 			segs.append([to_world(pts[i], 15), to_world(pts[i + 1], 15), Color.YELLOW])
+	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 200.0)
+	var enemy: Color = TEAM_COLORS[1 - player_id] if player_id >= 0 and player_id < 2 else Color.WHITE
+	for id in units:
+		var u: Dictionary = units[id]
+		if u.owner == player_id and u.get("emitting", false) and u.state != "destroyed":
+			_circle(segs, u.pos, 120.0 + 60.0 * pulse, Color(0.3, 1.0, 1.0, 0.4 + 0.5 * pulse))
+		elif u.owner != player_id and u.kind == "bearing":
+			# ESM bearing: the enemy is somewhere along this ray; its position is unknown.
+			var dir := Vector2(cos(u.angle), sin(u.angle))
+			_polyline(segs, [u.pos, u.pos + dir * BEARING_LENGTH], Color(enemy, 0.45 if u.quality > 0 else 0.15))
 	for shot in shots:
 		segs.append([shot[0], shot[1], Color.ORANGE])
 		shot[2] -= delta
 	shots = shots.filter(func(sh): return sh[2] > 0.0)
+	var im: ImmediateMesh = lines.mesh
+	im.clear_surfaces()
 	if segs.is_empty():
 		return
 	im.surface_begin(Mesh.PRIMITIVE_LINES)
@@ -381,28 +473,128 @@ func _draw_lines(delta: float) -> void:
 	im.surface_end()
 
 
-# ---------------------------------------------------------------- input & camera
+# Line through the points, split every 500 m and draped above the terrain.
+func _polyline(segs: Array, pts: Array, color: Color) -> void:
+	for i in range(pts.size() - 1):
+		var n := maxi(1, int(pts[i].distance_to(pts[i + 1]) / 500.0))
+		for k in n:
+			segs.append([to_world(pts[i].lerp(pts[i + 1], float(k) / n), 30),
+				to_world(pts[i].lerp(pts[i + 1], float(k + 1) / n), 30), color])
+
+
+func _circle(segs: Array, c: Vector2, r: float, color: Color) -> void:
+	var n := 24
+	for k in n:
+		var a := TAU * k / n
+		var b := TAU * (k + 1) / n
+		segs.append([to_world(c + Vector2(cos(a), sin(a)) * r, 20), to_world(c + Vector2(cos(b), sin(b)) * r, 20), color])
+
+
+# ---------------------------------------------------------------- input: selection and orders
+
+func _is_own_alive(id) -> bool:
+	return units.has(id) and units[id].owner == player_id and units[id].state != "destroyed"
+
+
+func _can_order() -> bool:
+	return turn > 0 and not playing and game_over == null
+
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed:
-		match event.button_index:
-			MOUSE_BUTTON_WHEEL_UP:
+	if event is InputEventMouseButton:
+		_mouse_button(event)
+	elif event is InputEventMouseMotion and drag_start != null:
+		drag_end = event.position
+		if drag_start.distance_to(drag_end) > DRAG_MIN_PX:
+			ui.show_drag(drag_start, drag_end)
+	elif event is InputEventKey and event.pressed and not event.echo:
+		_key(event)
+
+
+func _mouse_button(event: InputEventMouseButton) -> void:
+	match event.button_index:
+		MOUSE_BUTTON_WHEEL_UP:
+			if event.pressed:
 				cam_dist = max(300.0, cam_dist * 0.85)
-			MOUSE_BUTTON_WHEEL_DOWN:
+		MOUSE_BUTTON_WHEEL_DOWN:
+			if event.pressed:
 				cam_dist = min(40000.0, cam_dist / 0.85)
-			MOUSE_BUTTON_LEFT:
-				if not playing:
-					selected = _pick_own_unit(event.position)
-			MOUSE_BUTTON_RIGHT:
-				if not playing and selected >= 0:
-					_add_waypoint(event.position)
+		MOUSE_BUTTON_LEFT:
+			if event.pressed:
+				drag_start = event.position
+				drag_end = event.position
+			elif drag_start != null:
+				ui.drag_box.visible = false
+				if drag_start.distance_to(event.position) > DRAG_MIN_PX:
+					_select_box(Rect2(drag_start, Vector2.ZERO).expand(event.position), event.shift_pressed)
+				else:
+					_select_click(event.position, event.shift_pressed)
+				drag_start = null
+		MOUSE_BUTTON_RIGHT:
+			if event.pressed and _can_order() and not selection.is_empty():
+				var p = _ground_point(event.position)
+				if p != null:
+					orders.add_waypoint(selection, p)
+					_orders_changed()
+
+
+func _select_click(screen: Vector2, shift: bool) -> void:
+	var id := _pick_own_unit(screen)
+	if not shift:
+		selection = [] if id < 0 else [id]
+	elif id >= 0:
+		if id in selection:
+			selection.erase(id)
+		else:
+			selection.append(id)
+
+
+func _select_box(rect: Rect2, shift: bool) -> void:
+	if not shift:
+		selection = []
+	for id in units:
+		if not _is_own_alive(id) or id in selection:
+			continue
+		var w := to_world(units[id].pos, 20)
+		if not camera.is_position_behind(w) and rect.has_point(camera.unproject_position(w)):
+			selection.append(id)
+
+
+func _key(event: InputEventKey) -> void:
+	var digit := event.keycode - KEY_0
+	if digit >= 1 and digit <= 9:
+		if event.ctrl_pressed:
+			groups[digit] = selection.duplicate()
+			_status("Grup %d kaydedildi (%d birim)." % [digit, selection.size()])
+		else:
+			selection = groups.get(digit, []).filter(_is_own_alive)
+		return
+	if not _can_order() or selection.is_empty():
+		return
+	match event.keycode:
+		KEY_DELETE, KEY_BACKSPACE:
+			orders.remove(selection)
+			_orders_changed()
+		KEY_S:
+			orders.stop(selection)
+			_orders_changed()
+		KEY_R:
+			var emitting := {}
+			for id in selection:
+				if units[id].type in EMITTER_TYPES:
+					emitting[id] = units[id].emitting
+			if emitting.is_empty():
+				_status("Seçimde radar veya karıştırıcı yok.")
+				return
+			orders.toggle_emitter(emitting)
+			_orders_changed()
 
 
 func _pick_own_unit(screen: Vector2) -> int:
 	var best := -1
 	var best_d := 30.0
 	for id in units:
-		if units[id].owner != player_id or units[id].state == "destroyed":
+		if not _is_own_alive(id):
 			continue
 		var w := to_world(units[id].pos, 20)
 		if camera.is_position_behind(w):
@@ -414,7 +606,8 @@ func _pick_own_unit(screen: Vector2) -> int:
 	return best
 
 
-func _add_waypoint(screen: Vector2) -> void:
+# Terrain point under the cursor as sim metres, or null.
+func _ground_point(screen: Vector2):
 	var from := camera.project_ray_origin(screen)
 	var dir := camera.project_ray_normal(screen)
 	var hit: Vector3
@@ -423,19 +616,15 @@ func _add_waypoint(screen: Vector2) -> void:
 	else:
 		hit = from + dir * (-from.y / dir.y) if dir.y < 0.0 else Vector3(INF, 0, 0)
 	if not is_finite(hit.x) or hit.z > 3.0e38:
-		return
-	if not orders.has(selected):
-		orders[selected] = []
-	orders[selected].append(Vector2(hit.x, hit.z))
-	var wps: Array = orders[selected].map(func(p): return {"x": p.x, "y": p.y})
-	net.send({"type": "request_preview", "units": [selected], "waypoints": wps})
-	_submit_orders()
+		return null
+	return Vector2(hit.x, hit.z)
 
 
 func _move_camera(delta: float) -> void:
 	var pan := Vector3.ZERO
 	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP): pan.z -= 1
-	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN): pan.z += 1
+	# While units are selected S is the stop key, not a pan key.
+	if (Input.is_key_pressed(KEY_S) and selection.is_empty()) or Input.is_key_pressed(KEY_DOWN): pan.z += 1
 	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT): pan.x -= 1
 	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT): pan.x += 1
 	if Input.is_key_pressed(KEY_Q): cam_yaw += delta
@@ -446,52 +635,25 @@ func _move_camera(delta: float) -> void:
 	camera.look_at_from_position(cam_target + offset, cam_target)
 
 
-# ---------------------------------------------------------------- UI
-
-func _build_ui() -> Dictionary:
-	var layer := CanvasLayer.new()
-	add_child(layer)
-	var box := HBoxContainer.new()
-	box.position = Vector2(10, 10)
-	layer.add_child(box)
-	var addr := LineEdit.new()
-	addr.text = "127.0.0.1:7777"
-	addr.custom_minimum_size.x = 180
-	var name_box := LineEdit.new()
-	name_box.text = "oyuncu"
-	name_box.custom_minimum_size.x = 120
-	var connect_button := Button.new()
-	connect_button.text = "Bağlan"
-	connect_button.pressed.connect(func():
-		if net.connect_to(addr.text) != OK:
-			_status("Adres geçersiz"))
-	var ready_button := Button.new()
-	ready_button.text = "Hazır"
-	ready_button.disabled = true
-	ready_button.pressed.connect(func():
-		_submit_orders()
-		net.send({"type": "ready"})
-		ready_button.disabled = true
-		_status("Hazır. Rakip bekleniyor..."))
-	var hud := Label.new()
-	for c in [addr, name_box, connect_button, ready_button, hud]:
-		box.add_child(c)
-	var status := Label.new()
-	status.position = Vector2(10, 50)
-	layer.add_child(status)
-	var fps := Label.new()
-	fps.position = Vector2(10, 75)
-	layer.add_child(fps)
-	return {"name_box": name_box, "ready_button": ready_button, "hud": hud, "status": status, "fps": fps}
-
+# ---------------------------------------------------------------- HUD
 
 func _update_hud() -> void:
+	var score := ui.score_text(scores, player_id)
 	if playing:
-		ui.hud.text = "  Tur %d  çözüm %.1f / 20 sn" % [turn, play_time]
+		ui.line.text = "  Tur %d  çözüm %.1f / 20 sn  %s" % [turn, play_time, score]
 	elif turn > 0:
-		ui.hud.text = "  Tur %d  kalan %d sn  KBG: %d / %d" % [turn, ceil(deadline), kbg_spent, kbg_budget]
+		ui.line.text = "  Tur %d  kalan %d sn  KBG: %d / %d  %s" % [turn, ceil(deadline), kbg_spent, kbg_budget, score]
 	ui.fps.text = "FPS %d" % Engine.get_frames_per_second()
+	var sel := selection.filter(func(id): return units.has(id)).map(func(id): return units[id])
+	var pending := {}
+	for id in selection:
+		var on = orders.pending_emitter(id)
+		if on != null:
+			pending[id] = on
+	ui.show_selection(sel, pending)
 
 
 func _status(text: String) -> void:
 	ui.status.text = text
+
+
