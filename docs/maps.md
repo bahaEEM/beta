@@ -102,3 +102,36 @@ venv-rio/bin/rio warp merged.tif hasandag_utm36.tif --dst-crs EPSG:32636 --res 3
 
 2026-10-07 üretimi: kaynak 1334 x 1334 @ 30 m, sim 800 x 800 @ 50 m,
 yükseklik 953,98 – 3262,29 m, zirve sim hücresi (397, 402) ≈ (19850, 20100) m.
+
+## Yol ağı (OpenStreetMap)
+
+Yollar OpenStreetMap'ten Overpass API ile indirilir (hesap gerekmez). Ham dosya repoya
+**eklenmez**. Kutu, harita alanını kapsayan enlem/boylam zarfıdır (G, B, K, D).
+
+```sh
+mkdir -p ~/Masaüstü/calisma-alani/veri/osm && cd ~/Masaüstü/calisma-alani/veri/osm
+curl -sS -A 'beta-game-tools/0.1' -H 'Accept: application/json' -o hasandag_roads.json \
+  --data-urlencode 'data=[out:json][timeout:120]; way["highway"~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|track|service)$"](37.93,33.90,38.32,34.43); out geom;' \
+  https://overpass-api.de/api/interpreter
+```
+
+`-A` ve `-H` başlıkları olmadan sunucu 406 döner. Ana sunucu yoğunsa (504) aynı komutu
+`https://overpass.kumi.systems/api/interpreter` ile deneyin (2026-10-07 verisi oradan).
+
+Repo klasöründe:
+
+```sh
+cargo run --release -p tools -- roads \
+  --osm ~/Masaüstü/calisma-alani/veri/osm/hasandag_roads.json --map-dir maps/hasandag
+```
+
+Araç enlem/boylamı kendi Transverse Mercator kodu ile UTM 36K'ye, sonra `map.toml`
+başlangıcına göre simülasyon metresine çevirir (x doğu, y güney; (i, j) örneği = (i·50, j·50)).
+
+| Dosya | Ne |
+|---|---|
+| `roads.bin` | Hücre başına 1 bayt, `sim_height.bin` ile aynı 800 x 800 ızgara. 0 yol yok, 1 patika/servis, 2 küçük yol (tertiary/unclassified/residential), 3 ana yol (secondary ve üstü). |
+| `roads_lines.json` | `{"lines": [{"class": 2, "points": [[x, y], ...]}]}`, sim metresi, haritaya kırpılmış, noktalar arası ≥ 25 m. İstemci çizimi için. |
+| `roads.toml` | Sınıf başına yol ve hücre sayısı, kaynak, OSM tarihi, lisans. |
+
+Bu dosyalar **ODbL 1.0** lisansındadır (© OpenStreetMap contributors), CC BY-SA değil. Ayrıntı: `ASSETS.md`.
