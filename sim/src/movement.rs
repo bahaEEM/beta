@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! G2: path finding and movement.
 
-use crate::data::UnitCatalog;
+use crate::data::{Rules, UnitCatalog};
 use crate::world::{HeightMap, UnitId, UnitState, Vec2, World};
 use crate::TICK_SECONDS;
 use pathfinding::prelude::astar;
@@ -149,13 +149,16 @@ fn successors(
 
 /// Advances every routed unit one tick along its route (id order). Finished routes and
 /// routes of destroyed, missing or untyped units are removed.
-pub fn step_movement(world: &mut World, catalog: &UnitCatalog, routes: &mut Routes) {
+pub fn step_movement(world: &mut World, catalog: &UnitCatalog, rules: &Rules, routes: &mut Routes) {
     for unit in world.units_mut() {
         let Some(route) = routes.get_mut(&unit.id) else {
             continue;
         };
         let speed = match catalog.get(&unit.type_id) {
-            Some(t) if unit.state != UnitState::Destroyed => t.speed_offroad_mps,
+            Some(t) if unit.state == UnitState::Healthy => t.speed_offroad_mps,
+            Some(t) if unit.state == UnitState::Damaged => {
+                t.speed_offroad_mps * rules.combat.damaged_speed_factor
+            }
             _ => {
                 route.clear();
                 continue;
@@ -188,6 +191,10 @@ mod tests {
     use super::*;
     use crate::data::load_units;
     use crate::world::{PlayerId, Unit};
+
+    fn rules() -> Rules {
+        crate::data::load_rules(include_str!("../../data/rules.toml")).unwrap()
+    }
 
     fn catalog() -> UnitCatalog {
         load_units(include_str!("../../data/units.toml")).unwrap()
@@ -231,10 +238,10 @@ mod tests {
         let ticks = (100.0 / (speed * TICK_SECONDS)).round() as u32;
         let mut routes = Routes::from([(UnitId(1), route)]);
         for _ in 0..ticks - 1 {
-            step_movement(&mut w, &cat, &mut routes);
+            step_movement(&mut w, &cat, &rules(), &mut routes);
         }
         assert!(routes.contains_key(&UnitId(1)));
-        step_movement(&mut w, &cat, &mut routes);
+        step_movement(&mut w, &cat, &rules(), &mut routes);
         assert!(routes.is_empty());
         let u = w.unit(UnitId(1)).unwrap();
         assert!(u.pos.distance(goal) < 1e-9);
@@ -342,7 +349,7 @@ mod tests {
                 routes.insert(UnitId(id), plan_route(&w, &cat, &order).unwrap());
             }
             for _ in 0..crate::TICKS_PER_TURN {
-                step_movement(&mut w, &cat, &mut routes);
+                step_movement(&mut w, &cat, &rules(), &mut routes);
             }
             w.units()
                 .iter()

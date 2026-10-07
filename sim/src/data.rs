@@ -117,6 +117,16 @@ fn validate(t: &UnitType) -> Result<(), DataError> {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Rules {
     pub sensor: SensorRules,
+    pub combat: CombatRules,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CombatRules {
+    /// penetration >= effective armour * this (but below full armour) -> damaged.
+    pub damaged_threshold: f64,
+    /// Speed multiplier for damaged units.
+    pub damaged_speed_factor: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -151,6 +161,13 @@ pub fn load_rules(toml_text: &str) -> Result<Rules, DataError> {
     }
     if o.contact_quality == 0 || o.contact_quality > o.fire_quality {
         return Err(DataError::InvalidRule("sensor.optical.contact_quality"));
+    }
+    let c = &rules.combat;
+    if !(c.damaged_threshold > 0.0 && c.damaged_threshold <= 1.0) {
+        return Err(DataError::InvalidRule("combat.damaged_threshold"));
+    }
+    if !(c.damaged_speed_factor > 0.0 && c.damaged_speed_factor <= 1.0) {
+        return Err(DataError::InvalidRule("combat.damaged_speed_factor"));
     }
     Ok(rules)
 }

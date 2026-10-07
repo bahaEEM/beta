@@ -4,3 +4,7 @@
 track_range_factor = 1.5  # contact range = sensor_optical_range_m * factor
 fire_quality = 3          # quality inside sensor_optical_range_m
 contact_quality = 1       # quality between range and range * factor
+
+[combat]
+damaged_threshold = 0.7     # penetration >= 70% of effective armour -> damaged
+damaged_speed_factor = 0.5  # damaged units move at half speed
