@@ -35,7 +35,7 @@ Kutu 37–38 K ve 33–34 D derecelerine taşar, bu yüzden 4 karo gerekir:
 
 ```sh
 for t in N37_00_E033_00 N37_00_E034_00 N38_00_E033_00 N38_00_E034_00; do
-  wget -c "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_${t}_DEM/Copernicus_DSM_COG_10_${t}_DEM.tif"
+  curl -fL -C - -O "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_${t}_DEM/Copernicus_DSM_COG_10_${t}_DEM.tif"
 done
 ```
 
