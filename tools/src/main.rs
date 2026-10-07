@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Map tools. Only command so far:
+//! Map tools.
 //!
 //! `tools convert --input <dem.tif> --out-dir <dir> [--cell 50]`
+//! `tools roads --osm <overpass.json> --map-dir <dir>` (see `roads.rs`)
 //!
 //! Reads a single-band GeoTIFF of heights (metres) in a projected metre CRS and writes
 //! `sim_height.bin` (bilinear, `cell` metres, f32 LE, row 0 = north), `terrain_r16.raw`
@@ -16,9 +17,11 @@ use std::path::{Path, PathBuf};
 use tiff::decoder::{Decoder, DecodingResult};
 use tiff::tags::Tag;
 
+mod roads;
+
 type Res<T> = Result<T, Box<dyn Error>>;
 
-const USAGE: &str = "usage: tools convert --input <metric GeoTIFF> --out-dir <dir> [--cell <m>]";
+const USAGE: &str = "usage: tools convert --input <metric GeoTIFF> --out-dir <dir> [--cell <m>]\n       tools roads --osm <overpass.json> --map-dir <dir>";
 
 /// GeoKey ids (GeoTIFF spec 1.0).
 const GT_RASTER_TYPE_KEY: u16 = 1025;
@@ -51,6 +54,22 @@ fn main() {
 
 fn run(args: &[String]) -> Res<()> {
     let (cmd, rest) = args.split_first().ok_or("missing command")?;
+    if cmd == "roads" {
+        let (mut osm, mut map_dir) = (None, None);
+        for pair in rest.chunks(2) {
+            match pair {
+                [f, v] if f == "--osm" => osm = Some(PathBuf::from(v)),
+                [f, v] if f == "--map-dir" => map_dir = Some(PathBuf::from(v)),
+                _ => return Err(format!("bad arguments {pair:?}").into()),
+            }
+        }
+        let msg = roads::run(
+            &osm.ok_or("--osm is required")?,
+            &map_dir.ok_or("--map-dir is required")?,
+        )?;
+        println!("{msg}");
+        return Ok(());
+    }
     if cmd != "convert" {
         return Err(format!("unknown command '{cmd}'").into());
     }
