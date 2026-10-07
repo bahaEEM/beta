@@ -1,4 +1,5 @@
-# Faz 0 start: 6 infantry + 2 MBT per side, ~2.6 km apart, south-west of the summit.
+# Start: per side 6 infantry + 2 MBT (front) and radar, ESM, jammer, supply truck (rear).
+# Zones: a depot behind each side and three objectives between them.
 # Map metres: x east, y south, summit at about (20000, 20000). placeholder positions.
 
 [[unit]]
@@ -128,3 +129,114 @@ type = "mbt"
 x = 17700.0
 y = 26300.0
 heading_deg = 180.0
+
+[[unit]]
+id = 17
+owner = 0
+type = "gsr"
+x = 13500.0
+y = 25400.0
+heading_deg = 0.0
+
+[[unit]]
+id = 18
+owner = 0
+type = "esm"
+x = 13500.0
+y = 25800.0
+heading_deg = 0.0
+
+[[unit]]
+id = 19
+owner = 0
+type = "jammer"
+x = 13500.0
+y = 26200.0
+heading_deg = 0.0
+
+[[unit]]
+id = 20
+owner = 0
+type = "supply"
+x = 13500.0
+y = 26600.0
+heading_deg = 0.0
+
+[[unit]]
+id = 21
+owner = 1
+type = "gsr"
+x = 19100.0
+y = 25400.0
+heading_deg = 180.0
+
+[[unit]]
+id = 22
+owner = 1
+type = "esm"
+x = 19100.0
+y = 25800.0
+heading_deg = 180.0
+
+[[unit]]
+id = 23
+owner = 1
+type = "jammer"
+x = 19100.0
+y = 26200.0
+heading_deg = 180.0
+
+[[unit]]
+id = 24
+owner = 1
+type = "supply"
+x = 19100.0
+y = 26600.0
+heading_deg = 180.0
+
+[[zone]]
+id = 1
+name_tr = "Batı Depo"
+x = 13300.0
+y = 26000.0
+radius_m = 500.0
+points = 1
+depot = true
+owner = 0
+
+[[zone]]
+id = 2
+name_tr = "Doğu Depo"
+x = 19300.0
+y = 26000.0
+radius_m = 500.0
+points = 1
+depot = true
+owner = 1
+
+[[zone]]
+id = 3
+name_tr = "Orta Sırt"
+x = 16300.0
+y = 26100.0
+radius_m = 400.0
+points = 3
+depot = false
+
+[[zone]]
+id = 4
+name_tr = "Kuzey Geçit"
+x = 16300.0
+y = 24200.0
+radius_m = 400.0
+points = 2
+depot = false
+
+[[zone]]
+id = 5
+name_tr = "Güney Köy"
+x = 16300.0
+y = 28000.0
+radius_m = 400.0
+points = 2
+depot = false

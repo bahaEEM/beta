@@ -4,6 +4,7 @@
 pub mod combat;
 pub mod data;
 pub mod event;
+pub mod logistics;
 pub mod movement;
 pub mod sensor;
 pub mod turn;

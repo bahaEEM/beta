@@ -4,6 +4,7 @@
 use crate::{BoxError, PLAYERS};
 use serde::{Deserialize, Serialize};
 use sim::data::{Rules, UnitCatalog};
+use sim::logistics::Zone;
 use sim::turn::Game;
 use sim::world::{HeightMap, PlayerId, Unit, UnitId, Vec2, World};
 use std::fs;
@@ -67,12 +68,13 @@ pub fn load_map(map_dir: &Path) -> Result<HeightMap, BoxError> {
         .iter()
         .map(|c| f32::from_le_bytes(*c))
         .collect();
-    Ok(HeightMap::new(
-        meta.width,
-        meta.height,
-        meta.cell_size_m,
-        heights,
-    )?)
+    let map = HeightMap::new(meta.width, meta.height, meta.cell_size_m, heights)?;
+    // Optional road grid written by `tools roads` (same layout, one class byte per sample).
+    let roads = map_dir.join("roads.bin");
+    if roads.exists() {
+        return Ok(map.with_roads(fs::read(roads)?)?);
+    }
+    Ok(map)
 }
 
 #[derive(Deserialize)]
@@ -91,10 +93,31 @@ struct ScenarioUnit {
 #[serde(deny_unknown_fields)]
 struct Scenario {
     unit: Vec<ScenarioUnit>,
+    #[serde(default)]
+    zone: Vec<ScenarioZone>,
 }
 
-/// Starting units from `data/scenarios/<map_id>.toml` (positions in map metres).
-pub fn load_scenario(text: &str, map: HeightMap, catalog: &UnitCatalog) -> Result<World, BoxError> {
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ScenarioZone {
+    id: u32,
+    name_tr: String,
+    x: f64,
+    y: f64,
+    radius_m: f64,
+    points: u32,
+    #[serde(default)]
+    depot: bool,
+    owner: Option<u8>,
+}
+
+/// New game from `data/scenarios/<map_id>.toml`: starting units and zones (map metres).
+pub fn load_game(
+    text: &str,
+    map: HeightMap,
+    catalog: &UnitCatalog,
+    rules: &Rules,
+) -> Result<Game, BoxError> {
     let scenario: Scenario = toml::from_str(text)?;
     let mut world = World::new(map);
     for u in scenario.unit {
@@ -112,7 +135,25 @@ pub fn load_scenario(text: &str, map: HeightMap, catalog: &UnitCatalog) -> Resul
             u.heading_deg.to_radians(),
         ))?;
     }
-    Ok(world)
+    let mut game = Game::new(world, catalog, rules);
+    for z in scenario.zone {
+        if z.owner.is_some_and(|o| usize::from(o) >= PLAYERS)
+            || !(z.radius_m.is_finite() && z.radius_m > 0.0)
+        {
+            return Err(format!("zone {}: bad owner or radius", z.id).into());
+        }
+        game.zones.push(Zone {
+            id: z.id,
+            name_tr: z.name_tr,
+            center: Vec2::new(z.x, z.y),
+            radius_m: z.radius_m,
+            points: z.points,
+            depot: z.depot,
+            owner: z.owner.map(PlayerId),
+            progress: None,
+        });
+    }
+    Ok(game)
 }
 
 /// Loads catalog and rules from the data directory.

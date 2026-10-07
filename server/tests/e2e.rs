@@ -4,10 +4,9 @@
 
 use futures_util::{SinkExt, StreamExt};
 use protocol::{self as p, ClientMsg, ServerMsg};
-use server::setup::{load_latest, load_scenario};
+use server::setup::{load_game, load_latest};
 use server::{serve, MatchSetup};
 use sim::data::{load_rules, load_units};
-use sim::turn::Game;
 use sim::world::HeightMap;
 use std::collections::BTreeSet;
 use std::net::SocketAddr;
@@ -61,8 +60,7 @@ fn setup(test: &str, planning_secs: u32) -> MatchSetup {
     let mut rules = load_rules(include_str!("../../data/rules.toml")).unwrap();
     rules.turn.planning_secs = planning_secs;
     let map = HeightMap::new(120, 120, 50.0, vec![0.0; 14_400]).unwrap();
-    let world = load_scenario(SCENARIO, map, &catalog).unwrap();
-    let game = Game::new(world, &catalog, &rules);
+    let game = load_game(SCENARIO, map, &catalog, &rules).unwrap();
     MatchSetup {
         match_id: "test".into(),
         map_id: "flat".into(),
@@ -169,6 +167,7 @@ fn event_ids(e: &p::EventKind) -> Vec<u32> {
         | p::EventKind::TrackGained { unit, .. }
         | p::EventKind::TrackLost { unit, .. } => vec![unit],
         p::EventKind::ShotFired { shooter, target } => shooter.into_iter().chain(target).collect(),
+        p::EventKind::ZoneCaptured { .. } => vec![],
     }
 }
 

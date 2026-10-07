@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! server [--port 7777] [--map hasandag] [--resume <match_id>] [--data data] [--maps maps] [--saves saves]
 
-use server::setup::{load_data, load_latest, load_map, load_scenario};
+use server::setup::{load_data, load_game, load_latest, load_map};
 use server::{serve, BoxError, MatchSetup};
-use sim::turn::Game;
 use std::path::PathBuf;
 use tokio::net::TcpListener;
 use tracing::{error, info};
@@ -60,8 +59,7 @@ fn setup(a: &Args) -> Result<MatchSetup, BoxError> {
     let map = load_map(&a.maps.join(&a.map))?;
     let scenario =
         std::fs::read_to_string(a.data.join("scenarios").join(format!("{}.toml", a.map)))?;
-    let world = load_scenario(&scenario, map, &catalog)?;
-    let game = Game::new(world, &catalog, &rules);
+    let game = load_game(&scenario, map, &catalog, &rules)?;
     // The server (not the simulation) may read the clock; used only to name the match.
     #[allow(clippy::disallowed_methods)]
     let secs = std::time::SystemTime::now()

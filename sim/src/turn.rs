@@ -4,6 +4,7 @@
 use crate::combat::{step_combat, Reloads};
 use crate::data::{Rules, UnitCatalog};
 use crate::event::{Event, TickEvent};
+use crate::logistics::{end_of_turn, step_capture, MatchResult, Zone};
 use crate::movement::{plan_route, step_movement, MoveError, MoveOrder, Routes};
 use crate::sensor::{update_tracks, TrackTable};
 use crate::world::{PlayerId, UnitId, Vec2, World};
@@ -20,6 +21,13 @@ pub struct Game {
     pub routes: Routes,
     pub tracks: TrackTable,
     pub reloads: Reloads,
+    #[serde(default)]
+    pub zones: Vec<Zone>,
+    #[serde(default)]
+    pub scores: BTreeMap<PlayerId, u32>,
+    /// Set when the match is over.
+    #[serde(default)]
+    pub result: Option<MatchResult>,
 }
 
 impl Game {
@@ -33,6 +41,9 @@ impl Game {
             routes: Routes::new(),
             tracks,
             reloads: Reloads::default(),
+            zones: Vec::new(),
+            scores: BTreeMap::new(),
+            result: None,
         }
     }
 }
@@ -155,9 +166,11 @@ pub fn validate_orders(
     orders: &[Order],
 ) -> Validated {
     let mut v = Validated::default();
+    // Movement (move/stop) and emitter switches are independent: one of each per unit.
     let mut seen = BTreeSet::new();
     for order in orders {
         let units = order.units();
+        let kind = matches!(order, Order::SetEmitter { .. });
         let cost = order_cost(rules, units.len());
         let unique: BTreeSet<_> = units.iter().collect();
         let reason = if units.is_empty() {
@@ -169,7 +182,8 @@ pub fn validate_orders(
             .any(|&id| game.world.unit(id).is_some_and(|u| u.owner != player))
         {
             Some(RejectReason::NotOwner)
-        } else if unique.len() != units.len() || units.iter().any(|id| seen.contains(id)) {
+        } else if unique.len() != units.len() || units.iter().any(|&id| seen.contains(&(id, kind)))
+        {
             Some(RejectReason::DuplicateUnit)
         } else if v.kbg_spent + cost > rules.kbg.budget_per_turn {
             Some(RejectReason::KbgExceeded)
@@ -211,7 +225,7 @@ pub fn validate_orders(
                 reason,
             }),
             None => {
-                seen.extend(units.iter().copied());
+                seen.extend(units.iter().map(|&id| (id, kind)));
                 v.kbg_spent += cost;
             }
         }
@@ -293,6 +307,7 @@ pub fn step_tick(game: &mut Game, catalog: &UnitCatalog, rules: &Rules) -> Vec<E
         &game.tracks,
         &mut game.reloads,
     ));
+    events.extend(step_capture(game, catalog, rules));
     events
 }
 
@@ -306,6 +321,7 @@ pub fn resolve_phase(game: &mut Game, catalog: &UnitCatalog, rules: &Rules) -> V
                 .map(|event| TickEvent { tick, event }),
         );
     }
+    end_of_turn(game, catalog, rules);
     game.turn += 1;
     out
 }
@@ -505,6 +521,23 @@ mod group_tests {
         .unwrap();
         assert_eq!(routes[0].1.last(), Some(&Vec2::new(5000.0, 5000.0)));
         assert_eq!(routes[1].1.last(), Some(&Vec2::new(5200.0, 5000.0)));
+    }
+
+    #[test]
+    fn f1_1_move_and_emitter_orders_are_independent() {
+        let g = game(flat(), vec![unit(1, 0, "gsr", 1000.0, 1000.0)]);
+        let orders = [
+            Order::Move {
+                units: vec![UnitId(1)],
+                waypoints: vec![Vec2::new(3000.0, 1000.0)],
+            },
+            Order::SetEmitter {
+                units: vec![UnitId(1)],
+                on: true,
+            },
+        ];
+        let v = validate_orders(&g, &catalog(), &rules(), PlayerId(0), &orders);
+        assert!(v.rejected.is_empty(), "{:?}", v.rejected);
     }
 
     #[test]

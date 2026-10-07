@@ -24,9 +24,9 @@
 |---|---|---|---|
 | F1-0 ölçek | bitti | (bu commit) | 2 dk/tur; Hasandağı 5 turda 8 atış, 7 imha |
 | F1-1 grup emirleri + KBG | bitti | (bu commit) | protokol v2: move{units}, stop, orders_accepted; istemci arayüzü F1-6 |
-| F1-2 yol ağı | bekliyor | | |
-| F1-3 bölgeler | bekliyor | | |
-| F1-4 ikmal | bekliyor | | |
+| F1-2 yol ağı | bitti | f61505d + (bu commit) | OSM (ODbL) 36 bin yol hücresi; A* yolu tercih eder, yolda speed_road_mps |
+| F1-3 bölgeler | bitti | (bu commit) | 5 bölge (2 depo); 60 sn piyade varlığı; tur sonu puan; 100 puan / 100 tur zafer |
+| F1-4 ikmal | bitti | (bu commit) | yakıt/mühimmat; ikmal kamyonu 300 m, depoda dolar |
 | F1-5 radar/ESM/karıştırma | bitti | (bu commit) | 4 yeni birim tipi; kerteriz yalnızca yön verir; hile testi EW birimleriyle |
 | F1-6 istemci | bekliyor | | |
 | F1-7 kapı | bekliyor | | |

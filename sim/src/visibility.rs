@@ -45,6 +45,10 @@ pub enum SeenEvent {
         unit: UnitId,
         last_known: Position,
     },
+    ZoneCaptured {
+        zone: u32,
+        player: PlayerId,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -199,6 +203,7 @@ pub fn filter_for_player(
             Event::UnitDestroyed { unit } => {
                 (level(&known, unit) > 0).then_some(SeenEvent::UnitDestroyed { unit })
             }
+            Event::ZoneCaptured { zone, player } => Some(SeenEvent::ZoneCaptured { zone, player }),
         };
         if let Some(event) = seen {
             out.push(SeenTickEvent { tick: *tick, event });
@@ -285,6 +290,7 @@ mod tests {
             | SeenEvent::TrackGained { unit, .. }
             | SeenEvent::TrackLost { unit, .. } => vec![unit],
             SeenEvent::ShotFired { shooter, target } => shooter.into_iter().chain(target).collect(),
+            SeenEvent::ZoneCaptured { .. } => vec![],
         }
     }
 

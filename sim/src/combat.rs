@@ -31,7 +31,7 @@ pub fn step_combat(
     let shots: Vec<(UnitId, UnitId)> = world
         .units()
         .iter()
-        .filter(|s| s.state != UnitState::Destroyed && !reloads.0.contains_key(&s.id))
+        .filter(|s| s.state != UnitState::Destroyed && s.ammo > 0 && !reloads.0.contains_key(&s.id))
         .filter_map(|s| {
             let st = catalog.get(&s.type_id)?;
             pick_target(world, catalog, rules, tracks, s, st).map(|t| (s.id, t))
@@ -52,13 +52,17 @@ pub fn step_combat(
             shooter: shooter_id,
             target: target_id,
         });
-        if target.state == UnitState::Destroyed {
-            continue; // already killed by an earlier shot this tick
-        }
+        let already_dead = target.state == UnitState::Destroyed;
         let from = shooter.pos;
         let (penetration, damage_hp) = (st.penetration_mm, st.damage_hp);
         let effective = effective_armor(tt, target, from);
         let class = tt.class;
+        if let Some(s) = world.unit_mut(shooter_id) {
+            s.ammo = s.ammo.saturating_sub(1);
+        }
+        if already_dead {
+            continue; // killed by an earlier shot this tick; the round is still spent
+        }
         let Some(target) = world.unit_mut(target_id) else {
             continue;
         };

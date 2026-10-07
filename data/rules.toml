@@ -30,3 +30,11 @@ contact_cell_m = 500.0  # placeholder; quality-1 contacts snap to this grid
 [turn]
 planning_secs = 45
 game_seconds_per_tick = 0.6  # 200 ticks = 2 min of game time per turn
+
+[zones]
+capture_s = 60.0       # placeholder; uncontested infantry presence needed to capture
+victory_points = 100   # placeholder
+max_turns = 100        # highest score wins after this turn
+
+[supply]
+radius_m = 300.0       # placeholder; resupply reach at the end of a turn

@@ -38,6 +38,11 @@ pub enum Event {
         unit: UnitId,
         last_known: Vec2,
     },
+    /// Public: zone flags are visible to everyone.
+    ZoneCaptured {
+        zone: u32,
+        player: PlayerId,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

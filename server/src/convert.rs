@@ -2,6 +2,7 @@
 //! sim (already filtered) -> protocol types. No game rules here.
 
 use protocol as p;
+use sim::logistics::Zone;
 use sim::turn::Order;
 use sim::visibility::{Contact, Position, SeenEvent, SeenTickEvent};
 use sim::world::{UnitId, UnitState, Vec2};
@@ -57,6 +58,18 @@ pub fn order(o: &p::Order) -> Order {
     }
 }
 
+pub fn zone(z: &Zone) -> p::ZoneView {
+    p::ZoneView {
+        id: z.id,
+        name_tr: z.name_tr.clone(),
+        center: vec2(z.center),
+        radius_m: z.radius_m,
+        points: z.points,
+        depot: z.depot,
+        owner: z.owner.map(|o| o.0),
+    }
+}
+
 pub fn contact(c: &Contact) -> p::Contact {
     p::Contact {
         unit: c.unit.0,
@@ -100,6 +113,10 @@ pub fn event(e: &SeenTickEvent) -> p::VisibleEvent {
         SeenEvent::TrackLost { unit, last_known } => p::EventKind::TrackLost {
             unit: unit.0,
             last_known: position(last_known),
+        },
+        SeenEvent::ZoneCaptured { zone, player } => p::EventKind::ZoneCaptured {
+            zone: *zone,
+            player: player.0,
         },
     };
     p::VisibleEvent { tick: e.tick, kind }

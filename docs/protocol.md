@@ -140,7 +140,25 @@ Bu dosya `protocol/src/lib.rs` testlerinden üretilir; elle düzenleme. Güncell
         "last_seen_tick": 150
       }
     ],
-    "kbg_budget": 8
+    "kbg_budget": 8,
+    "zones": [
+      {
+        "id": 1,
+        "name_tr": "Helvadere",
+        "center": {
+          "x": 1200.0,
+          "y": 850.5
+        },
+        "radius_m": 400.0,
+        "points": 2,
+        "depot": true,
+        "owner": 0
+      }
+    ],
+    "scores": [
+      14,
+      6
+    ]
   }
 }
 ```
@@ -195,6 +213,12 @@ Bu dosya `protocol/src/lib.rs` testlerinden üretilir; elle düzenleme. Güncell
       "unit": 12
     },
     {
+      "tick": 120,
+      "type": "zone_captured",
+      "zone": 1,
+      "player": 1
+    },
+    {
       "tick": 90,
       "type": "track_lost",
       "unit": 13,
@@ -245,6 +269,17 @@ Bu dosya `protocol/src/lib.rs` testlerinden üretilir; elle düzenleme. Güncell
 {
   "type": "error",
   "code": "version_mismatch",
-  "message": "protocol version mismatch: server 1, client 0"
+  "message": "protocol version mismatch: server 2, client 1"
+}
+```
+
+```json
+{
+  "type": "game_over",
+  "winner": 1,
+  "scores": [
+    88,
+    102
+  ]
 }
 ```

@@ -120,6 +120,9 @@ pub struct HeightMap {
     height: usize,
     cell_size_m: f64,
     heights: Vec<f32>,
+    /// Road class per sample (0 = none); empty = no road data.
+    #[serde(default)]
+    roads: Vec<u8>,
 }
 
 impl HeightMap {
@@ -144,7 +147,40 @@ impl HeightMap {
             height,
             cell_size_m,
             heights,
+            roads: Vec::new(),
         })
+    }
+
+    /// Attaches a road grid (one class byte per sample, same layout as the heights).
+    pub fn with_roads(mut self, roads: Vec<u8>) -> Result<Self, WorldError> {
+        if roads.len() != self.heights.len() {
+            return Err(WorldError::BadMapSize {
+                expected: self.heights.len(),
+                got: roads.len(),
+            });
+        }
+        self.roads = roads;
+        Ok(self)
+    }
+
+    /// Road class of sample (i, j); 0 outside the map or without road data.
+    pub fn road(&self, i: usize, j: usize) -> u8 {
+        if i >= self.width || j >= self.height {
+            return 0;
+        }
+        self.roads.get(j * self.width + i).copied().unwrap_or(0)
+    }
+
+    /// Road class of the sample nearest to a world position.
+    pub fn road_at(&self, pos: Vec2) -> u8 {
+        let (gx, gy) = (
+            (pos.x / self.cell_size_m).round(),
+            (pos.y / self.cell_size_m).round(),
+        );
+        if gx < 0.0 || gy < 0.0 {
+            return 0;
+        }
+        self.road(gx as usize, gy as usize)
     }
 
     pub fn width(&self) -> usize {
@@ -215,6 +251,11 @@ impl World {
     /// Mutable units in ascending id order. Do not change `id`.
     pub fn units_mut(&mut self) -> &mut [Unit] {
         &mut self.units
+    }
+
+    /// Mutable units together with the (read-only) map.
+    pub fn units_and_map_mut(&mut self) -> (&mut [Unit], &HeightMap) {
+        (&mut self.units, &self.map)
     }
 
     pub fn unit(&self, id: UnitId) -> Option<&Unit> {

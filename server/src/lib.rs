@@ -208,6 +208,7 @@ enum Phase {
     Lobby,
     Planning,
     Resolving,
+    Finished,
 }
 
 #[derive(Default)]
@@ -236,6 +237,7 @@ struct Match {
 impl Match {
     fn new(s: MatchSetup, to_self: mpsc::UnboundedSender<ToMatch>) -> Self {
         let [a, b] = s.players;
+        let finished = s.game.result.is_some();
         Self {
             match_id: s.match_id,
             map_id: s.map_id,
@@ -254,7 +256,11 @@ impl Match {
                     ..Slot::default()
                 },
             ],
-            phase: Phase::Lobby,
+            phase: if finished {
+                Phase::Finished
+            } else {
+                Phase::Lobby
+            },
             deadline: None,
             to_self,
         }
@@ -373,6 +379,7 @@ impl Match {
                 }
                 self.send(p, &self.turn_start(p));
             }
+            Phase::Finished => self.send(p, &self.game_over()),
             _ => {} // lobby with one player, or resolving: TurnStart follows
         }
     }
@@ -429,6 +436,8 @@ impl Match {
                 own_units,
                 contacts,
                 kbg_budget: self.rules.kbg.budget_per_turn,
+                zones: self.game.zones.iter().map(convert::zone).collect(),
+                scores: self.scores(),
             },
         }
     }
@@ -592,6 +601,27 @@ impl Match {
                 },
             );
         }
-        self.begin_planning();
+        if self.game.result.is_some() {
+            self.phase = Phase::Finished;
+            info!(result = ?self.game.result, scores = ?self.scores(), "match over");
+            for p in 0..PLAYERS {
+                self.send(p, &self.game_over());
+            }
+        } else {
+            self.begin_planning();
+        }
+    }
+
+    fn scores(&self) -> Vec<u32> {
+        (0..PLAYERS as u8)
+            .map(|p| self.game.scores.get(&PlayerId(p)).copied().unwrap_or(0))
+            .collect()
+    }
+
+    fn game_over(&self) -> ServerMsg {
+        ServerMsg::GameOver {
+            winner: self.game.result.and_then(|r| r.winner).map(|p| p.0),
+            scores: self.scores(),
+        }
     }
 }

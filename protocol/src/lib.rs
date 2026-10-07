@@ -85,12 +85,27 @@ pub struct Contact {
     pub last_seen_tick: u32,
 }
 
+/// Objective zone (public map feature). Capture progress is not sent.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ZoneView {
+    pub id: u32,
+    pub name_tr: String,
+    pub center: Vec2,
+    pub radius_m: f64,
+    pub points: u32,
+    pub depot: bool,
+    pub owner: Option<PlayerId>,
+}
+
 /// Everything one player is allowed to know at the start of a turn.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PlayerView {
     pub own_units: Vec<OwnUnit>,
     pub contacts: Vec<Contact>,
     pub kbg_budget: u32,
+    pub zones: Vec<ZoneView>,
+    /// Score per player id.
+    pub scores: Vec<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -122,6 +137,10 @@ pub enum EventKind {
     TrackLost {
         unit: UnitId,
         last_known: Position,
+    },
+    ZoneCaptured {
+        zone: u32,
+        player: PlayerId,
     },
 }
 
@@ -185,6 +204,11 @@ pub enum ServerMsg {
     Error {
         code: String,
         message: String,
+    },
+    /// Sent after the last Resolution. `winner` is null on a draw.
+    GameOver {
+        winner: Option<PlayerId>,
+        scores: Vec<u32>,
     },
 }
 
@@ -335,6 +359,16 @@ mod tests {
                         },
                     ],
                     kbg_budget: 8,
+                    zones: vec![ZoneView {
+                        id: 1,
+                        name_tr: "Helvadere".into(),
+                        center: P,
+                        radius_m: 400.0,
+                        points: 2,
+                        depot: true,
+                        owner: Some(0),
+                    }],
+                    scores: vec![14, 6],
                 },
             },
             ServerMsg::Resolution {
@@ -376,6 +410,10 @@ mod tests {
                         kind: EventKind::UnitDestroyed { unit: 12 },
                     },
                     VisibleEvent {
+                        tick: 120,
+                        kind: EventKind::ZoneCaptured { zone: 1, player: 1 },
+                    },
+                    VisibleEvent {
                         tick: 90,
                         kind: EventKind::TrackLost {
                             unit: 13,
@@ -399,7 +437,11 @@ mod tests {
             },
             ServerMsg::Error {
                 code: "version_mismatch".into(),
-                message: "protocol version mismatch: server 1, client 0".into(),
+                message: "protocol version mismatch: server 2, client 1".into(),
+            },
+            ServerMsg::GameOver {
+                winner: Some(1),
+                scores: vec![88, 102],
             },
         ]
     }

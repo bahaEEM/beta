@@ -201,6 +201,24 @@ pub struct Rules {
     pub kbg: KbgRules,
     pub visibility: VisibilityRules,
     pub turn: TurnRules,
+    pub zones: ZoneRules,
+    pub supply: SupplyRules,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ZoneRules {
+    /// Game seconds of uncontested infantry presence needed to capture.
+    pub capture_s: f64,
+    pub victory_points: u32,
+    pub max_turns: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SupplyRules {
+    /// Supply units resupply friendly units this close at the end of each turn.
+    pub radius_m: f64,
 }
 
 /// Command budget (KBG) per player per turn.
@@ -312,6 +330,9 @@ pub fn load_rules(toml_text: &str) -> Result<Rules, DataError> {
     if !(s.esm.min_cross_deg > 0.0 && s.esm.min_cross_deg < 90.0 && s.esm.bearing_update_deg > 0.0)
     {
         return Err(DataError::InvalidRule("sensor.esm.min_cross_deg"));
+    }
+    if !(rules.zones.capture_s > 0.0 && rules.supply.radius_m > 0.0) || rules.zones.max_turns == 0 {
+        return Err(DataError::InvalidRule("zones/supply"));
     }
     let c = &rules.combat;
     if !(c.damaged_threshold > 0.0 && c.damaged_threshold <= 1.0) {

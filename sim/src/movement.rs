@@ -74,9 +74,16 @@ pub fn plan_route(
     let map = &world.map;
     let cell = map.cell_size_m();
     let speed = ut.speed_offroad_mps;
+    let road_speed = ut.speed_road_mps.max(speed);
     // Integer edge costs (ms) keep A* tie-breaking exact.
-    let straight_ms = (cell / speed * 1000.0).round() as u64;
-    let diag_ms = (cell * std::f64::consts::SQRT_2 / speed * 1000.0).round() as u64;
+    let ms = |v: f64, metres: f64| (metres / v * 1000.0).round() as u64;
+    let diag_m = cell * std::f64::consts::SQRT_2;
+    let costs = EdgeCosts {
+        straight: ms(speed, cell),
+        diag: ms(speed, diag_m),
+        road_straight: ms(road_speed, cell),
+        road_diag: ms(road_speed, diag_m),
+    };
 
     let mut route = Vec::new();
     let mut start = snap(map, unit.pos).ok_or(MoveError::Unreachable { index: 0 })?;
@@ -87,11 +94,11 @@ pub fn plan_route(
         }
         let (path, _) = astar(
             &start,
-            |&n| successors(map, n, ut.max_slope_deg, straight_ms, diag_ms),
+            |&n| successors(map, n, ut.max_slope_deg, &costs),
             |&(i, j)| {
-                // Octile distance with the same integer costs: admissible and consistent.
+                // Octile distance at road speed: admissible and consistent.
                 let (dx, dy) = (i.abs_diff(goal.0) as u64, j.abs_diff(goal.1) as u64);
-                dx.min(dy) * diag_ms + dx.abs_diff(dy) * straight_ms
+                dx.min(dy) * costs.road_diag + dx.abs_diff(dy) * costs.road_straight
             },
             |&n| n == goal,
         )
@@ -118,13 +125,21 @@ fn snap(map: &HeightMap, p: Vec2) -> Option<Node> {
     inside.then_some((gx as usize, gy as usize))
 }
 
+struct EdgeCosts {
+    straight: u64,
+    diag: u64,
+    road_straight: u64,
+    road_diag: u64,
+}
+
+/// Edges between two road samples use road speed.
 fn successors(
     map: &HeightMap,
     (i, j): Node,
     max_slope_deg: f64,
-    straight_ms: u64,
-    diag_ms: u64,
+    c: &EdgeCosts,
 ) -> Vec<(Node, u64)> {
+    let on_road = map.road(i, j) > 0;
     let cell = map.cell_size_m();
     let h0 = map.sample(i, j);
     NEIGHBOURS
@@ -141,7 +156,14 @@ fn successors(
             let slope = ((map.sample(ni, nj) - h0).abs() / horiz)
                 .atan()
                 .to_degrees();
-            (slope <= max_slope_deg).then_some(((ni, nj), if diag { diag_ms } else { straight_ms }))
+            let road = on_road && map.road(ni, nj) > 0;
+            let cost = match (road, diag) {
+                (true, true) => c.road_diag,
+                (true, false) => c.road_straight,
+                (false, true) => c.diag,
+                (false, false) => c.straight,
+            };
+            (slope <= max_slope_deg).then_some(((ni, nj), cost))
         })
         .collect()
 }
@@ -149,21 +171,35 @@ fn successors(
 /// Advances every routed unit one tick along its route (id order). Finished routes and
 /// routes of destroyed, missing or untyped units are removed.
 pub fn step_movement(world: &mut World, catalog: &UnitCatalog, rules: &Rules, routes: &mut Routes) {
-    for unit in world.units_mut() {
+    let (units, map) = world.units_and_map_mut();
+    for unit in units.iter_mut() {
         let Some(route) = routes.get_mut(&unit.id) else {
             continue;
         };
-        let speed = match catalog.get(&unit.type_id) {
-            Some(t) if unit.state == UnitState::Healthy => t.speed_offroad_mps,
-            Some(t) if unit.state == UnitState::Damaged => {
-                t.speed_offroad_mps * rules.combat.damaged_speed_factor
-            }
-            _ => {
-                route.clear();
-                continue;
-            }
+        let Some(t) = catalog
+            .get(&unit.type_id)
+            .filter(|_| unit.state != UnitState::Destroyed)
+        else {
+            route.clear();
+            continue;
         };
+        let on_road =
+            map.road_at(unit.pos) > 0 && route.first().is_some_and(|&p| map.road_at(p) > 0);
+        let mut speed = if on_road {
+            t.speed_road_mps
+        } else {
+            t.speed_offroad_mps
+        };
+        if unit.state == UnitState::Damaged {
+            speed *= rules.combat.damaged_speed_factor;
+        }
         let mut budget = speed * rules.turn.game_seconds_per_tick;
+        // Fuel: vehicles stop when the tank is empty (fuel_l_per_km = 0 means no fuel needed).
+        let per_m = t.fuel_l_per_km / 1000.0;
+        if per_m > 0.0 {
+            budget = budget.min(unit.fuel / per_m);
+        }
+        let planned = budget;
         while budget > 0.0 {
             let Some(&target) = route.first() else { break };
             let (dx, dy) = (target.x - unit.pos.x, target.y - unit.pos.y);
@@ -180,6 +216,9 @@ pub fn step_movement(world: &mut World, catalog: &UnitCatalog, rules: &Rules, ro
                 unit.pos = Vec2::new(unit.pos.x + dx * f, unit.pos.y + dy * f);
                 budget = 0.0;
             }
+        }
+        if per_m > 0.0 {
+            unit.fuel = (unit.fuel - (planned - budget) * per_m).max(0.0);
         }
     }
     routes.retain(|id, r| !r.is_empty() && world.unit(*id).is_some());

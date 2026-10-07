@@ -10,7 +10,7 @@
 
 use futures_util::{SinkExt, StreamExt};
 use protocol::{self as p, ClientMsg, ServerMsg};
-use server::setup::{load_data, load_map, load_scenario};
+use server::setup::{load_data, load_game, load_map};
 use server::{serve, MatchSetup};
 use sim::event::TickEvent;
 use sim::turn::{plan_phase, step_tick, Game, Order};
@@ -33,16 +33,46 @@ fn new_game() -> (Game, sim::data::UnitCatalog, sim::data::Rules) {
     let (catalog, rules) = load_data(&root().join("data")).unwrap();
     let map = load_map(&root().join("maps/hasandag")).unwrap();
     let scenario = std::fs::read_to_string(root().join("data/scenarios/hasandag.toml")).unwrap();
-    let world = load_scenario(&scenario, map, &catalog).unwrap();
-    assert_eq!(world.units().len(), 16);
-    let game = Game::new(world, &catalog, &rules);
+    let game = load_game(&scenario, map, &catalog, &rules).unwrap();
     (game, catalog, rules)
 }
 
-/// Fixed orders: every unit heads 2 km towards the enemy from where it stands.
-fn orders_for(player: u8, own: &[(u32, f64, f64)]) -> Vec<(u32, f64, f64)> {
-    let dx = if player == 0 { 2000.0 } else { -2000.0 };
-    own.iter().map(|&(id, x, y)| (id, x + dx, y)).collect()
+/// A fixed plan expressed independently of sim/protocol order types.
+enum Plan {
+    Move(Vec<u32>, f64, f64),
+    Emit(Vec<u32>),
+}
+
+/// Fixed orders: the front group (infantry + tanks) advances 2 km, the rear group (radar,
+/// ESM, jammer, supply) follows 800 m; radars and jammers are switched on. 3 KBG points.
+fn orders_for(player: u8, own: &[(u32, String, f64, f64)]) -> Vec<Plan> {
+    let sign = if player == 0 { 1.0 } else { -1.0 };
+    let front = |t: &str| t == "infantry" || t == "mbt";
+    let mut plans = Vec::new();
+    for (is_front, dx) in [(true, 2000.0), (false, 800.0)] {
+        let group: Vec<_> = own.iter().filter(|u| front(&u.1) == is_front).collect();
+        if group.is_empty() {
+            continue;
+        }
+        let n = group.len() as f64;
+        let (cx, cy) = group
+            .iter()
+            .fold((0.0, 0.0), |(x, y), u| (x + u.2 / n, y + u.3 / n));
+        plans.push(Plan::Move(
+            group.iter().map(|u| u.0).collect(),
+            cx + sign * dx,
+            cy,
+        ));
+    }
+    let emitters: Vec<u32> = own
+        .iter()
+        .filter(|u| u.1 == "gsr" || u.1 == "jammer")
+        .map(|u| u.0)
+        .collect();
+    if !emitters.is_empty() {
+        plans.push(Plan::Emit(emitters));
+    }
+    plans
 }
 
 #[test]
@@ -59,13 +89,20 @@ fn g10_cheat_oracle_and_resolution_time() {
                 .filter(|u| {
                     u.owner == PlayerId(player) && u.state != sim::world::UnitState::Destroyed
                 })
-                .map(|u| (u.id.0, u.pos.x, u.pos.y))
+                .map(|u| (u.id.0, u.type_id.clone(), u.pos.x, u.pos.y))
                 .collect();
+            let ids = |v: Vec<u32>| v.into_iter().map(UnitId).collect();
             let list = orders_for(player, &own)
                 .into_iter()
-                .map(|(id, x, y)| Order::Move {
-                    units: vec![UnitId(id)],
-                    waypoints: vec![Vec2::new(x, y)],
+                .map(|plan| match plan {
+                    Plan::Move(units, x, y) => Order::Move {
+                        units: ids(units),
+                        waypoints: vec![Vec2::new(x, y)],
+                    },
+                    Plan::Emit(units) => Order::SetEmitter {
+                        units: ids(units),
+                        on: true,
+                    },
                 })
                 .collect();
             orders.insert(PlayerId(player), list);
@@ -100,6 +137,7 @@ fn g10_cheat_oracle_and_resolution_time() {
                     SeenEvent::ShotFired { shooter, target } => {
                         shooter.into_iter().chain(target).collect()
                     }
+                    SeenEvent::ZoneCaptured { .. } => vec![],
                 };
                 for id in ids {
                     let own = g.world.unit(id).is_some_and(|u| u.owner == player);
@@ -208,13 +246,16 @@ async fn network_match(run: u32) -> [Vec<Vec<u8>>; 2] {
                         .own_units
                         .iter()
                         .filter(|u| u.state != p::UnitState::Destroyed)
-                        .map(|u| (u.id, u.pos.x, u.pos.y))
+                        .map(|u| (u.id, u.type_id.clone(), u.pos.x, u.pos.y))
                         .collect();
                     let orders = orders_for(player_of[i], &own)
                         .into_iter()
-                        .map(|(unit, x, y)| p::Order::Move {
-                            units: vec![unit],
-                            waypoints: vec![p::Vec2 { x, y }],
+                        .map(|plan| match plan {
+                            Plan::Move(units, x, y) => p::Order::Move {
+                                units,
+                                waypoints: vec![p::Vec2 { x, y }],
+                            },
+                            Plan::Emit(units) => p::Order::SetEmitter { units, on: true },
                         })
                         .collect();
                     for msg in [ClientMsg::SubmitOrders { turn, orders }, ClientMsg::Ready] {
@@ -237,6 +278,7 @@ async fn network_match(run: u32) -> [Vec<Vec<u8>>; 2] {
                             p::EventKind::ShotFired { shooter, target } => {
                                 shooter.into_iter().chain(target).collect()
                             }
+                            p::EventKind::ZoneCaptured { .. } => vec![],
                         };
                         for id in ids {
                             assert!(
@@ -250,6 +292,7 @@ async fn network_match(run: u32) -> [Vec<Vec<u8>>; 2] {
                 ServerMsg::OrderRejected { reason } => panic!("order rejected: {reason}"),
                 ServerMsg::Error { code, message } => panic!("server error {code}: {message}"),
                 ServerMsg::PreviewResult { .. } | ServerMsg::OrdersAccepted { .. } => {}
+                ServerMsg::GameOver { .. } => done[i] = true,
             }
         }
     }
