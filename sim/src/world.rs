@@ -125,6 +125,19 @@ pub struct HeightMap {
     roads: Vec<u8>,
 }
 
+/// A 1x1 flat placeholder, only used until the real map is attached after loading a save.
+impl Default for HeightMap {
+    fn default() -> Self {
+        Self {
+            width: 1,
+            height: 1,
+            cell_size_m: 1.0,
+            heights: vec![0.0],
+            roads: Vec::new(),
+        }
+    }
+}
+
 impl HeightMap {
     pub fn new(
         width: usize,
@@ -217,10 +230,12 @@ impl HeightMap {
 }
 
 /// Whole simulation state. Invariant: `units` is sorted by id with no duplicates.
+/// The map is not serialised (saves stay small); whoever loads a save re-attaches it.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct World {
     pub tick: u32,
     units: Vec<Unit>,
+    #[serde(skip)]
     pub map: HeightMap,
 }
 

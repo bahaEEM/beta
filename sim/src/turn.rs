@@ -467,7 +467,8 @@ pub(crate) mod tests {
                 unit(2, 1, "mbt", 1500.0, 500.0),
             ],
         );
-        let back: Game = serde_json::from_slice(&serde_json::to_vec(&g).unwrap()).unwrap();
+        let mut back: Game = serde_json::from_slice(&serde_json::to_vec(&g).unwrap()).unwrap();
+        back.world.map = g.world.map.clone(); // the map is not part of saves
         assert_eq!(back, g);
         assert!(!back.tracks.tracks.is_empty());
     }

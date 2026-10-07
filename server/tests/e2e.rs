@@ -254,7 +254,9 @@ async fn g7_resume_after_shutdown() {
     let save = load_latest(&dir, "test").unwrap();
     assert_eq!(save.game.turn, 2);
     let mut s = setup("resume", 45);
+    let map = s.game.world.map.clone();
     s.game = save.game;
+    s.game.world.map = map;
     s.players = save.players;
     let (addr, _server) = start(s).await;
     let mut b = Client::connect(addr, "baha", p::PROTOCOL_VERSION).await;

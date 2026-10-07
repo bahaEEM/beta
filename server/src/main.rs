@@ -44,7 +44,8 @@ fn parse_args() -> Result<Args, BoxError> {
 fn setup(a: &Args) -> Result<MatchSetup, BoxError> {
     let (catalog, rules) = load_data(&a.data)?;
     if let Some(match_id) = &a.resume {
-        let save = load_latest(&a.saves, match_id)?;
+        let mut save = load_latest(&a.saves, match_id)?;
+        save.game.world.map = load_map(&a.maps.join(&save.map_id))?;
         info!(%match_id, turn = save.game.turn, "resuming");
         return Ok(MatchSetup {
             match_id: save.match_id,
