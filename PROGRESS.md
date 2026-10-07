@@ -16,5 +16,17 @@
 | G10 | bitti | (bu commit) | docs/faz0-rapor.md |
 
 ## Açık sorular
-- Ölçek: tank 200 m/tur, 40 km harita — hız mı tur süresi mi? (rapora bakın)
-- Faz 1'e kendiliğinden geçilmez; kullanıcı onayı bekleniyor.
+- (yok)
+
+# Faz 1
+
+| Görev | Durum | Commit | Not |
+|---|---|---|---|
+| F1-0 ölçek | bitti | (bu commit) | 2 dk/tur; Hasandağı 5 turda 8 atış, 7 imha |
+| F1-1 grup emirleri + KBG | bekliyor | | |
+| F1-2 yol ağı | bekliyor | | |
+| F1-3 bölgeler | bekliyor | | |
+| F1-4 ikmal | bekliyor | | |
+| F1-5 radar/ESM/karıştırma | bekliyor | | |
+| F1-6 istemci | bekliyor | | |
+| F1-7 kapı | bekliyor | | |

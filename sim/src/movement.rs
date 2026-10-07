@@ -3,7 +3,6 @@
 
 use crate::data::{Rules, UnitCatalog};
 use crate::world::{HeightMap, UnitId, UnitState, Vec2, World};
-use crate::TICK_SECONDS;
 use pathfinding::prelude::astar;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -164,7 +163,7 @@ pub fn step_movement(world: &mut World, catalog: &UnitCatalog, rules: &Rules, ro
                 continue;
             }
         };
-        let mut budget = speed * TICK_SECONDS;
+        let mut budget = speed * rules.turn.game_seconds_per_tick;
         while budget > 0.0 {
             let Some(&target) = route.first() else { break };
             let (dx, dy) = (target.x - unit.pos.x, target.y - unit.pos.y);
@@ -235,7 +234,7 @@ mod tests {
         let expected: Vec<Vec2> = (1..=10).map(|i| Vec2::new(i as f64 * 10.0, 0.0)).collect();
         assert_eq!(route, expected);
 
-        let ticks = (100.0 / (speed * TICK_SECONDS)).round() as u32;
+        let ticks = (100.0 / (speed * rules().turn.game_seconds_per_tick)).round() as u32;
         let mut routes = Routes::from([(UnitId(1), route)]);
         for _ in 0..ticks - 1 {
             step_movement(&mut w, &cat, &rules(), &mut routes);

@@ -104,3 +104,27 @@ Kabul: iki istemci tam tur oynar; oynatma takılmaz.
 - Hile testi: hiçbir oyuncu mesajında görmediği birim kimliği yok.
 - Performans: çözüm < 1 sn hedef; istemci FPS. Aşılırsa flamegraph ile en yavaş 3 fonksiyon.
 - docs/faz0-rapor.md. Sonra DUR.
+
+# Faz 1 — kusursuz mekanik ve altyapı (2026-10-07)
+
+Kullanıcı kararları: tur = 2 dk oyun süresi; öncelik oynanabilirlik + yol/bölge/ikmal + radar/ESM.
+Tasarım belgesi (design.md, K-kimlikleri) ve görsel efektler (roket, patlama, hava) Faz 2'ye kaldı.
+Varsayılan sayılar yer tutucudur ve hepsi data/*.toml içindedir.
+
+- F1-0 Ölçek: rules.toml `turn.game_seconds_per_tick = 0.6` (200 adım = 2 dk); units.toml `reload_s` (saniye).
+- F1-1 Grup emirleri ve KBG: `move { units, waypoints }` grup emri, maliyet = ceil(birim / 12) puan (rules.toml);
+  birimler hedefte grup içindeki göreli düzenini korur. `stop { units }` emri (önceki turdan süren hareketi keser).
+- F1-2 Yol ağı: OpenStreetMap (Overpass, ODbL) → tools `roads` → maps/hasandag/roads.bin (hücre başına yol sınıfı)
+  + roads_lines.json (istemci çizimi). Yolda `speed_road_mps`; A* yolu tercih eder.
+- F1-3 Bölgeler: senaryoda `[[zone]]` (merkez, yarıçap, puan, depo mu). Sadece piyade ele geçirir: bölgede tek tarafın
+  canlı piyadesi `capture_s` boyunca kalırsa sahiplik değişir (adım sırasının sonu). Tur sonu: sahibine puan.
+  Bölge durumu herkese açık (harita bayrağı).
+- F1-4 İkmal: birimlerde yakıt ve mühimmat; hareket yakıt, atış mühimmat harcar; biten durur / ateş edemez.
+  `supply` (ikmal kamyonu) birimi tur sonunda yakınındaki dost birimleri doldurur; kendisi depo bölgesinde dolar.
+- F1-5 Sensörler: units.toml'da birim başına sensör listesi. `radar` (aktif, açılıp kapatılır, hareketli hedefi
+  iz 2 ile görür, açıkken yayın yapar), `esm` (pasif, yayın yapan düşmanın yönünü verir = iz 1 kerteriz; iki ESM
+  kerterizi yeterli açıyla kesişirse üçgenleme = iz 2), `jammer` (açıkken yarıçapındaki hedeflerin radar izini düşürür, kendisi de yayın yapar).
+  Yeni birimler: radar aracı, ESM aracı, karıştırıcı, ikmal kamyonu. `set_emitter { units, on }` emri.
+- F1-6 İstemci: çoklu seçim (sürükle), Ctrl+1–9 grupları, emir silme / durdurma, birim bilgi paneli (hp, yakıt, mühimmat),
+  yol ve bölge çizimi, skor, radar aç/kapa, ESM kerteriz çizgileri.
+- F1-7 Kapı: Hasandağı senaryosu yeni birimlerle; determinizm ×3, hile testi (kerteriz dahil), süre; docs/faz1-rapor.md.

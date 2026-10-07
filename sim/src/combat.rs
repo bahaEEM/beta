@@ -47,7 +47,7 @@ pub fn step_combat(
         else {
             continue;
         };
-        reloads.0.insert(shooter_id, st.reload_ticks);
+        reloads.0.insert(shooter_id, rules.reload_ticks(st));
         events.push(Event::ShotFired {
             shooter: shooter_id,
             target: target_id,
@@ -327,7 +327,8 @@ mod tests {
         let t = tracks(&w, 3);
         let mut reloads = Reloads::default();
         let mut shots_by_1 = Vec::new();
-        for tick in 0..=inf.reload_ticks {
+        let reload = rules().reload_ticks(&inf);
+        for tick in 0..=reload {
             for e in step_combat(&mut w, &cat, &rules(), &t, &mut reloads) {
                 if matches!(
                     e,
@@ -340,7 +341,7 @@ mod tests {
                 }
             }
         }
-        assert_eq!(shots_by_1, [0, inf.reload_ticks]);
+        assert_eq!(shots_by_1, [0, reload]);
         assert_eq!(w.unit(UnitId(2)).unwrap().hp, 100.0 - 2.0 * inf.damage_hp);
     }
 
@@ -371,7 +372,8 @@ mod tests {
         let mut routes = Routes::new();
         routes.insert(UnitId(1), vec![Vec2::new(1000.0, 500.0)]);
         step_movement(&mut w, &cat, &rules(), &mut routes);
-        let expected = cat.get("mbt").unwrap().speed_offroad_mps * crate::TICK_SECONDS * 0.5;
+        let expected =
+            cat.get("mbt").unwrap().speed_offroad_mps * rules().turn.game_seconds_per_tick * 0.5;
         assert!((w.unit(UnitId(1)).unwrap().pos.x - expected).abs() < 1e-9);
     }
 }

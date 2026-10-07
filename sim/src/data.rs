@@ -26,7 +26,8 @@ pub struct UnitType {
     pub weapon_range_m: f64,
     pub penetration_mm: f64,
     pub damage_hp: f64,
-    pub reload_ticks: u32,
+    /// Game seconds between shots.
+    pub reload_s: f64,
     pub sensor_optical_range_m: f64,
     /// Sensor/target height above ground, used for line of sight.
     pub height_m: f64,
@@ -98,6 +99,7 @@ fn validate(t: &UnitType) -> Result<(), DataError> {
         ("weapon_range_m", t.weapon_range_m),
         ("penetration_mm", t.penetration_mm),
         ("damage_hp", t.damage_hp),
+        ("reload_s", t.reload_s),
         ("sensor_optical_range_m", t.sensor_optical_range_m),
         ("height_m", t.height_m),
         ("hp", t.hp),
@@ -142,6 +144,17 @@ pub struct VisibilityRules {
 #[serde(deny_unknown_fields)]
 pub struct TurnRules {
     pub planning_secs: u32,
+    /// Game time simulated by one tick (200 ticks per turn).
+    pub game_seconds_per_tick: f64,
+}
+
+impl Rules {
+    /// Reload time of a unit type in ticks (at least 1).
+    pub fn reload_ticks(&self, t: &UnitType) -> u32 {
+        (t.reload_s / self.turn.game_seconds_per_tick)
+            .ceil()
+            .max(1.0) as u32
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -199,6 +212,10 @@ pub fn load_rules(toml_text: &str) -> Result<Rules, DataError> {
     let cell = rules.visibility.contact_cell_m;
     if !(cell.is_finite() && cell > 0.0) {
         return Err(DataError::InvalidRule("visibility.contact_cell_m"));
+    }
+    let dt = rules.turn.game_seconds_per_tick;
+    if !(dt.is_finite() && dt > 0.0) {
+        return Err(DataError::InvalidRule("turn.game_seconds_per_tick"));
     }
     if rules.turn.planning_secs == 0 {
         return Err(DataError::InvalidRule("turn.planning_secs"));
