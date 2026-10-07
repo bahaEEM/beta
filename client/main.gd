@@ -82,6 +82,8 @@ func _ready() -> void:
 	net.opened.connect(_on_open)
 	net.closed.connect(func(): _status("Bağlantı koptu. Aynı isimle tekrar bağlanabilirsiniz."))
 	net.message.connect(_on_message)
+	if "--bench" in OS.get_cmdline_user_args():
+		_bench()
 
 
 func _process(delta: float) -> void:
@@ -94,6 +96,23 @@ func _process(delta: float) -> void:
 	_update_hud()
 	_draw_units()
 	_draw_lines(delta)
+
+
+# Prints the average FPS over 10 s of camera flight across the map, then quits.
+#   godot --path client -- --bench
+func _bench() -> void:
+	print("GPU: ", RenderingServer.get_video_adapter_name())
+	await get_tree().create_timer(2.0).timeout
+	var frames := Engine.get_frames_drawn()
+	var start := Time.get_ticks_msec()
+	var t := 0.0
+	while t < 10.0:
+		await get_tree().process_frame
+		t = (Time.get_ticks_msec() - start) / 1000.0
+		cam_target = Vector3(8000 + 2400 * t, 0, 20000)
+		cam_yaw = t * 0.3
+	print("BENCH avg FPS %.1f" % ((Engine.get_frames_drawn() - frames) / t))
+	get_tree().quit()
 
 
 # ---------------------------------------------------------------- terrain
