@@ -5,23 +5,21 @@ extends Node3D
 const Orders := preload("res://orders.gd")
 const Hud := preload("res://hud.gd")
 const Overlays := preload("res://overlays.gd")
+const Fx := preload("res://fx.gd")
+const UnitViews := preload("res://unit_views.gd")
+const Demo := preload("res://demo.gd")
+const Models := preload("res://models.gd")
 
 const MAP_DIR := "../maps/hasandag"
+const UNITS_TOML := "../data/units.toml"
 const TICKS_PER_SECOND := 10.0
 const RESOLUTION_TICKS := 200
-# Display sizes in metres (exaggerated so units are visible on a 40 km map) and colour shade per type.
-const BOX_SIZE := {
-	"infantry": Vector3(40, 30, 40), "mbt": Vector3(60, 40, 100), "gsr": Vector3(50, 70, 70),
-	"esm": Vector3(50, 55, 80), "jammer": Vector3(55, 60, 75), "supply": Vector3(45, 45, 110),
-	"atgm": Vector3(28, 45, 28), "hq": Vector3(85, 50, 85), "spg": Vector3(55, 35, 125),
-	"rocket": Vector3(60, 75, 120),
-}
-const TYPE_SHADE := {"mbt": -0.25, "gsr": 0.35, "esm": 0.5, "jammer": 0.2, "supply": 0.6,
-	"atgm": -0.1, "hq": 0.75, "spg": -0.45, "rocket": -0.6}
+const APPROX_SIZE := Vector3(50, 30, 50)  # faded box of a contact without an exact position
+const SIDE_NAMES := ["Mavi", "Kırmızı"]
+const SIDE_DATIVE := ["Mavi'ye", "Kırmızı'ya"]
 const STANCES := ["free", "return", "hold"]
 const TEAM_COLORS := [Color(0.25, 0.55, 1.0), Color(1.0, 0.3, 0.25)]
 const DEAD_COLOR := Color(0.2, 0.2, 0.2)
-const SELECTED_COLOR := Color.YELLOW
 const EMITTER_TYPES := ["gsr", "jammer"]
 const ARTILLERY_TYPES := ["spg", "rocket"]
 const MISSION_MARK_M := 150.0  # display only; the real blast radius comes with shell_impact
@@ -35,11 +33,13 @@ var cam_target := Vector3(20000, 0, 24000)
 var cam_yaw := 0.0
 var cam_dist := 9000.0
 
-var solid := MultiMeshInstance3D.new()
 var faded := MultiMeshInstance3D.new()
 var lines := MeshInstance3D.new()
 var overlays := Overlays.new(self)
 var ui := Hud.new()
+var fx := Fx.new()
+var views := UnitViews.new(self, fx)
+var max_hps := {}  # type id -> hp from data/units.toml (health bar scale only)
 
 var player_id := -1
 var turn := 0
@@ -66,7 +66,7 @@ var play_time := 0.0
 var events: Array = []
 var event_index := 0
 var keyframes := {}  # id -> Array of [tick, Vector2]
-var shots: Array = []  # [from Vector3, to Vector3, time_left]
+var logged := {}  # event log keys already written this turn (one line per shooter/target pair)
 var pending_turn_start = null
 
 
@@ -86,30 +86,20 @@ func _ready() -> void:
 	camera.far = 80000.0
 	camera.near = 2.0
 	add_child(camera)
-	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-50, -30, 0)
-	sun.shadow_enabled = false
-	add_child(sun)
-	var env := WorldEnvironment.new()
-	env.environment = Environment.new()
-	env.environment.background_mode = Environment.BG_COLOR
-	env.environment.background_color = Color(0.55, 0.7, 0.85)
-	env.environment.ambient_light_color = Color(0.6, 0.6, 0.6)
-	env.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	add_child(env)
-	for mmi in [solid, faded]:
-		var mm := MultiMesh.new()
-		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.use_colors = true
-		mm.mesh = BoxMesh.new()
-		var mat := StandardMaterial3D.new()
-		mat.vertex_color_use_as_albedo = true
-		if mmi == faded:
-			mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
-		mm.mesh.surface_set_material(0, mat)
-		mmi.multimesh = mm
-		add_child(mmi)
+	_environment()
+	max_hps = _unit_hps(ProjectSettings.globalize_path("res://").path_join(UNITS_TOML))
+	add_child(fx)
+	add_child(views)
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	mm.mesh = BoxMesh.new()
+	var mat := StandardMaterial3D.new()
+	mat.vertex_color_use_as_albedo = true
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mm.mesh.surface_set_material(0, mat)
+	faded.multimesh = mm
+	add_child(faded)
 	lines.mesh = ImmediateMesh.new()
 	var line_mat := StandardMaterial3D.new()
 	line_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -134,6 +124,11 @@ func _ready() -> void:
 	var shot_at := args.find("--shot")
 	if shot_at >= 0 and shot_at + 1 < args.size():
 		_screenshot(args[shot_at + 1])
+	if "--demo" in args:
+		Demo.start(self, "--bench" in args)
+		var cam_at := args.find("--cam")
+		if cam_at >= 0 and cam_at + 1 < args.size():
+			cam_dist = float(args[cam_at + 1])
 	if "--bench" in args:
 		_bench()
 
@@ -147,24 +142,80 @@ func _process(delta: float) -> void:
 		deadline = max(0.0, deadline - delta)
 	_update_hud()
 	_draw_units()
-	_draw_lines(delta)
+	views.sync()
+	_draw_lines()
 
 
-# Prints the average FPS over 10 s of camera flight across the map, then quits.
-#   godot --path client -- --bench
+# Prints the average FPS over 10 s of camera flight across the map, then quits. With --demo the
+# camera circles the demo units instead (units + effects on screen).
+#   godot --path client -- --bench [--demo]
 func _bench() -> void:
 	print("GPU: ", RenderingServer.get_video_adapter_name())
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)  # measure headroom, not the refresh rate
 	await get_tree().create_timer(2.0).timeout
 	var frames := Engine.get_frames_drawn()
 	var start := Time.get_ticks_msec()
 	var t := 0.0
+	var centre := cam_target
+	var demo := not units.is_empty()
 	while t < 10.0:
 		await get_tree().process_frame
 		t = (Time.get_ticks_msec() - start) / 1000.0
-		cam_target = Vector3(8000 + 2400 * t, 0, 20000)
+		cam_target = centre if demo else Vector3(8000 + 2400 * t, 0, 20000)
 		cam_yaw = t * 0.3
-	print("BENCH avg FPS %.1f" % ((Engine.get_frames_drawn() - frames) / t))
+	print("BENCH avg FPS %.1f (%d units)" % [(Engine.get_frames_drawn() - frames) / t, units.size()])
 	get_tree().quit()
+
+
+func _environment() -> void:
+	var sun := DirectionalLight3D.new()
+	sun.rotation_degrees = Vector3(-50, -30, 0)
+	sun.light_energy = 1.2
+	sun.shadow_enabled = true
+	sun.directional_shadow_max_distance = 12000.0
+	add_child(sun)
+	var sky_mat := ProceduralSkyMaterial.new()
+	sky_mat.sky_top_color = Color(0.22, 0.42, 0.75)
+	sky_mat.sky_horizon_color = Color(0.68, 0.76, 0.85)
+	sky_mat.ground_horizon_color = Color(0.68, 0.76, 0.85)
+	sky_mat.ground_bottom_color = Color(0.3, 0.32, 0.3)
+	var env := Environment.new()
+	env.background_mode = Environment.BG_SKY
+	env.sky = Sky.new()
+	env.sky.sky_material = sky_mat
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	env.ambient_light_energy = 0.6
+	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+	env.fog_enabled = true
+	env.fog_light_color = Color(0.68, 0.75, 0.84)
+	env.fog_density = 0.00002
+	env.fog_sky_affect = 0.0
+	env.glow_enabled = true  # makes flashes and fireballs pop
+	env.glow_hdr_threshold = 0.9
+	var world := WorldEnvironment.new()
+	world.environment = env
+	add_child(world)
+
+
+# Max hp per unit type from data/units.toml ([[unit]] blocks: id = "...", hp = ...).
+func _unit_hps(path: String) -> Dictionary:
+	var out := {}
+	var f := FileAccess.open(path, FileAccess.READ)
+	var id := ""
+	while f != null and not f.eof_reached():
+		var kv := f.get_line().split("#")[0].split("=", false, 1)
+		if kv.size() != 2:
+			continue
+		match kv[0].strip_edges():
+			"id":
+				id = kv[1].strip_edges().trim_prefix("\"").trim_suffix("\"")
+			"hp":
+				out[id] = float(kv[1])
+	return out
+
+
+func max_hp(type: String) -> float:
+	return maxf(max_hps.get(type, 100.0), 1.0)
 
 
 # ---------------------------------------------------------------- terrain
@@ -377,6 +428,7 @@ func _start_playback(evs: Array) -> void:
 	play_time = 0.0
 	playing = true
 	keyframes.clear()
+	logged.clear()
 	for id in units:
 		keyframes[id] = [[0.0, units[id].pos]]
 	for e in events:
@@ -445,98 +497,100 @@ func _apply_event(e: Dictionary) -> void:
 		"unit_damaged":
 			var id := int(e.unit)
 			if units.has(id):
+				var was: String = units[id].state
 				units[id].state = e.state
 				if e.get("hp") != null:
 					units[id].hp = e.hp
+				if was != e.state and e.state == "damaged":
+					_log("%s hasar aldı" % _words(id), Color(1.0, 0.8, 0.4))
 		"unit_destroyed":
-			if units.has(int(e.unit)):
-				units[int(e.unit)].state = "destroyed"
+			var id := int(e.unit)
+			if units.has(id):
+				units[id].state = "destroyed"
+				if units[id].kind == "exact":
+					fx.explosion(_unit_point(id, 5), 45.0 * views.zoom())
+				_log("%s imha edildi!" % _words(id), Color(1.0, 0.35, 0.3) if units[id].owner == player_id else Color(0.5, 1.0, 0.5))
 		"shot_fired":
-			if e.shooter != null and e.target != null and units.has(int(e.shooter)) and units.has(int(e.target)):
-				shots.append([to_world(units[int(e.shooter)].pos, 20), to_world(units[int(e.target)].pos, 20), 0.4])
+			var s = units.get(int(e.shooter)) if e.shooter != null else null
+			var t = units.get(int(e.target)) if e.target != null else null
+			var k := views.zoom()
+			if s != null and s.kind == "exact":
+				fx.muzzle(_unit_point(int(e.shooter), 10), k)
+			if t != null and t.kind == "exact":
+				var to := _unit_point(int(e.target), 5)
+				if s != null and s.kind == "exact":
+					fx.tracer(_unit_point(int(e.shooter), 10), to, k)
+				else:
+					fx.tracer(to + Vector3(0, 60, 0) * k, to, k)  # unseen shooter: only the impact reads
+			var key := "%s>%s" % [e.shooter, e.target]
+			if not logged.has(key):
+				logged[key] = true
+				if s != null and s.owner == player_id:
+					_log("%s %s ateş etti" % [_words(int(e.shooter)), _words(int(e.target), true) if t != null else "görünmeyen hedefe"])
+				elif t != null and t.owner == player_id:
+					var who := _words(int(e.shooter)) if s != null else "Görünmeyen bir düşman"
+					_log("%s %s ateş etti" % [who, _words(int(e.target), true)], Color(1.0, 0.7, 0.6))
 		"shell_fired":
 			if e.shooter != null and units.has(int(e.shooter)):
-				_blast(to_world(units[int(e.shooter)].pos, 30), 40.0, Color(1.0, 1.0, 0.6), 0.3)
+				fx.muzzle(_unit_point(int(e.shooter), 20), views.zoom(), true)
+				if not logged.has("shell%s" % e.shooter):
+					logged["shell%s" % e.shooter] = true
+					_log("%s atış yaptı" % _words(int(e.shooter)))
 		"shell_impact":
-			_blast(to_world(Vector2(e.pos.x, e.pos.y)), float(e.radius_m), Color(1.0, 0.45, 0.1), 1.5)
+			fx.explosion(to_world(Vector2(e.pos.x, e.pos.y)), float(e.radius_m))
+			_log("Topçu mermisi düştü", Color(1.0, 0.75, 0.5))
 		"zone_captured":
 			for z in zones:
 				if int(z.id) == int(e.zone):
 					z.owner = e.player
 					var who := "Biz" if int(e.player) == player_id else "Rakip"
 					_status("%s bölgeyi ele geçirdi: %s" % [who, z.name_tr])
+					if int(e.player) >= 0 and int(e.player) < 2:
+						_log("%s %s geçti" % [z.name_tr, SIDE_DATIVE[int(e.player)]], TEAM_COLORS[int(e.player)].lightened(0.3))
 			overlays.set_zones(zones, player_id, TEAM_COLORS)
+
+
+func _words(id: int, dative := false) -> String:
+	var u: Dictionary = units[id]
+	return Hud.unit_words(u.type, id, u.owner == player_id, dative)
+
+
+func _log(text: String, color := Color.WHITE) -> void:
+	ui.log_event(text, color)
+
+
+# World point of a unit (above its model) for effects.
+func _unit_point(id: int, height: float) -> Vector3:
+	var u: Dictionary = units[id]
+	return to_world(u.pos, Models.lift(u.type) + height * views.zoom())
 
 
 # ---------------------------------------------------------------- drawing
 
-# Short-lived dome of radius r at p that grows from a third of r and fades out.
-func _blast(p: Vector3, r: float, color: Color, life: float) -> void:
-	var mi := MeshInstance3D.new()
-	mi.mesh = SphereMesh.new()  # radius 0.5
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.albedo_color = Color(color, 0.8)
-	mi.material_override = mat
-	mi.position = p
-	mi.scale = Vector3.ONE * r * 0.66
-	add_child(mi)
-	var tw := create_tween().set_parallel()
-	tw.tween_property(mi, "scale", Vector3.ONE * r * 2.0, life)
-	tw.tween_property(mat, "albedo_color", Color(color, 0.0), life)
-	tw.chain().tween_callback(mi.queue_free)
-
-
-func _unit_color(id: int, u: Dictionary) -> Color:
-	if u.state == "destroyed":
-		return DEAD_COLOR
-	if id in selection:
-		return SELECTED_COLOR
-	var color: Color = TEAM_COLORS[u.owner] if u.owner >= 0 and u.owner < 2 else Color.WHITE
-	var shade: float = TYPE_SHADE.get(u.type, 0.0)
-	color = color.lightened(shade) if shade > 0.0 else color.darkened(-shade)
-	return color.darkened(0.4) if u.state == "damaged" else color
-
-
+# Contacts without an exact, typed position: faded boxes (area contacts: a slab over the area).
+# Exact contacts and own units are drawn as models by unit_views.gd.
 func _draw_units() -> void:
-	var s: Array = []
 	var f: Array = []
 	for id in units:
 		var u: Dictionary = units[id]
-		if u.kind == "bearing":
-			continue  # no position; drawn as a ray in _draw_lines
-		var size: Vector3 = BOX_SIZE.get(u.type, Vector3(50, 30, 50))
-		var color := _unit_color(id, u)
-		var basis := Basis.looking_at(Vector3(cos(u.heading), 0, sin(u.heading))).scaled(size)
-		var xf := Transform3D(basis, to_world(u.pos, size.y * 0.5))
-		if u.owner == player_id or (u.quality >= 2 and u.kind == "exact"):
-			s.append([xf, color])
-		elif u.kind == "area":
-			# Approximate contact: a faded slab over the area.
+		if u.kind == "bearing" or u.owner == player_id or (u.quality >= 2 and u.kind == "exact"):
+			continue  # bearings: a ray in _draw_lines
+		var color: Color = DEAD_COLOR if u.state == "destroyed" else (TEAM_COLORS[u.owner] if u.owner >= 0 and u.owner < 2 else Color.WHITE)
+		if u.kind == "area":
 			var d: float = u.get("radius", 250.0) * 2.0
-			xf = Transform3D(Basis.from_scale(Vector3(d, 10, d)), to_world(u.pos, 5))
-			f.append([xf, Color(color, 0.25 if u.quality > 0 else 0.12)])
+			f.append([Transform3D(Basis.from_scale(Vector3(d, 10, d)), to_world(u.pos, 5)), Color(color, 0.25 if u.quality > 0 else 0.12)])
 		else:
-			f.append([xf, Color(color, 0.3 if u.quality > 0 else 0.15)])
-	_fill(solid.multimesh, s)
-	_fill(faded.multimesh, f)
+			f.append([Transform3D(Basis.from_scale(APPROX_SIZE), to_world(u.pos, APPROX_SIZE.y * 0.5)), Color(color, 0.3 if u.quality > 0 else 0.15)])
+	var mm := faded.multimesh
+	if mm.instance_count != f.size():
+		mm.instance_count = f.size()
+	for i in f.size():
+		mm.set_instance_transform(i, f[i][0])
+		mm.set_instance_color(i, f[i][1])
 
 
-func _fill(mm: MultiMesh, items: Array) -> void:
-	if mm.instance_count != items.size():
-		mm.instance_count = items.size()
-	for i in items.size():
-		mm.set_instance_transform(i, items[i][0])
-		mm.set_instance_color(i, items[i][1])
-
-
-func _draw_lines(delta: float) -> void:
+func _draw_lines() -> void:
 	var segs: Array = []
-	for id in previews:
-		var pts: Array = [units[id].pos] + previews[id] if units.has(id) else previews[id]
-		for i in range(pts.size() - 1):
-			segs.append([to_world(pts[i], 15), to_world(pts[i + 1], 15), Color.YELLOW])
 	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 200.0)
 	var enemy: Color = TEAM_COLORS[1 - player_id] if player_id >= 0 and player_id < 2 else Color.WHITE
 	for id in units:
@@ -544,7 +598,7 @@ func _draw_lines(delta: float) -> void:
 		if u.owner == player_id and u.get("emitting", false) and u.state != "destroyed":
 			_circle(segs, u.pos, 120.0 + 60.0 * pulse, Color(0.3, 1.0, 1.0, 0.4 + 0.5 * pulse))
 		if u.owner == player_id and u.state != "destroyed":
-			if u.type == "hq":  # HQ: a square frame around the box
+			if u.type == "hq":  # HQ: a square frame around the model
 				_circle(segs, u.pos, 110.0, Color.WHITE, 4, 1, PI / 4)
 			if not u.get("connected", true):  # cut off from HQ: dashed grey ring
 				_circle(segs, u.pos, 90.0, Color(0.6, 0.6, 0.6), 24, 2)
@@ -552,18 +606,6 @@ func _draw_lines(delta: float) -> void:
 			# ESM bearing: the enemy is somewhere along this ray; its position is unknown.
 			var dir := Vector2(cos(u.angle), sin(u.angle))
 			_polyline(segs, [u.pos, u.pos + dir * BEARING_LENGTH], Color(enemy, 0.45 if u.quality > 0 else 0.15))
-	for o in orders.missions():
-		var t = o.target.pos if o.target.kind == "point" else units.get(int(o.target.unit), {}).get("pos")
-		if t == null:
-			continue
-		_circle(segs, t, MISSION_MARK_M, Color.ORANGE_RED)
-		for id in o.units:
-			if units.has(id):
-				_polyline(segs, [units[id].pos, t], Color(1.0, 0.4, 0.2, 0.7))
-	for shot in shots:
-		segs.append([shot[0], shot[1], Color.ORANGE])
-		shot[2] -= delta
-	shots = shots.filter(func(sh): return sh[2] > 0.0)
 	var im: ImmediateMesh = lines.mesh
 	im.clear_surfaces()
 	if segs.is_empty():
