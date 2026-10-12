@@ -98,5 +98,16 @@ async fn run() -> Result<(), BoxError> {
     info!(match_id = %setup.match_id, "resume later with: --resume {}", setup.match_id);
     let listener = TcpListener::bind(("0.0.0.0", args.port)).await?;
     info!("listening on 0.0.0.0:{}", args.port);
+    if let Some(ip) = lan_ip() {
+        info!("LAN players connect to: {ip}:{}", args.port);
+    }
     serve(listener, setup).await
+}
+
+/// This machine's address on the local network (no packet is sent: connecting a UDP socket
+/// only selects the outgoing interface).
+fn lan_ip() -> Option<std::net::IpAddr> {
+    let socket = std::net::UdpSocket::bind("0.0.0.0:0").ok()?;
+    socket.connect("192.0.2.1:9").ok()?;
+    socket.local_addr().ok().map(|a| a.ip())
 }
