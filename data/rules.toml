@@ -31,7 +31,7 @@ units_per_point = 12  # ...for every started 12 units in it (group orders)
 contact_cell_m = 500.0  # placeholder; quality-1 contacts snap to this grid
 
 [turn]
-planning_secs = 45
+planning_secs = 60
 game_seconds_per_tick = 0.6  # 200 ticks = 2 min of game time per turn
 
 [zones]

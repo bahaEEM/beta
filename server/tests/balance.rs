@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-//! Balance report (not a pass/fail test): both sides advance on Hasandag for 10 turns.
+//! Balance report (not a pass/fail test): both fronts race for the western lowland on Hasandag for 15 turns.
 //! cargo test --release -p server --test balance -- --ignored --nocapture
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)] // test code
 
@@ -17,10 +17,9 @@ fn balance_report_hasandag_advance() {
     let map = load_map(&root.join("maps/hasandag")).unwrap();
     let text = std::fs::read_to_string(root.join("data/scenarios/hasandag.toml")).unwrap();
     let mut g = load_game(&text, map, &catalog, &rules).unwrap();
-    for turn in 1..=10 {
+    for turn in 1..=15 {
         let mut orders = BTreeMap::new();
         for p in [0u8, 1] {
-            let sign = if p == 0 { 1.0 } else { -1.0 };
             let mine: Vec<_> = g
                 .world
                 .units()
@@ -38,16 +37,11 @@ fn balance_report_hasandag_advance() {
                 .map(|u| u.id)
                 .collect();
             let mut list = Vec::new();
-            if turn <= 3 && !front.is_empty() {
-                let cx = mine
-                    .iter()
-                    .filter(|u| front.contains(&u.id))
-                    .map(|u| u.pos.x)
-                    .sum::<f64>()
-                    / front.len() as f64;
+            if turn <= 8 && !front.is_empty() {
+                // Both fronts head for the western lowland between the two flank villages.
                 list.push(Order::Move {
                     units: front,
-                    waypoints: vec![Vec2::new(cx + sign * 1000.0, 26100.0)],
+                    waypoints: vec![Vec2::new(7500.0, 19500.0)],
                 });
             }
             if turn == 1 {

@@ -1,290 +1,298 @@
-# Start: per side 6 infantry + 2 MBT (front) and radar, ESM, jammer, supply truck (rear).
-# Zones: a depot behind each side and three objectives between them.
-# Map metres: x east, y south, summit at about (20000, 20000). placeholder positions.
+# Hasandağı: Mavi (0) kuzey eteğinde, Kırmızı (1) güney eteğinde; dağ aralarında.
+# Hedefler: batı ovasında iki köy, zirve gözetleme noktası, doğu geçidi. placeholder konumlar.
 
 [[unit]]
 id = 1
 owner = 0
 type = "infantry"
-x = 13500.0
-y = 25600.0
-heading_deg = 0.0
+x = 20900.0
+y = 12000.0
+heading_deg = 90.0
 
 [[unit]]
 id = 2
 owner = 0
 type = "infantry"
-x = 13500.0
-y = 25800.0
-heading_deg = 0.0
+x = 21300.0
+y = 12000.0
+heading_deg = 90.0
 
 [[unit]]
 id = 3
 owner = 0
 type = "infantry"
-x = 13500.0
-y = 26000.0
-heading_deg = 0.0
+x = 21700.0
+y = 12000.0
+heading_deg = 90.0
 
 [[unit]]
 id = 4
 owner = 0
 type = "infantry"
-x = 13500.0
-y = 26200.0
-heading_deg = 0.0
+x = 22100.0
+y = 12000.0
+heading_deg = 90.0
 
 [[unit]]
 id = 5
 owner = 0
 type = "atgm"
-x = 13500.0
-y = 26400.0
-heading_deg = 0.0
+x = 20500.0
+y = 11900.0
+heading_deg = 90.0
 
 [[unit]]
 id = 6
 owner = 0
 type = "atgm"
-x = 13500.0
-y = 26600.0
-heading_deg = 0.0
+x = 22500.0
+y = 11900.0
+heading_deg = 90.0
 
 [[unit]]
 id = 7
 owner = 0
 type = "mbt"
-x = 13400.0
-y = 25900.0
-heading_deg = 0.0
+x = 21200.0
+y = 11700.0
+heading_deg = 90.0
 
 [[unit]]
 id = 8
 owner = 0
 type = "mbt"
-x = 13400.0
-y = 26300.0
-heading_deg = 0.0
+x = 21800.0
+y = 11700.0
+heading_deg = 90.0
 
 [[unit]]
 id = 9
-owner = 1
-type = "infantry"
-x = 19100.0
-y = 25600.0
-heading_deg = 180.0
+owner = 0
+type = "gsr"
+x = 20700.0
+y = 11100.0
+heading_deg = 90.0
 
 [[unit]]
 id = 10
-owner = 1
-type = "infantry"
-x = 19100.0
-y = 25800.0
-heading_deg = 180.0
+owner = 0
+type = "esm"
+x = 22300.0
+y = 11100.0
+heading_deg = 90.0
 
 [[unit]]
 id = 11
-owner = 1
-type = "infantry"
-x = 19100.0
-y = 26000.0
-heading_deg = 180.0
+owner = 0
+type = "jammer"
+x = 21500.0
+y = 10900.0
+heading_deg = 90.0
 
 [[unit]]
 id = 12
-owner = 1
-type = "infantry"
-x = 19100.0
-y = 26200.0
-heading_deg = 180.0
+owner = 0
+type = "supply"
+x = 21100.0
+y = 10700.0
+heading_deg = 90.0
 
 [[unit]]
 id = 13
-owner = 1
-type = "atgm"
-x = 19100.0
-y = 26400.0
-heading_deg = 180.0
+owner = 0
+type = "hq"
+x = 21500.0
+y = 10500.0
+heading_deg = 90.0
 
 [[unit]]
 id = 14
-owner = 1
-type = "atgm"
-x = 19100.0
-y = 26600.0
-heading_deg = 180.0
+owner = 0
+type = "spg"
+x = 22100.0
+y = 10500.0
+heading_deg = 90.0
 
 [[unit]]
 id = 15
-owner = 1
-type = "mbt"
-x = 19200.0
-y = 25900.0
-heading_deg = 180.0
+owner = 0
+type = "rocket"
+x = 20600.0
+y = 10300.0
+heading_deg = 90.0
 
 [[unit]]
 id = 16
 owner = 1
-type = "mbt"
-x = 19200.0
-y = 26300.0
-heading_deg = 180.0
+type = "infantry"
+x = 18900.0
+y = 28000.0
+heading_deg = 270.0
 
 [[unit]]
 id = 17
-owner = 0
-type = "gsr"
-x = 12000.0
-y = 25400.0
-heading_deg = 0.0
+owner = 1
+type = "infantry"
+x = 19300.0
+y = 28000.0
+heading_deg = 270.0
 
 [[unit]]
 id = 18
-owner = 0
-type = "esm"
-x = 12000.0
-y = 25800.0
-heading_deg = 0.0
+owner = 1
+type = "infantry"
+x = 19700.0
+y = 28000.0
+heading_deg = 270.0
 
 [[unit]]
 id = 19
-owner = 0
-type = "jammer"
-x = 12000.0
-y = 26200.0
-heading_deg = 0.0
+owner = 1
+type = "infantry"
+x = 20100.0
+y = 28000.0
+heading_deg = 270.0
 
 [[unit]]
 id = 20
-owner = 0
-type = "supply"
-x = 12000.0
-y = 26600.0
-heading_deg = 0.0
+owner = 1
+type = "atgm"
+x = 18500.0
+y = 28100.0
+heading_deg = 270.0
 
 [[unit]]
 id = 21
 owner = 1
-type = "gsr"
-x = 20600.0
-y = 25400.0
-heading_deg = 180.0
+type = "atgm"
+x = 20500.0
+y = 28100.0
+heading_deg = 270.0
 
 [[unit]]
 id = 22
 owner = 1
-type = "esm"
-x = 20600.0
-y = 25800.0
-heading_deg = 180.0
+type = "mbt"
+x = 19200.0
+y = 28300.0
+heading_deg = 270.0
 
 [[unit]]
 id = 23
 owner = 1
-type = "jammer"
-x = 20600.0
-y = 26200.0
-heading_deg = 180.0
+type = "mbt"
+x = 19800.0
+y = 28300.0
+heading_deg = 270.0
 
 [[unit]]
 id = 24
 owner = 1
-type = "supply"
-x = 20600.0
-y = 26600.0
-heading_deg = 180.0
+type = "gsr"
+x = 18700.0
+y = 28900.0
+heading_deg = 270.0
 
 [[unit]]
 id = 25
-owner = 0
-type = "hq"
-x = 11800.0
-y = 26000.0
-heading_deg = 0.0
+owner = 1
+type = "esm"
+x = 20300.0
+y = 28900.0
+heading_deg = 270.0
 
 [[unit]]
 id = 26
 owner = 1
-type = "hq"
-x = 20800.0
-y = 26000.0
-heading_deg = 180.0
+type = "jammer"
+x = 19500.0
+y = 29100.0
+heading_deg = 270.0
 
 [[unit]]
 id = 27
-owner = 0
-type = "spg"
-x = 11500.0
-y = 26400.0
-heading_deg = 0.0
+owner = 1
+type = "supply"
+x = 19100.0
+y = 29300.0
+heading_deg = 270.0
 
 [[unit]]
 id = 28
-owner = 0
-type = "rocket"
-x = 11000.0
-y = 25600.0
-heading_deg = 0.0
+owner = 1
+type = "hq"
+x = 19500.0
+y = 29500.0
+heading_deg = 270.0
 
 [[unit]]
 id = 29
 owner = 1
 type = "spg"
-x = 21100.0
-y = 26400.0
-heading_deg = 180.0
+x = 20100.0
+y = 29500.0
+heading_deg = 270.0
 
 [[unit]]
 id = 30
 owner = 1
 type = "rocket"
-x = 21600.0
-y = 25600.0
-heading_deg = 180.0
+x = 18600.0
+y = 29700.0
+heading_deg = 270.0
 
 [[zone]]
 id = 1
-name_tr = "Batı Depo"
-x = 11800.0
-y = 26000.0
-radius_m = 500.0
+name_tr = "Kuzey Kasaba (Mavi depo)"
+x = 22000.0
+y = 10500.0
+radius_m = 600.0
 points = 1
 depot = true
 owner = 0
 
 [[zone]]
 id = 2
-name_tr = "Doğu Depo"
-x = 20800.0
-y = 26000.0
-radius_m = 500.0
+name_tr = "Güney Köy (Kırmızı depo)"
+x = 19500.0
+y = 29500.0
+radius_m = 600.0
 points = 1
 depot = true
 owner = 1
 
 [[zone]]
 id = 3
-name_tr = "Orta Sırt"
-x = 16300.0
-y = 26100.0
-radius_m = 400.0
+name_tr = "Batı Köyü"
+x = 7500.0
+y = 14500.0
+radius_m = 500.0
 points = 3
 depot = false
 
 [[zone]]
 id = 4
-name_tr = "Kuzey Geçit"
-x = 16300.0
-y = 24200.0
+name_tr = "Batı Ova"
+x = 7500.0
+y = 24500.0
+radius_m = 500.0
+points = 3
+depot = false
+
+[[zone]]
+id = 5
+name_tr = "Zirve Gözetleme"
+x = 19850.0
+y = 20100.0
 radius_m = 400.0
 points = 2
 depot = false
 
 [[zone]]
-id = 5
-name_tr = "Güney Köy"
-x = 16300.0
-y = 28000.0
-radius_m = 400.0
+id = 6
+name_tr = "Doğu Geçit"
+x = 30000.0
+y = 20000.0
+radius_m = 500.0
 points = 2
 depot = false

@@ -44,7 +44,7 @@ enum Plan {
     Fire(Vec<u32>, f64, f64),
 }
 
-/// Fixed orders: the front group (infantry + tanks) advances 2 km, the rear group (radar,
+/// Fixed orders (Mavi north, Kırmızı south): the front group advances 2 km towards the mountain, the rear group (radar,
 /// ESM, jammer, supply) follows 800 m; radars and jammers are switched on. 3 KBG points.
 fn orders_for(player: u8, own: &[(u32, String, f64, f64)]) -> Vec<Plan> {
     let sign = if player == 0 { 1.0 } else { -1.0 };
@@ -65,8 +65,8 @@ fn orders_for(player: u8, own: &[(u32, String, f64, f64)]) -> Vec<Plan> {
             .fold((0.0, 0.0), |(x, y), u| (x + u.2 / n, y + u.3 / n));
         plans.push(Plan::Move(
             group.iter().map(|u| u.0).collect(),
-            cx + sign * dx,
-            cy,
+            cx,
+            cy + sign * dx,
         ));
     }
     let emitters: Vec<u32> = own
@@ -77,13 +77,13 @@ fn orders_for(player: u8, own: &[(u32, String, f64, f64)]) -> Vec<Plan> {
     if !emitters.is_empty() {
         plans.push(Plan::Emit(emitters));
     }
-    // Artillery shells a fixed point in front of the enemy's start line.
+    // Artillery shells a fixed point just in front of the enemy's start line.
     let artillery: Vec<u32> = own.iter().filter(|u| guns(&u.1)).map(|u| u.0).collect();
     if !artillery.is_empty() {
         plans.push(Plan::Fire(
             artillery,
-            if player == 0 { 18000.0 } else { 14500.0 },
-            26100.0,
+            if player == 0 { 19500.0 } else { 21500.0 },
+            if player == 0 { 26500.0 } else { 13500.0 },
         ));
     }
     plans
