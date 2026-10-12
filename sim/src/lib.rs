@@ -14,6 +14,8 @@ pub mod visibility;
 pub mod world;
 
 #[cfg(test)]
+mod air_tests;
+#[cfg(test)]
 mod ew_tests;
 
 /// Resolution phase length: 20 s = 200 ticks.

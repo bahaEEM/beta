@@ -59,9 +59,11 @@ pub fn sensor_quality(
         SensorSpec::Radar {
             range_m,
             min_target_speed_mps,
+            air,
         } => {
             let r = &rules.sensor.radar;
             if !observer.0.emitting
+                || air != target.1.class.is_air()
                 || d > range_m
                 || target.0.speed_mps < min_target_speed_mps
                 || !los()

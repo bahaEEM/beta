@@ -241,6 +241,102 @@ x = 18600.0
 y = 29700.0
 heading_deg = 270.0
 
+[[unit]]
+id = 31
+owner = 0
+type = "ifv"
+x = 21050.0
+y = 11800.0
+heading_deg = 90.0
+
+[[unit]]
+id = 32
+owner = 0
+type = "ifv"
+x = 21950.0
+y = 11800.0
+heading_deg = 90.0
+
+[[unit]]
+id = 33
+owner = 0
+type = "recon"
+x = 21500.0
+y = 12400.0
+heading_deg = 90.0
+
+[[unit]]
+id = 34
+owner = 0
+type = "uav"
+x = 21200.0
+y = 10600.0
+heading_deg = 90.0
+
+[[unit]]
+id = 35
+owner = 0
+type = "suav"
+x = 21800.0
+y = 10600.0
+heading_deg = 90.0
+
+[[unit]]
+id = 36
+owner = 0
+type = "shorad"
+x = 21500.0
+y = 10700.0
+heading_deg = 90.0
+
+[[unit]]
+id = 37
+owner = 1
+type = "ifv"
+x = 19050.0
+y = 28200.0
+heading_deg = 270.0
+
+[[unit]]
+id = 38
+owner = 1
+type = "ifv"
+x = 19950.0
+y = 28200.0
+heading_deg = 270.0
+
+[[unit]]
+id = 39
+owner = 1
+type = "recon"
+x = 19500.0
+y = 27600.0
+heading_deg = 270.0
+
+[[unit]]
+id = 40
+owner = 1
+type = "uav"
+x = 19200.0
+y = 29400.0
+heading_deg = 270.0
+
+[[unit]]
+id = 41
+owner = 1
+type = "suav"
+x = 19800.0
+y = 29400.0
+heading_deg = 270.0
+
+[[unit]]
+id = 42
+owner = 1
+type = "shorad"
+x = 19500.0
+y = 29300.0
+heading_deg = 270.0
+
 [[zone]]
 id = 1
 name_tr = "Kuzey Kasaba (Mavi depo)"

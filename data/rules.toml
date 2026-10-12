@@ -21,6 +21,7 @@ partial_damage_factor = 0.25 # placeholder; fraction of damage on a partial pene
 damaged_hp_fraction = 0.5    # at or below this share of hp a unit is damaged (half speed)
 damaged_speed_factor = 0.5   # damaged units move at half speed
 return_fire_s = 60.0         # 'return' stance may fire this long after being shot at
+air_fire_quality = 2         # anti-air weapons fire on a radar lock (quality 2)
 
 [kbg]
 budget_per_turn = 8   # command points per player per turn

@@ -162,14 +162,26 @@ fn pick_target(
         .iter()
         .filter(|t| t.owner != shooter.owner && t.state != UnitState::Destroyed)
         .filter(|t| {
-            tracks
-                .get(shooter.owner, t.id)
-                .is_some_and(|tr| tr.quality >= rules.sensor.optical.fire_quality)
+            tracks.get(shooter.owner, t.id).is_some_and(|tr| {
+                let air = catalog.get(&t.type_id).is_some_and(|tt| tt.class.is_air());
+                let needed = if air {
+                    rules.combat.air_fire_quality
+                } else {
+                    rules.sensor.optical.fire_quality
+                };
+                tr.quality >= needed
+            })
         })
         .filter_map(|t| {
             let d = shooter.pos.distance(t.pos);
             let tt = catalog.get(&t.type_id)?;
-            (d <= st.weapon_range_m
+            let engageable = if tt.class.is_air() {
+                st.weapon_vs_air
+            } else {
+                st.weapon_vs_ground
+            };
+            (engageable
+                && d <= st.weapon_range_m
                 && line_of_sight(&world.map, shooter.pos, t.pos, st.height_m, tt.height_m))
             .then_some((d, t.id))
         })

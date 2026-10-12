@@ -110,7 +110,7 @@ pub fn step_impacts(
             .iter()
             .filter(|u| u.state != UnitState::Destroyed)
             .filter_map(|u| {
-                let t = catalog.get(&u.type_id)?;
+                let t = catalog.get(&u.type_id).filter(|t| !t.class.is_air())?; // shells do not hit aircraft
                 let d = u.pos.distance(s.pos);
                 (d < s.radius_m).then(|| {
                     let dmg = s.damage_hp

@@ -56,6 +56,16 @@ Yeni testlerin adı kural kimliğiyle başlar (`k043_...`). Eski testler aşağ�
   doğrusal azalır, dost-düşman ayırmaz; zırh (üst zırh = arka plaka) direkt ateşteki delme kuralıyla azaltır.
 - **K-094 Görünürlük.** Patlamalar herkese açıktır; atan birim ancak görülüyorsa bildirilir. Adım sırasında: direkt ateş → atış → çarpma.
 
+## Hava birimleri ve hava savunma
+- **K-100 Uçuş.** Hava birimi (`class = "air"`) `height_m` irtifada uçar; arazi, eğim ve yol onu etkilemez, rotası noktalar arası düz çizgidir.
+  Görüş hattında göz/hedef yüksekliği bu irtifadır (yüksekten uzağı görür, uzaktan görülür). Bölge ele geçirmez.
+- **K-101 Hava hedefleri.** Silah `weapon_vs_ground` / `weapon_vs_air` bayraklarına göre hedef seçer. Hava hedefine ateş için iz 2 (radar kilidi) yeter
+  (`air_fire_quality`); kara hedefleri için iz 3 kuralı aynıdır.
+- **K-102 Radar türleri.** `air = true` radar sadece hava araçlarını, kara gözetleme radarı sadece hareketli kara hedeflerini görür.
+- **K-103 Topçu ve hava.** Topçu/füze mermileri hava araçlarına hasar vermez.
+- **K-104 Birimler.** Keşif İHA (keşif, 6 km kamera, 1500 m), SİHA (8 km güdümlü mühimmat, 4 atış), Alçak İrtifa Hava Savunma (8 km, sadece hava,
+  20 km hava arama radarı), ZMA (30 mm top, 2 km), Keşif Aracı (5 km kamera, hızlı, hafif).
+
 ## Görünürlük
 - **K-050 Görünürlük filtresi.** Oyuncuya giden hiçbir mesaj, o an göremediği birimin kimliğini veya konumunu içermez.
   İz 1 = 500 m'lik hücrenin merkezi; kerterizle bilinen birim için sadece yön; iz ≥ 2 = kesin konum, iz ≥ 2'de tip.
@@ -85,7 +95,7 @@ Yeni testlerin adı kural kimliğiyle başlar (`k043_...`). Eski testler aşağ�
 ## Denge (2026-10-07)
 Hedefler: ilk temas 2.–3. turda; tank düellosu yaklaşık yarım tur; tanksavar pususu tankı 1–2 isabette düşürür;
 piyade çatışması birkaç tur. Ölçüm: `cargo test --release -p server --test balance -- --ignored --nocapture`.
-Son ölçüm (Hasandağı, iki taraf 3 tur ilerliyor): ilk atış 3. turda, 10 turda P0 2/2 tank ve 2/2 tanksavar, P1 2/2 tank ve 1/2 tanksavar kaybetti.
+Son ölçüm (2026-10-12, Hasandağı kuzey/güney, İHA + topçu + iki cephe batı ovasına): ilk atış ve topçu 3. turda; iki İHA da hava savunmasınca düşürüldü; 15 turda keşif ve ZMA'lar ağır kayıp, piyade/tanksavar ayakta.
 Bütün sayılar yer tutucudur; görsel aşamadan önce oyun testiyle ayarlanacak.
 
 ## Kurallar ↔ testler
@@ -121,6 +131,10 @@ Bütün sayılar yer tutucudur; görsel aşamadan önce oyun testiyle ayarlanaca
 | K-091 | k091_no_fire_outside_min_or_max_range |
 | K-092 | k092_unit_mission_needs_track_quality_2 |
 | K-090 (emir) | k094_fire_mission_needs_indirect_weapon_and_ends_with_the_turn |
+| K-100 / K-104 | k100_aircraft_fly_straight_over_terrain, k104_altitude_sees_over_ridges |
+| K-101 | k101_only_anti_air_weapons_hit_aircraft, k101_anti_air_does_not_engage_ground_targets |
+| K-102 | k102_air_radar_sees_aircraft_ground_radar_does_not |
+| K-103 | k103_shells_do_not_hit_aircraft |
 | K-071 | g6_client_messages_round_trip, g6_server_messages_round_trip, g6_version_mismatch_rejected, g6_oversized_message_rejected, g6_protocol_md_up_to_date |
 | K-072 | g7_resume_after_shutdown, g7_reconnect_same_name, g7_planning_deadline_starts_resolution |
 

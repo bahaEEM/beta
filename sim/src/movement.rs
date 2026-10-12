@@ -71,6 +71,10 @@ pub fn plan_route(
     let ut = catalog
         .get(&unit.type_id)
         .ok_or_else(|| MoveError::UnknownType(unit.type_id.clone()))?;
+    // Aircraft fly straight to each waypoint, ignoring terrain and roads.
+    if ut.class.is_air() {
+        return Ok(order.waypoints.clone());
+    }
     let map = &world.map;
     let cell = map.cell_size_m();
     let speed = ut.speed_offroad_mps;
@@ -183,8 +187,9 @@ pub fn step_movement(world: &mut World, catalog: &UnitCatalog, rules: &Rules, ro
             route.clear();
             continue;
         };
-        let on_road =
-            map.road_at(unit.pos) > 0 && route.first().is_some_and(|&p| map.road_at(p) > 0);
+        let on_road = !t.class.is_air()
+            && map.road_at(unit.pos) > 0
+            && route.first().is_some_and(|&p| map.road_at(p) > 0);
         let mut speed = if on_road {
             t.speed_road_mps
         } else {

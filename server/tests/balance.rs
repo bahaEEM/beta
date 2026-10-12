@@ -28,12 +28,14 @@ fn balance_report_hasandag_advance() {
                 .collect();
             let front: Vec<_> = mine
                 .iter()
-                .filter(|u| ["infantry", "mbt", "atgm"].contains(&u.type_id.as_str()))
+                .filter(|u| {
+                    ["infantry", "mbt", "atgm", "ifv", "recon"].contains(&u.type_id.as_str())
+                })
                 .map(|u| u.id)
                 .collect();
             let emit: Vec<_> = mine
                 .iter()
-                .filter(|u| u.type_id == "gsr" || u.type_id == "jammer")
+                .filter(|u| ["gsr", "jammer", "shorad"].contains(&u.type_id.as_str()))
                 .map(|u| u.id)
                 .collect();
             let mut list = Vec::new();
@@ -44,10 +46,45 @@ fn balance_report_hasandag_advance() {
                     waypoints: vec![Vec2::new(7500.0, 19500.0)],
                 });
             }
+            let ids_of = |t: &str| -> Vec<_> {
+                mine.iter()
+                    .filter(|u| u.type_id == t)
+                    .map(|u| u.id)
+                    .collect()
+            };
+            let enemy_base = if p == 0 {
+                Vec2::new(19500.0, 27000.0)
+            } else {
+                Vec2::new(21500.0, 13000.0)
+            };
             if turn == 1 {
                 list.push(Order::SetEmitter {
                     units: emit,
                     on: true,
+                });
+                // Drones: recon UAV over the enemy base, armed UAV over the mountain.
+                list.push(Order::Move {
+                    units: ids_of("uav"),
+                    waypoints: vec![enemy_base],
+                });
+                list.push(Order::Move {
+                    units: ids_of("suav"),
+                    waypoints: vec![Vec2::new(19850.0, 20100.0)],
+                });
+            }
+            // Artillery and rockets: best-tracked enemy (quality >= 2), lowest id on ties.
+            let target = g
+                .tracks
+                .tracks
+                .values()
+                .filter(|t| t.observer_player == PlayerId(p) && t.quality >= 2)
+                .max_by_key(|t| (t.quality, std::cmp::Reverse(t.target_unit)))
+                .map(|t| t.target_unit);
+            let guns: Vec<_> = ids_of("spg").into_iter().chain(ids_of("rocket")).collect();
+            if let (Some(t), false) = (target, guns.is_empty()) {
+                list.push(Order::FireMission {
+                    units: guns,
+                    target: sim::indirect::FireTarget::Unit(t),
                 });
             }
             orders.insert(PlayerId(p), list);
@@ -58,7 +95,11 @@ fn balance_report_hasandag_advance() {
             .iter()
             .filter(|e| matches!(e.event, sim::event::Event::ShotFired { .. }))
             .count();
-        let mut line = format!("turn {turn:2}: {shots:3} shots |");
+        let shells = events
+            .iter()
+            .filter(|e| matches!(e.event, sim::event::Event::ShellFired { .. }))
+            .count();
+        let mut line = format!("turn {turn:2}: {shots:3} shots {shells:2} shells |");
         for p in [0u8, 1] {
             let mut by_type: BTreeMap<&str, (u32, u32, f64)> = BTreeMap::new();
             for u in g.world.units().iter().filter(|u| u.owner == PlayerId(p)) {

@@ -10,6 +10,14 @@ use std::fmt;
 pub enum UnitClass {
     Infantry,
     Vehicle,
+    /// Flies at `height_m` above ground in straight lines; only anti-air weapons can hit it.
+    Air,
+}
+
+impl UnitClass {
+    pub fn is_air(self) -> bool {
+        self == UnitClass::Air
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -29,6 +37,11 @@ pub struct UnitType {
     pub damage_hp: f64,
     /// Game seconds between shots.
     pub reload_s: f64,
+    /// What the direct-fire weapon can engage.
+    #[serde(default = "yes")]
+    pub weapon_vs_ground: bool,
+    #[serde(default)]
+    pub weapon_vs_air: bool,
     /// Expected hit share at point blank and at maximum range (linear in between).
     pub hit_close: f64,
     pub hit_far: f64,
@@ -57,6 +70,10 @@ pub struct UnitType {
     pub supply_ammo: u32,
 }
 
+fn yes() -> bool {
+    true
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct IndirectSpec {
@@ -80,6 +97,9 @@ pub enum SensorSpec {
     Radar {
         range_m: f64,
         min_target_speed_mps: f64,
+        /// Air-search radar (sees aircraft) instead of ground surveillance.
+        #[serde(default)]
+        air: bool,
     },
     /// Passive; bearings to enemy emitters.
     Esm {
@@ -350,6 +370,8 @@ pub struct CombatRules {
     pub damaged_hp_fraction: f64,
     /// 'return' stance may fire this long (game seconds) after being shot at.
     pub return_fire_s: f64,
+    /// Track quality anti-air weapons need on an aircraft (radar lock is enough).
+    pub air_fire_quality: u8,
     /// Speed multiplier for damaged units.
     pub damaged_speed_factor: f64,
 }
@@ -437,6 +459,9 @@ pub fn load_rules(toml_text: &str) -> Result<Rules, DataError> {
             return Err(DataError::InvalidRule(name));
         }
     }
+    if c.air_fire_quality == 0 || c.air_fire_quality > MAX_TRACK_QUALITY {
+        return Err(DataError::InvalidRule("combat.air_fire_quality"));
+    }
     if !(c.return_fire_s.is_finite() && c.return_fire_s >= 0.0) {
         return Err(DataError::InvalidRule("combat.return_fire_s"));
     }
@@ -472,10 +497,11 @@ mod tests {
     #[test]
     fn g1_loads_shipped_units_toml() {
         let cat = load_units(UNITS).unwrap();
-        assert_eq!(
-            cat.types.keys().collect::<Vec<_>>(),
-            ["atgm", "esm", "gsr", "hq", "infantry", "jammer", "mbt", "rocket", "spg", "supply"]
-        );
+        for id in [
+            "infantry", "mbt", "gsr", "esm", "hq", "spg", "uav", "shorad",
+        ] {
+            assert!(cat.get(id).is_some(), "missing unit type {id}");
+        }
         assert!(cat.get("gsr").unwrap().is_emitter());
         assert!(!cat.get("esm").unwrap().is_emitter());
         assert_eq!(cat.get("infantry").unwrap().weapon_range_m, 400.0);

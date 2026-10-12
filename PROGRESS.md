@@ -46,6 +46,6 @@
 |---|---|---|---|
 | F3-0 senaryo kuzey/güney + 60 sn | bitti | 24f9cff | ilk temas 11. turda → F3-2 ile hızlanacak |
 | F3-1 istemci görselleri | yapılıyor | | alt ajan |
-| F3-2 hava + hava savunma | yapılıyor | | |
-| F3-3 ZMA, keşif | bekliyor | | |
+| F3-2 hava + hava savunma | bitti | (bu commit) | İHA, SİHA, hava savunma; ilk çatışma 11. → 3. tur |
+| F3-3 ZMA, keşif | bitti | (bu commit) | senaryoda taraf başı 2 ZMA + 1 keşif |
 | F3-4 çevre | bekliyor | | |

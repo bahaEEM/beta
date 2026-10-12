@@ -266,3 +266,133 @@ fuel_l_per_km = 1.5              # placeholder
 ammo = 4                         # placeholder
 sensors = [{ kind = "optical", range_m = 1500.0 }]  # placeholder
 indirect = { range_m = 70000.0, min_range_m = 10000.0, shell_speed_mps = 900.0, radius_m = 150.0, damage_hp = 70.0, penetration_mm = 40.0 }  # placeholder
+
+[[unit]]
+id = "ifv"
+name_tr = "Zırhlı Muharebe Aracı"
+class = "vehicle"
+speed_offroad_mps = 11.0         # placeholder
+speed_road_mps = 18.0            # placeholder
+max_slope_deg = 30.0             # placeholder
+armor_front_mm = 60.0            # placeholder
+armor_side_mm = 30.0             # placeholder
+armor_rear_mm = 20.0             # placeholder
+weapon_range_m = 2000.0          # placeholder; 30 mm cannon
+penetration_mm = 70.0            # placeholder
+damage_hp = 25.0                 # placeholder
+reload_s = 2.0                   # placeholder; bursts
+hit_close = 0.85                 # placeholder
+hit_far = 0.4                    # placeholder
+aim_s = 4.0                      # placeholder
+height_m = 2.6                   # placeholder
+radio_range_m = 10000.0          # placeholder
+hp = 100.0                       # placeholder
+fuel_l = 600.0                   # placeholder
+fuel_l_per_km = 2.0              # placeholder
+ammo = 60                        # placeholder
+sensors = [{ kind = "optical", range_m = 3000.0 }]  # placeholder; thermal sight
+
+[[unit]]
+id = "recon"
+name_tr = "Keşif Aracı"
+class = "vehicle"
+speed_offroad_mps = 14.0         # placeholder
+speed_road_mps = 25.0            # placeholder
+max_slope_deg = 28.0             # placeholder
+armor_front_mm = 15.0            # placeholder
+armor_side_mm = 10.0             # placeholder
+armor_rear_mm = 8.0              # placeholder
+weapon_range_m = 800.0           # placeholder; machine gun
+penetration_mm = 10.0            # placeholder
+damage_hp = 6.0                  # placeholder
+reload_s = 2.0                   # placeholder
+hit_close = 0.6                  # placeholder
+hit_far = 0.15                   # placeholder
+aim_s = 2.0                      # placeholder
+height_m = 4.0                   # placeholder; sensor mast
+radio_range_m = 12000.0          # placeholder
+hp = 60.0                        # placeholder
+fuel_l = 300.0                   # placeholder
+fuel_l_per_km = 0.5              # placeholder
+ammo = 100                       # placeholder
+sensors = [{ kind = "optical", range_m = 5000.0 }]  # placeholder; long-range day/thermal camera
+
+[[unit]]
+id = "uav"
+name_tr = "Keşif İHA"
+class = "air"
+speed_offroad_mps = 35.0         # placeholder; cruise
+speed_road_mps = 35.0
+max_slope_deg = 90.0
+armor_front_mm = 0.0
+armor_side_mm = 0.0
+armor_rear_mm = 0.0
+weapon_range_m = 0.0
+penetration_mm = 0.0
+damage_hp = 0.0
+reload_s = 1.0
+hit_close = 0.0
+hit_far = 0.0
+aim_s = 1.0
+height_m = 1500.0                # placeholder; flight altitude above ground
+radio_range_m = 100000.0         # placeholder; satellite/relay link
+hp = 30.0                        # placeholder
+fuel_l = 0.0                     # endurance not modelled yet
+fuel_l_per_km = 0.0
+ammo = 0
+sensors = [{ kind = "optical", range_m = 6000.0 }]  # placeholder; EO/IR gimbal
+
+[[unit]]
+id = "suav"
+name_tr = "SİHA"
+class = "air"
+speed_offroad_mps = 40.0         # placeholder
+speed_road_mps = 40.0
+max_slope_deg = 90.0
+armor_front_mm = 0.0
+armor_side_mm = 0.0
+armor_rear_mm = 0.0
+weapon_range_m = 8000.0          # placeholder; precision-guided munition
+penetration_mm = 700.0           # placeholder
+damage_hp = 60.0                 # placeholder
+reload_s = 60.0                  # placeholder
+hit_close = 0.85                 # placeholder
+hit_far = 0.75                   # placeholder
+aim_s = 20.0                     # placeholder; laser designation + flight
+height_m = 1200.0                # placeholder
+radio_range_m = 100000.0         # placeholder
+hp = 40.0                        # placeholder
+fuel_l = 0.0
+fuel_l_per_km = 0.0
+ammo = 4                         # placeholder
+sensors = [{ kind = "optical", range_m = 5000.0 }]  # placeholder
+
+[[unit]]
+id = "shorad"
+name_tr = "Alçak İrtifa Hava Savunma"
+class = "vehicle"
+speed_offroad_mps = 10.0         # placeholder
+speed_road_mps = 17.0            # placeholder
+max_slope_deg = 28.0             # placeholder
+armor_front_mm = 20.0            # placeholder
+armor_side_mm = 15.0             # placeholder
+armor_rear_mm = 10.0             # placeholder
+weapon_vs_ground = false
+weapon_vs_air = true
+weapon_range_m = 8000.0          # placeholder; short-range SAM
+penetration_mm = 50.0            # placeholder
+damage_hp = 40.0                 # placeholder
+reload_s = 6.0                   # placeholder
+hit_close = 0.8                  # placeholder
+hit_far = 0.5                    # placeholder
+aim_s = 6.0                      # placeholder
+height_m = 3.5                   # placeholder
+radio_range_m = 10000.0          # placeholder
+hp = 80.0                        # placeholder
+fuel_l = 500.0                   # placeholder
+fuel_l_per_km = 1.2              # placeholder
+ammo = 24                        # placeholder
+sensors = [
+  { kind = "optical", range_m = 3000.0 },                                         # placeholder
+  { kind = "radar", range_m = 20000.0, min_target_speed_mps = 0.0, air = true },  # placeholder; air search
+]
