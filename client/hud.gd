@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# 2D interface: connection bar, turn/KBG/score line, status, unit info panel, drag box, game over panel.
+# 2D interface: connection bar, turn/KBG/score line, status, unit info panel, drag box, game over panel,
+# event log.
 extends CanvasLayer
 
 signal connect_pressed(address: String)
@@ -17,6 +18,20 @@ const TYPE_NAMES := {
 	"spg": "Obüs",
 	"rocket": "Füze Rampası",
 }
+# type -> [short label, "your ..." (log), "enemy's ..." (log)]
+const TYPE_WORDS := {
+	"infantry": ["Piyade", "Piyadeniz", "piyadesi"],
+	"mbt": ["Tank", "Tankınız", "tankı"],
+	"gsr": ["Radar", "Radarınız", "radarı"],
+	"esm": ["ESM", "ESM aracınız", "ESM aracı"],
+	"jammer": ["Karıştırıcı", "Karıştırıcınız", "karıştırıcısı"],
+	"supply": ["İkmal", "İkmal aracınız", "ikmal aracı"],
+	"atgm": ["Tanksavar", "Tanksavarınız", "tanksavarı"],
+	"hq": ["Karargâh", "Karargâhınız", "karargâhı"],
+	"spg": ["Obüs", "Obüsünüz", "obüsü"],
+	"rocket": ["Füze", "Füze rampanız", "füze rampası"],
+}
+const LOG_LINES := 8
 const STANCE_NAMES := {"free": "Serbest", "return": "Karşılık", "hold": "Ateş Yok"}
 const STATE_NAMES := {"healthy": "Sağlam", "damaged": "Hasarlı", "destroyed": "Yok edildi"}
 
@@ -32,6 +47,8 @@ var info_panel := PanelContainer.new()
 var drag_box := ColorRect.new()
 var over_panel := PanelContainer.new()
 var over_label := Label.new()
+var log_box := RichTextLabel.new()
+var log_lines: Array = []  # [text, colour, repeat count]
 
 
 func _ready() -> void:
@@ -70,6 +87,23 @@ func _ready() -> void:
 	drag_box.visible = false
 	drag_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(drag_box)
+
+	var log_panel := PanelContainer.new()
+	log_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	log_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	log_panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, 10)
+	log_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bg := StyleBoxFlat.new()
+	bg.bg_color = Color(0, 0, 0, 0.45)
+	bg.set_content_margin_all(8)
+	log_panel.add_theme_stylebox_override("panel", bg)
+	log_box.bbcode_enabled = true
+	log_box.fit_content = true
+	log_box.custom_minimum_size = Vector2(460, 0)
+	log_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	log_box.add_theme_font_size_override("normal_font_size", 16)
+	log_panel.add_child(log_box)
+	add_child(log_panel)
 
 	over_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	over_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
@@ -153,3 +187,42 @@ func show_selection(sel: Array, orders) -> void:
 		for t in count:
 			lines.append("%d x %s" % [count[t], TYPE_NAMES.get(t, t)])
 		info.text = "\n".join(lines)
+
+
+static func short_name(type: String) -> String:
+	return TYPE_WORDS[type][0] if TYPE_WORDS.has(type) else (type.to_upper() if type != "" else "?")
+
+
+## Unit in a log line: "Tankınız 7" / "Düşman tankı 12"; as an object (dative): "düşman tankı 12'ye".
+static func unit_words(type: String, id: int, own: bool, dative := false) -> String:
+	var n := dat(id) if dative else str(id)
+	if own:
+		return "%s %s" % [TYPE_WORDS[type][1] if TYPE_WORDS.has(type) else "Biriminiz", n]
+	return "%s %s %s" % ["düşman" if dative else "Düşman", TYPE_WORDS[type][2] if TYPE_WORDS.has(type) else "birimi", n]
+
+
+## Number with the Turkish dative suffix: 12'ye, 15'e, 9'a, 40'a.
+static func dat(n: int) -> String:
+	var m := absi(n)
+	var tail := "'e"  # 100, 1000: yüz'e, bin'e
+	if m == 0:
+		tail = "'a"
+	elif m % 10 != 0:
+		tail = ["", "'e", "'ye", "'e", "'e", "'e", "'ya", "'ye", "'e", "'a"][m % 10]
+	elif m % 100 != 0:
+		tail = ["", "'a", "'ye", "'a", "'a", "'ye", "'a", "'e", "'e", "'a"][(m / 10) % 10]
+	return "%d%s" % [n, tail]
+
+
+## Adds a line to the event log (bottom right); a repeat of the last line counts up instead.
+func log_event(text: String, color := Color.WHITE) -> void:
+	if not log_lines.is_empty() and log_lines[-1][0] == text:
+		log_lines[-1][2] += 1
+	else:
+		log_lines.append([text, color, 1])
+		if log_lines.size() > LOG_LINES:
+			log_lines.pop_front()
+	var out := PackedStringArray()
+	for l in log_lines:
+		out.append("[color=#%s]%s%s[/color]" % [l[1].to_html(false), l[0], " ×%d" % l[2] if l[2] > 1 else ""])
+	log_box.text = "\n".join(out)
