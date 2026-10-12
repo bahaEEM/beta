@@ -21,6 +21,8 @@ const STANCE_NAMES := {"free": "Serbest", "return": "Karşılık", "hold": "Ate�
 const STATE_NAMES := {"healthy": "Sağlam", "damaged": "Hasarlı", "destroyed": "Yok edildi"}
 
 var name_box := LineEdit.new()
+var addr := LineEdit.new()
+var connect_button := Button.new()
 var ready_button := Button.new()
 var line := Label.new()
 var status := Label.new()
@@ -36,12 +38,10 @@ func _ready() -> void:
 	var bar := HBoxContainer.new()
 	bar.position = Vector2(10, 10)
 	add_child(bar)
-	var addr := LineEdit.new()
 	addr.text = "127.0.0.1:7777"
 	addr.custom_minimum_size.x = 180
 	name_box.text = "oyuncu"
 	name_box.custom_minimum_size.x = 120
-	var connect_button := Button.new()
 	connect_button.text = "Bağlan"
 	connect_button.pressed.connect(func(): connect_pressed.emit(addr.text))
 	ready_button.text = "Hazır"
@@ -51,8 +51,13 @@ func _ready() -> void:
 		bar.add_child(c)
 	status.position = Vector2(10, 50)
 	add_child(status)
-	fps.position = Vector2(10, 75)
+	fps.position = Vector2(10, 80)
 	add_child(fps)
+	# Readable on any background: white text with a dark outline.
+	for l in [status, line, fps, info]:
+		l.add_theme_font_size_override("font_size", 18)
+		l.add_theme_color_override("font_outline_color", Color.BLACK)
+		l.add_theme_constant_override("outline_size", 6)
 
 	info_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	info_panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT, Control.PRESET_MODE_MINSIZE, 10)
@@ -74,6 +79,19 @@ func _ready() -> void:
 	over_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	over_panel.add_child(over_label)
 	add_child(over_panel)
+
+
+func set_connected(on: bool) -> void:
+	connect_button.disabled = on
+	connect_button.text = "Bağlı" if on else "Bağlan"
+	name_box.editable = not on
+	addr.editable = not on
+
+
+## Large centred message (also used for the game-over result); empty text hides it.
+func banner(text: String) -> void:
+	over_label.text = text
+	over_panel.visible = not text.is_empty()
 
 
 func show_drag(a: Vector2, b: Vector2) -> void:

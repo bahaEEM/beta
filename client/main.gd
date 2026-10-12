@@ -118,9 +118,23 @@ func _ready() -> void:
 	lines.material_override = line_mat
 	add_child(lines)
 	net.opened.connect(_on_open)
-	net.closed.connect(func(): _status("Bağlantı koptu. Aynı isimle tekrar bağlanabilirsiniz."))
+	net.closed.connect(func():
+		ui.set_connected(false)
+		ui.banner("Bağlantı koptu.\nAynı isimle tekrar bağlanabilirsiniz.")
+		_status("Bağlantı koptu."))
 	net.message.connect(_on_message)
-	if "--bench" in OS.get_cmdline_user_args():
+	var args := OS.get_cmdline_user_args()
+	var name_at := args.find("--name")
+	if name_at >= 0 and name_at + 1 < args.size():
+		ui.name_box.text = args[name_at + 1]
+	DisplayServer.window_set_title("beta — " + ui.name_box.text)
+	if "--connect" in args:
+		net.connect_to(ui.addr.text)
+		_status("Bağlanılıyor...")
+	var shot_at := args.find("--shot")
+	if shot_at >= 0 and shot_at + 1 < args.size():
+		_screenshot(args[shot_at + 1])
+	if "--bench" in args:
 		_bench()
 
 
@@ -175,7 +189,39 @@ func _load_terrain() -> void:
 	terrain.vertex_spacing = float(r["pixel_size_x_m"])
 	add_child(terrain)
 	terrain.material.show_checkered = false
-	terrain.data.import_images([img, null, null], Vector3.ZERO, 0.0, 1.0)
+	terrain.material.show_colormap = true
+	var colors := _height_colors(img, float(r["min_height_m"]), float(r["max_height_m"]))
+	terrain.data.import_images([img, null, colors], Vector3.ZERO, 0.0, 1.0)
+
+
+## Colour map by altitude (display only): plain green -> brown slopes -> grey rock -> snow.
+func _height_colors(heights: Image, lo: float, hi: float) -> Image:
+	var stops := [[0.0, Color(0.36, 0.48, 0.25)], [0.25, Color(0.55, 0.55, 0.32)], [0.5, Color(0.55, 0.42, 0.28)],
+		[0.75, Color(0.5, 0.47, 0.44)], [0.92, Color(0.85, 0.85, 0.85)], [1.0, Color(0.97, 0.97, 0.98)]]
+	var lut := PackedByteArray()
+	for k in 256:
+		var t := k / 255.0
+		var c: Color = stops[-1][1]
+		for s in range(stops.size() - 1):
+			if t <= stops[s + 1][0]:
+				c = stops[s][1].lerp(stops[s + 1][1], (t - stops[s][0]) / (stops[s + 1][0] - stops[s][0]))
+				break
+		lut.append_array([c.r8, c.g8, c.b8, 255])
+	var src := heights.duplicate()
+	if src.get_format() != Image.FORMAT_RF:
+		src.convert(Image.FORMAT_RF)
+	var hs: PackedFloat32Array = src.get_data().to_float32_array()
+	var out := PackedByteArray()
+	out.resize(hs.size() * 4)
+	var scale := 255.0 / maxf(hi - lo, 1.0)
+	for k: int in hs.size():
+		var i: int = clampi(int((hs[k] - lo) * scale), 0, 255) * 4
+		var o: int = k * 4
+		out[o] = lut[i]
+		out[o + 1] = lut[i + 1]
+		out[o + 2] = lut[i + 2]
+		out[o + 3] = 255
+	return Image.create_from_data(src.get_width(), src.get_height(), false, Image.FORMAT_RGBA8, out)
 
 
 func ground(p: Vector2) -> float:
@@ -216,13 +262,23 @@ func _read_toml(path: String) -> Dictionary:
 
 func _on_open() -> void:
 	net.send({"type": "hello", "protocol_version": Net.PROTOCOL_VERSION, "player_name": ui.name_box.text})
+	ui.set_connected(true)
+	ui.banner("Bağlandı (%s).\nRakip bekleniyor..." % ui.name_box.text)
 	_status("Bağlandı, rakip bekleniyor...")
+
+
+## Saves a screenshot after the terrain has rendered, then quits (for checking visuals).
+func _screenshot(path: String) -> void:
+	await get_tree().create_timer(4.0).timeout
+	get_viewport().get_texture().get_image().save_png(path)
+	get_tree().quit()
 
 
 func _on_message(m: Dictionary) -> void:
 	match m.get("type"):
 		"welcome":
 			player_id = int(m.player_id)
+			ui.banner("Oyuncu %d (%s).\nRakip bekleniyor..." % [player_id + 1, "Mavi, batı" if player_id == 0 else "Kırmızı, doğu"])
 			_status("Oyuncu %d, harita %s" % [player_id + 1, m.map_id])
 		"turn_start":
 			if playing:
@@ -251,6 +307,7 @@ func _on_message(m: Dictionary) -> void:
 
 
 func _apply_turn_start(m: Dictionary) -> void:
+	ui.banner("")
 	turn = int(m.turn)
 	deadline = float(m.deadline_secs)
 	kbg_budget = int(m.view.kbg_budget)
