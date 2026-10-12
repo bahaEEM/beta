@@ -39,3 +39,13 @@
 | F2-2 haberleşme ağı | bitti | (bu commit) | karargâh, telsiz röle, yol kablosu, karıştırıcı telsizi keser, kopuk birime emir yok |
 | F2-3 topçu ve füze | bitti | (bu commit) | obüs 3–30 km, füze rampası 10–70 km; nokta/birim atışı; uçuş süresi; alan hasarı; G10'da tur başı 12 mermi |
 | F2-4 istemci (ateş kuralı, atış görevi, bağlantı durumu, patlamalar) | bitti | ddf6c08 | alt ajan; ekransız testler OK; docs/faz2-rapor.md |
+
+# Faz 3
+
+| Görev | Durum | Commit | Not |
+|---|---|---|---|
+| F3-0 senaryo kuzey/güney + 60 sn | bitti | 24f9cff | ilk temas 11. turda → F3-2 ile hızlanacak |
+| F3-1 istemci görselleri | yapılıyor | | alt ajan |
+| F3-2 hava + hava savunma | yapılıyor | | |
+| F3-3 ZMA, keşif | bekliyor | | |
+| F3-4 çevre | bekliyor | | |

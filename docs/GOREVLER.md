@@ -146,3 +146,18 @@ Hasar modeli kararı: "ikisi birden" = beklenen hasar + nişan süresi + ateş k
   - docs/design.md: tüm kurallar K-001… kimlikleriyle + her kuralın testleri (izlenebilirlik tablosu). Yeni testler K-kimliğiyle adlanır.
 - F2-2 Haberleşme ağı: kablolu hat + telsiz; karıştırıcı telsizi bozar; bağlantısı kopan birim emir alamaz / KBG etkisi.
 - F2-3 Topçu ve füze: iz 2 ile dolaylı ateş, uçuş süresi, alan hasarı.
+
+# Faz 3 — görsel ve içerik (2026-10-12)
+
+Kullanıcı (ilk ekran denemesinden sonra): "oyun çok boş; kareler var, neyin ne olduğunu, ateş edip etmediğimi anlamıyorum".
+İstekler: C&C Generals tarzı soluksuz aksiyon, güncel savaş mekanikleri, çeşitli birimler; planlama 1 dk; hamleleri gösteren oklar
+ve varış yerinde hayalet silüetler; taraflar dağın karşı yamaçlarından başlasın. İlk gerçek test: kullanıcı + arkadaşı, sonra.
+Bu sürede kullanıcı onay beklemeden ilerlememi istedi; kararlar design.md'ye yazılır, raporda listelenir.
+
+- F3-0 Senaryo: Mavi kuzey, Kırmızı güney eteği; 6 bölge (2 depo, batı ovasında 2 köy, zirve, doğu geçidi); planlama 60 sn. (bitti)
+- F3-1 İstemci görselleri: tanınır düşük poligon birim modelleri (kod ile, lisans derdi yok), takım renkleri, can çubukları,
+  seçim halkaları, ateş/iz mermisi/namlu alevi, patlama-duman-enkaz, olay kaydı (kim kime ateş etti), emir okları ve hayalet silüetler.
+- F3-2 Hava birimleri ve hava savunma: İHA (keşif, yüksek irtifa, düz uçuş), SİHA (güdümlü füze), alçak hava savunma;
+  silahlar hava/kara hedef ayrımı. Tempo: ilk turdan uzun menzilli çatışma (İHA + topçu + füze).
+- F3-3 Kara içeriği: ZMA (zırhlı muharebe aracı, top), keşif aracı.
+- F3-4 Çevre: köy/bina ve ağaç örtüsü (görsel), gökyüzü/sis.
