@@ -49,3 +49,19 @@
 | F3-2 hava + hava savunma | bitti | (bu commit) | İHA, SİHA, hava savunma; ilk çatışma 11. → 3. tur |
 | F3-3 ZMA, keşif | bitti | (bu commit) | senaryoda taraf başı 2 ZMA + 1 keşif |
 | F3-4 çevre | bekliyor | | |
+
+# Mekanik tamamlama (fazlar kaldırıldı, 2026-10-12)
+
+Plan: docs/MEKANIK_PLAN.md (M1 harita/bölgeler/deniz → M2 yapılar/sağlık → M3 fiziksel ikmal → M4 gizlenme/pusu/baskı →
+M5 EH derinliği → M6 deniz/sonar → M7 ekonomi/takviye). Görsel giydirme en sona.
+Önceden biten: F3-1 görseller (11cb52a), helikopter (34acb21), ZMA'ya binme/inme (31083b8).
+
+| Paket | Durum | Commit | Not |
+|---|---|---|---|
+| M1 harita/bölgeler/deniz | yapılıyor | | |
+| M2 yapılar + sağlık | bekliyor | | |
+| M3 fiziksel ikmal | bekliyor | | |
+| M4 gizlenme/pusu/baskı | bekliyor | | |
+| M5 EH derinliği | bekliyor | | |
+| M6 deniz + sonar | bekliyor | | |
+| M7 ekonomi + takviye | bekliyor | | |
