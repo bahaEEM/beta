@@ -337,6 +337,22 @@ x = 19500.0
 y = 29300.0
 heading_deg = 270.0
 
+[[unit]]
+id = 43
+owner = 0
+type = "helo"
+x = 22200.0
+y = 10300.0
+heading_deg = 90.0
+
+[[unit]]
+id = 44
+owner = 1
+type = "helo"
+x = 18800.0
+y = 29700.0
+heading_deg = 270.0
+
 [[zone]]
 id = 1
 name_tr = "Kuzey Kasaba (Mavi depo)"

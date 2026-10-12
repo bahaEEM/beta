@@ -396,3 +396,28 @@ sensors = [
   { kind = "optical", range_m = 3000.0 },                                         # placeholder
   { kind = "radar", range_m = 20000.0, min_target_speed_mps = 0.0, air = true },  # placeholder; air search
 ]
+
+[[unit]]
+id = "helo"
+name_tr = "Taarruz Helikopteri"
+class = "air"
+speed_offroad_mps = 70.0         # placeholder; cruise
+speed_road_mps = 70.0
+max_slope_deg = 90.0
+armor_front_mm = 10.0            # placeholder
+armor_side_mm = 10.0             # placeholder
+armor_rear_mm = 5.0              # placeholder
+weapon_range_m = 6000.0          # placeholder; anti-tank missiles
+penetration_mm = 900.0           # placeholder
+damage_hp = 60.0                 # placeholder
+reload_s = 20.0                  # placeholder
+hit_close = 0.9                  # placeholder
+hit_far = 0.75                   # placeholder
+aim_s = 8.0                      # placeholder
+height_m = 150.0                 # placeholder; nap-of-the-earth: low, so hills hide it
+radio_range_m = 30000.0          # placeholder
+hp = 80.0                        # placeholder
+fuel_l = 0.0                     # endurance not modelled yet
+fuel_l_per_km = 0.0
+ammo = 8                         # placeholder
+sensors = [{ kind = "optical", range_m = 6000.0 }]  # placeholder; mast/nose sight

@@ -64,7 +64,7 @@ Yeni testlerin adı kural kimliğiyle başlar (`k043_...`). Eski testler aşağ�
 - **K-102 Radar türleri.** `air = true` radar sadece hava araçlarını, kara gözetleme radarı sadece hareketli kara hedeflerini görür.
 - **K-103 Topçu ve hava.** Topçu/füze mermileri hava araçlarına hasar vermez.
 - **K-104 Birimler.** Keşif İHA (keşif, 6 km kamera, 1500 m), SİHA (8 km güdümlü mühimmat, 4 atış), Alçak İrtifa Hava Savunma (8 km, sadece hava,
-  20 km hava arama radarı), ZMA (30 mm top, 2 km), Keşif Aracı (5 km kamera, hızlı, hafif).
+  20 km hava arama radarı), ZMA (30 mm top, 2 km), Keşif Aracı (5 km kamera, hızlı, hafif), Taarruz Helikopteri (150 m alçak uçuş — tepeler gizler; 6 km tanksavar füzesi).
 
 ## Görünürlük
 - **K-050 Görünürlük filtresi.** Oyuncuya giden hiçbir mesaj, o an göremediği birimin kimliğini veya konumunu içermez.
