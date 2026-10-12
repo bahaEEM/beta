@@ -66,6 +66,13 @@ Yeni testlerin adı kural kimliğiyle başlar (`k043_...`). Eski testler aşağ�
 - **K-104 Birimler.** Keşif İHA (keşif, 6 km kamera, 1500 m), SİHA (8 km güdümlü mühimmat, 4 atış), Alçak İrtifa Hava Savunma (8 km, sadece hava,
   20 km hava arama radarı), ZMA (30 mm top, 2 km), Keşif Aracı (5 km kamera, hızlı, hafif), Taarruz Helikopteri (150 m alçak uçuş — tepeler gizler; 6 km tanksavar füzesi).
 
+## Piyade taşıma
+- **K-110 Binme/inme.** `embark {units, carrier}`: piyade sınıfı birim, 100 m içindeki kendi ZMA'sına biner (kapasite `carry_capacity`, ZMA = 1 tim).
+  `disembark {units}`: aracın yanına iner. İkisi de hareket türü emirdir (KBG).
+- **K-111 Araçtayken.** Yolcu araçla birlikte hareket eder; görülmez, gözlemlemez, ateş etmez, topçudan etkilenmez, bölge ele geçirmez,
+  inene kadar başka emir almaz.
+- **K-112 Araç vurulursa.** Taşıyıcı yok olunca yolcular canlarının `bail_out_damage` (yarı) kadarını kaybederek iner.
+
 ## Görünürlük
 - **K-050 Görünürlük filtresi.** Oyuncuya giden hiçbir mesaj, o an göremediği birimin kimliğini veya konumunu içermez.
   İz 1 = 500 m'lik hücrenin merkezi; kerterizle bilinen birim için sadece yön; iz ≥ 2 = kesin konum, iz ≥ 2'de tip.
@@ -135,6 +142,9 @@ Bütün sayılar yer tutucudur; görsel aşamadan önce oyun testiyle ayarlanaca
 | K-101 | k101_only_anti_air_weapons_hit_aircraft, k101_anti_air_does_not_engage_ground_targets |
 | K-102 | k102_air_radar_sees_aircraft_ground_radar_does_not |
 | K-103 | k103_shells_do_not_hit_aircraft |
+| K-110 | k110_infantry_boards_nearby_carrier_and_rides_along, k110_boarding_limits |
+| K-111 | k111_passengers_are_hidden_protected_and_take_no_orders |
+| K-112 | k112_carrier_destroyed_passengers_bail_out_hurt |
 | K-071 | g6_client_messages_round_trip, g6_server_messages_round_trip, g6_version_mismatch_rejected, g6_oversized_message_rejected, g6_protocol_md_up_to_date |
 | K-072 | g7_resume_after_shutdown, g7_reconnect_same_name, g7_planning_deadline_starts_resolution |
 

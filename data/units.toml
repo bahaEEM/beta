@@ -271,6 +271,7 @@ indirect = { range_m = 70000.0, min_range_m = 10000.0, shell_speed_mps = 900.0, 
 id = "ifv"
 name_tr = "Zırhlı Muharebe Aracı"
 class = "vehicle"
+carry_capacity = 1               # one infantry team
 speed_offroad_mps = 11.0         # placeholder
 speed_road_mps = 18.0            # placeholder
 max_slope_deg = 30.0             # placeholder

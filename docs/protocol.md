@@ -67,6 +67,13 @@ Bu dosya `protocol/src/lib.rs` testlerinden üretilir; elle düzenleme. Güncell
         "kind": "unit",
         "unit": 12
       }
+    },
+    {
+      "type": "embark",
+      "units": [
+        3
+      ],
+      "carrier": 4
     }
   ]
 }
@@ -127,7 +134,8 @@ Bu dosya `protocol/src/lib.rs` testlerinden üretilir; elle düzenleme. Güncell
         "supply_fuel": 0.0,
         "supply_ammo": 0,
         "stance": "free",
-        "connected": true
+        "connected": true,
+        "carried_by": null
       }
     ],
     "contacts": [

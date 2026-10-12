@@ -2,7 +2,7 @@
 //! G3: line of sight, sensors and tracks.
 
 use crate::data::{Rules, SensorSpec, UnitCatalog, UnitType};
-use crate::world::{HeightMap, PlayerId, Unit, UnitId, UnitState, Vec2, World};
+use crate::world::{HeightMap, PlayerId, Unit, UnitId, Vec2, World};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -277,10 +277,10 @@ pub fn update_tracks(
 
 /// Type of a non-destroyed unit; None if destroyed or of unknown type.
 fn live_type<'a>(catalog: &'a UnitCatalog, u: &Unit) -> Option<&'a UnitType> {
-    if u.state == UnitState::Destroyed {
-        None
-    } else {
+    if u.active() {
         catalog.get(&u.type_id)
+    } else {
+        None // destroyed, or riding inside a carrier
     }
 }
 
@@ -288,6 +288,7 @@ fn live_type<'a>(catalog: &'a UnitCatalog, u: &Unit) -> Option<&'a UnitType> {
 mod tests {
     use super::*;
     use crate::data::{load_rules, load_units};
+    use crate::world::UnitState;
 
     const CELL: f64 = 10.0;
 

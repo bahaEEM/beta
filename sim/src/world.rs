@@ -82,6 +82,16 @@ pub struct Unit {
     /// Tick this unit was last shot at.
     #[serde(default)]
     pub under_fire_tick: Option<u32>,
+    /// Carrier this unit rides in (infantry in an IFV): hidden, protected, cannot act.
+    #[serde(default)]
+    pub carried_by: Option<UnitId>,
+}
+
+impl Unit {
+    /// On the battlefield: alive and not riding inside another unit.
+    pub fn active(&self) -> bool {
+        self.state != UnitState::Destroyed && self.carried_by.is_none()
+    }
 }
 
 impl Unit {

@@ -71,6 +71,14 @@ pub fn order(o: &p::Order) -> Order {
                 p::FireTarget::Unit { unit } => FireTarget::Unit(UnitId(unit)),
             },
         },
+        p::Order::Embark {
+            units: ids,
+            carrier,
+        } => Order::Embark {
+            units: units(ids),
+            carrier: UnitId(*carrier),
+        },
+        p::Order::Disembark { units: ids } => Order::Disembark { units: units(ids) },
         p::Order::SetStance { units: ids, stance } => Order::SetStance {
             units: units(ids),
             stance: match stance {

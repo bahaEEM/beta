@@ -48,3 +48,7 @@ wire_reach_m = 150.0   # placeholder; distance to a road cell to plug into its w
 
 [indirect]
 min_track_quality = 2  # fire missions at a unit need its position (radar, triangulation or sight)
+
+[transport]
+embark_radius_m = 100.0  # placeholder
+bail_out_damage = 0.5    # passengers lose half their hp when the carrier is destroyed

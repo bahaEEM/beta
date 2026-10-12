@@ -60,6 +60,9 @@ pub struct UnitType {
     /// Indirect-fire weapon (artillery, rockets), fired by fire missions.
     #[serde(default)]
     pub indirect: Option<IndirectSpec>,
+    /// Infantry teams this unit can carry (IFV).
+    #[serde(default)]
+    pub carry_capacity: u32,
     /// Command post: the root of its side's command network.
     #[serde(default)]
     pub hq: bool,
@@ -284,6 +287,7 @@ pub struct Rules {
     pub zones: ZoneRules,
     pub supply: SupplyRules,
     pub comms: CommsRules,
+    pub transport: TransportRules,
     pub indirect: IndirectRules,
 }
 
@@ -292,6 +296,15 @@ pub struct Rules {
 pub struct IndirectRules {
     /// Track quality needed to fire a mission at an enemy unit.
     pub min_track_quality: u8,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TransportRules {
+    /// Infantry must be this close to the carrier to embark.
+    pub embark_radius_m: f64,
+    /// Share of their hp passengers lose when the carrier is destroyed.
+    pub bail_out_damage: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

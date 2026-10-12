@@ -430,6 +430,7 @@ impl Match {
                         .connected
                         .get(&player)
                         .is_some_and(|c| c.contains(&u.id)),
+                carried_by: u.carried_by.map(|c| c.0),
             })
             .collect();
         let contacts = contacts(&self.game.tracks, &self.game.world, &self.rules, player)

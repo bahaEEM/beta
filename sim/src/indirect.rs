@@ -108,7 +108,7 @@ pub fn step_impacts(
         let hits: Vec<(UnitId, f64, f64)> = world
             .units()
             .iter()
-            .filter(|u| u.state != UnitState::Destroyed)
+            .filter(|u| u.active())
             .filter_map(|u| {
                 let t = catalog.get(&u.type_id).filter(|t| !t.class.is_air())?; // shells do not hit aircraft
                 let d = u.pos.distance(s.pos);

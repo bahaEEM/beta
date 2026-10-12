@@ -3,13 +3,13 @@
 
 use crate::combat::{step_combat, CombatState};
 use crate::comms::{connected_units, players_with_hq};
-use crate::data::{Rules, UnitCatalog};
+use crate::data::{Rules, UnitCatalog, UnitClass};
 use crate::event::{Event, TickEvent};
 use crate::indirect::{step_impacts, step_launch, FireTarget, Shell};
 use crate::logistics::{end_of_turn, step_capture, MatchResult, Zone};
 use crate::movement::{plan_route, step_movement, MoveError, MoveOrder, Routes};
 use crate::sensor::{update_tracks, TrackTable};
-use crate::world::{PlayerId, Stance, UnitId, Vec2, World};
+use crate::world::{PlayerId, Stance, UnitId, UnitState, Vec2, World};
 use crate::TICKS_PER_TURN;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -86,6 +86,10 @@ pub enum Order {
         units: Vec<UnitId>,
         target: FireTarget,
     },
+    /// Infantry boards a nearby carrier (IFV).
+    Embark { units: Vec<UnitId>, carrier: UnitId },
+    /// Passengers get out next to their carrier.
+    Disembark { units: Vec<UnitId> },
 }
 
 impl Order {
@@ -95,7 +99,9 @@ impl Order {
             | Order::Stop { units }
             | Order::SetEmitter { units, .. }
             | Order::SetStance { units, .. }
-            | Order::FireMission { units, .. } => units,
+            | Order::FireMission { units, .. }
+            | Order::Embark { units, .. }
+            | Order::Disembark { units } => units,
         }
     }
 }
@@ -110,6 +116,10 @@ pub enum RejectReason {
     /// The unit has no link to its HQ.
     NoComms,
     NoIndirectWeapon,
+    /// Riding in a carrier: disembark first.
+    Embarked,
+    /// Embark: not infantry, carrier unsuitable, too far or full.
+    CannotEmbark,
     Move(MoveError),
 }
 
@@ -123,6 +133,8 @@ impl fmt::Display for RejectReason {
             RejectReason::NotEmitter => write!(f, "unit has no radar or jammer"),
             RejectReason::NoComms => write!(f, "no communication with the unit"),
             RejectReason::NoIndirectWeapon => write!(f, "unit has no artillery or rockets"),
+            RejectReason::Embarked => write!(f, "unit is inside a carrier"),
+            RejectReason::CannotEmbark => write!(f, "cannot board that carrier"),
             RejectReason::Move(e) => write!(f, "{e}"),
         }
     }
@@ -144,6 +156,8 @@ pub struct Validated {
     pub emitters: BTreeMap<UnitId, bool>,
     pub stances: BTreeMap<UnitId, Stance>,
     pub missions: BTreeMap<UnitId, FireTarget>,
+    /// Passenger -> Some(carrier) to board, None to get out.
+    pub boarding: BTreeMap<UnitId, Option<UnitId>>,
     pub rejected: Vec<Rejection>,
     pub kbg_spent: u32,
 }
@@ -207,7 +221,10 @@ pub fn validate_orders(
     for order in orders {
         let units = order.units();
         let kind = match order {
-            Order::Move { .. } | Order::Stop { .. } => 0,
+            Order::Move { .. }
+            | Order::Stop { .. }
+            | Order::Embark { .. }
+            | Order::Disembark { .. } => 0,
             Order::SetEmitter { .. } => 1,
             Order::SetStance { .. } => 2,
             Order::FireMission { .. } => 3,
@@ -232,6 +249,12 @@ pub fn validate_orders(
         } else if unique.len() != units.len() || units.iter().any(|&id| seen.contains(&(id, kind)))
         {
             Some(RejectReason::DuplicateUnit)
+        } else if !matches!(order, Order::Disembark { .. })
+            && units
+                .iter()
+                .any(|&id| game.world.unit(id).is_some_and(|u| u.carried_by.is_some()))
+        {
+            Some(RejectReason::Embarked)
         } else if v.kbg_spent + cost > rules.kbg.budget_per_turn {
             Some(RejectReason::KbgExceeded)
         } else {
@@ -267,6 +290,56 @@ pub fn validate_orders(
                 Order::SetStance { units, stance } => {
                     v.stances.extend(units.iter().map(|&id| (id, *stance)));
                     None
+                }
+                Order::Embark { units, carrier } => {
+                    let room = game
+                        .world
+                        .unit(*carrier)
+                        .filter(|c| c.owner == player && c.active())
+                        .and_then(|c| {
+                            catalog
+                                .get(&c.type_id)
+                                .map(|t| (c, t.carry_capacity as usize))
+                        })
+                        .map(|(c, cap)| {
+                            let aboard = game
+                                .world
+                                .units()
+                                .iter()
+                                .filter(|u| u.carried_by == Some(c.id))
+                                .count();
+                            (c.pos, cap.saturating_sub(aboard))
+                        });
+                    let ok = room.is_some_and(|(cpos, free)| {
+                        units.len() <= free
+                            && units.iter().all(|id| {
+                                game.world.unit(*id).is_some_and(|u| {
+                                    u.active()
+                                        && u.pos.distance(cpos) <= rules.transport.embark_radius_m
+                                        && catalog
+                                            .get(&u.type_id)
+                                            .is_some_and(|t| t.class == UnitClass::Infantry)
+                                })
+                            })
+                    });
+                    if ok {
+                        v.boarding
+                            .extend(units.iter().map(|&id| (id, Some(*carrier))));
+                        None
+                    } else {
+                        Some(RejectReason::CannotEmbark)
+                    }
+                }
+                Order::Disembark { units } => {
+                    if units
+                        .iter()
+                        .all(|&id| game.world.unit(id).is_some_and(|u| u.carried_by.is_some()))
+                    {
+                        v.boarding.extend(units.iter().map(|&id| (id, None)));
+                        None
+                    } else {
+                        Some(RejectReason::CannotEmbark)
+                    }
                 }
                 Order::FireMission { units, target } => {
                     let armed = |id: &UnitId| {
@@ -324,6 +397,16 @@ pub fn plan_phase(
                 u.stance = stance;
             }
         }
+        for (id, carrier) in v.boarding {
+            game.routes.remove(&id);
+            let carrier_pos = carrier.and_then(|c| game.world.unit(c)).map(|c| c.pos);
+            if let Some(u) = game.world.unit_mut(id) {
+                u.carried_by = carrier;
+                if let Some(p) = carrier_pos {
+                    u.pos = p;
+                }
+            }
+        }
         for (id, target) in v.missions {
             game.missions.insert(id, target);
             game.combat.lay.remove(&id);
@@ -339,6 +422,7 @@ pub fn step_tick(game: &mut Game, catalog: &UnitCatalog, rules: &Rules) -> Vec<E
     game.world.tick += 1;
     let before: BTreeMap<UnitId, _> = game.world.units().iter().map(|u| (u.id, u.pos)).collect();
     step_movement(&mut game.world, catalog, rules, &mut game.routes);
+    carry_passengers(&mut game.world);
     let dt = rules.turn.game_seconds_per_tick;
     for u in game.world.units_mut() {
         u.speed_mps = before.get(&u.id).map_or(0.0, |p| p.distance(u.pos) / dt);
@@ -396,7 +480,56 @@ pub fn step_tick(game: &mut Game, catalog: &UnitCatalog, rules: &Rules) -> Vec<E
         rules,
         &mut game.shells,
     ));
+    events.extend(bail_out(&mut game.world, catalog, rules));
     events.extend(step_capture(game, catalog, rules));
+    events
+}
+
+/// Passengers move with their carrier (K-111).
+fn carry_passengers(world: &mut World) {
+    let carriers: BTreeMap<UnitId, (Vec2, f64)> = world
+        .units()
+        .iter()
+        .map(|u| (u.id, (u.pos, u.heading_rad)))
+        .collect();
+    for u in world.units_mut() {
+        if let Some(&(pos, heading)) = u.carried_by.and_then(|c| carriers.get(&c)) {
+            u.pos = pos;
+            u.heading_rad = heading;
+        }
+    }
+}
+
+/// Passengers of a destroyed carrier get out hurt (K-112).
+fn bail_out(world: &mut World, catalog: &UnitCatalog, rules: &Rules) -> Vec<Event> {
+    let wrecks: BTreeSet<UnitId> = world
+        .units()
+        .iter()
+        .filter(|u| u.state == UnitState::Destroyed)
+        .map(|u| u.id)
+        .collect();
+    let mut events = Vec::new();
+    for u in world.units_mut() {
+        if !u.carried_by.is_some_and(|c| wrecks.contains(&c)) {
+            continue;
+        }
+        u.carried_by = None;
+        let max_hp = catalog.get(&u.type_id).map_or(u.hp, |t| t.hp);
+        u.hp = (u.hp - max_hp * rules.transport.bail_out_damage).max(0.0);
+        if u.hp <= 0.0 {
+            u.state = UnitState::Destroyed;
+            events.push(Event::UnitDestroyed { unit: u.id });
+        } else {
+            if u.hp <= max_hp * rules.combat.damaged_hp_fraction {
+                u.state = UnitState::Damaged;
+            }
+            events.push(Event::UnitDamaged {
+                unit: u.id,
+                hp: u.hp,
+                state: u.state,
+            });
+        }
+    }
     events
 }
 

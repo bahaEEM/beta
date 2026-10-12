@@ -44,7 +44,7 @@ pub fn step_capture(game: &mut Game, catalog: &UnitCatalog, rules: &Rules) -> Ve
             .world
             .units()
             .iter()
-            .filter(|u| u.state != UnitState::Destroyed)
+            .filter(|u| u.active())
             .filter(|u| {
                 catalog
                     .get(&u.type_id)

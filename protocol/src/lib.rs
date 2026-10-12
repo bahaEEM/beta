@@ -65,6 +65,10 @@ pub enum Order {
         units: Vec<UnitId>,
         target: FireTarget,
     },
+    /// Infantry (within 100 m) boards an IFV.
+    Embark { units: Vec<UnitId>, carrier: UnitId },
+    /// Passengers get out.
+    Disembark { units: Vec<UnitId> },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -98,6 +102,8 @@ pub struct OwnUnit {
     pub stance: Stance,
     /// Linked to the HQ: only connected units accept new orders.
     pub connected: bool,
+    /// Riding inside this carrier (hidden, cannot act).
+    pub carried_by: Option<UnitId>,
 }
 
 /// An enemy unit as known to this player. `type_id` is only present at quality >= 2.
@@ -343,6 +349,10 @@ mod tests {
                         units: vec![11],
                         target: FireTarget::Unit { unit: 12 },
                     },
+                    Order::Embark {
+                        units: vec![3],
+                        carrier: 4,
+                    },
                 ],
             },
             ClientMsg::RequestPreview {
@@ -382,6 +392,7 @@ mod tests {
                         supply_ammo: 0,
                         stance: Stance::Free,
                         connected: true,
+                        carried_by: None,
                     }],
                     contacts: vec![
                         Contact {

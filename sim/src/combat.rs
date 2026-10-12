@@ -69,11 +69,10 @@ pub fn step_combat(
 
     let mut shots: Vec<(UnitId, UnitId)> = Vec::new();
     for s in world.units() {
-        let target =
-            (s.state != UnitState::Destroyed && s.ammo > 0 && may_fire(s, rules, world.tick))
-                .then(|| catalog.get(&s.type_id))
-                .flatten()
-                .and_then(|st| pick_target(world, catalog, rules, tracks, s, st).map(|t| (st, t)));
+        let target = (s.active() && s.ammo > 0 && may_fire(s, rules, world.tick))
+            .then(|| catalog.get(&s.type_id))
+            .flatten()
+            .and_then(|st| pick_target(world, catalog, rules, tracks, s, st).map(|t| (st, t)));
         let Some((st, target)) = target else {
             state.aims.remove(&s.id);
             continue;
@@ -160,7 +159,7 @@ fn pick_target(
     world
         .units()
         .iter()
-        .filter(|t| t.owner != shooter.owner && t.state != UnitState::Destroyed)
+        .filter(|t| t.owner != shooter.owner && t.active())
         .filter(|t| {
             tracks.get(shooter.owner, t.id).is_some_and(|tr| {
                 let air = catalog.get(&t.type_id).is_some_and(|tt| tt.class.is_air());
