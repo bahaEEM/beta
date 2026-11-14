@@ -128,6 +128,26 @@ Hepsi tur sonunda, bu sırayla işler: üretim → taşıyıcılar → yakın ik
   o andan sonra gerçek tipi görür ve birimleri ona kendiliğinden ateş etmez. Tanınmamış sahte birim ateş çeker. Sahte radar yayını açıkken
   düşman ESM'ine gerçek radar gibi kerteriz verir; kendisi hiçbir şey görmez. Sahte birimler de kurulur (K-120).
 
+## Elektronik harp derinliği (M5)
+- **K-150 Telsiz yayını.** Karargâhı olan tarafta, o tur kabul edilmiş bir emir alan her birim planlama bitince `comms.radio_emit_s`
+  (20 sn) boyunca telsizle yayın yapar; en az bir birim yayın yaptıysa karargâh da yapar. Düşman ESM'i bu yayına radar yayını gibi kerteriz
+  alır (iki kerteriz kesişirse konum). Karargâhla aynı yol kablosunda olan birim emrini kablodan alır, yayın yapmaz. Röle birimlerinin
+  yayını modellenmez (sadeleştirme).
+- **K-151 Telsiz sessizliği.** `set_silence` emriyle açılıp kapanır. Sessiz birim hiç telsiz yayını yapmaz, telsizle bağlı sayılmaz:
+  yeni emir almaz (K-083) ve başkasına röle olmaz; eldeki rotasına ve ateş kuralına devam eder. Tek istisna sessizliği kaldırma emridir.
+  Karargâhın yol kablosundaki birim sessizken de bağlıdır. Radar/karıştırıcı yayını ayrıdır (K-032).
+- **K-152 Radar karşıtı mühimmat.** `anti_radiation` dolaylı silahı (kamikaze İHA rampası) bir düşman birimine atış görevi alır
+  (iz kalitesi ≥ 2; ESM üçgenlemesi yeter). Mühimmat yavaş uçar (100 m/sn); vardığında hedefin radarı ya da karıştırıcısı hâlâ yayındaysa
+  hedefin o anki konumuna, değilse fırlatma anındaki bilinen konuma düşer. Sahte radarı da gerçek sanar.
+- **K-153 Karşı-batarya radarı.** `counter_battery_range_m` değeri olan, yayını açık ve kurulu radar; düşman bir topu ya da roketatarı
+  ateş ettiği anda, top ya da nişan noktası bu menzildeyse topun konumunu bulur. Bulunan top düşmana "son bilinen konum" olarak görünür
+  (canlı iz değildir; top yer değiştirirse bilgi eskir). Kamikaze İHA fırlatması yer belli etmez.
+- **K-154 Otomatik karşı atış.** Atış görevi olmayan, ateş kuralı "Karşılık" olan obüs ve füze rampaları, son
+  `indirect.counter_fire_window_s` (120 sn) içinde bulunmuş ve menzillerindeki en yeni düşman topunun bulunduğu noktaya kendiliğinden ateş açar.
+  Nişan alma ve doldurma süreleri aynen geçerlidir; top o arada toplanıp gittiyse mermi boşa düşer.
+- **K-155 İHA veri bağı.** `remote_piloted` hava birimi (İHA, SİHA) planlama başında karargâha bağlı değilse (karıştırıcı altında, menzil
+  dışında ya da sessizde) emir almaz ve en yakın dost hava alanına, yoksa en yakın karargâha döner. Hava birimleri yol kablosuna bağlanamaz.
+
 ## Görünürlük
 - **K-050 Görünürlük filtresi.** Oyuncuya giden hiçbir mesaj, o an göremediği birimin kimliğini veya konumunu içermez.
   İz 1 = 500 m'lik hücrenin merkezi; kerterizle bilinen birim için sadece yön; iz ≥ 2 = kesin konum, iz ≥ 2'de tip.
@@ -223,6 +243,12 @@ Bütün sayılar yer tutucudur; görsel aşamadan önce oyun testiyle ayarlanaca
 | K-142 | k142_ambush_waits_for_a_close_target_and_strikes_from_hiding |
 | K-143 | k143_fire_suppresses_slows_and_pins |
 | K-144 | k144_decoys_look_real_until_seen_from_close_up |
+| K-150 | k150_units_that_get_orders_transmit_and_esm_hears_them |
+| K-151 | k151_silent_units_keep_quiet_take_no_orders_and_relay_nothing |
+| K-152 | k152_loitering_munition_homes_on_a_radiating_emitter |
+| K-153 | k153_counter_battery_radar_locates_firing_guns |
+| K-154 | k154_guns_on_return_shoot_back_at_located_guns |
+| K-155 | k155_drones_without_a_data_link_fly_home |
 | K-071 | g6_client_messages_round_trip, g6_server_messages_round_trip, g6_version_mismatch_rejected, g6_oversized_message_rejected, g6_protocol_md_up_to_date |
 | K-072 | g7_resume_after_shutdown, g7_reconnect_same_name, g7_planning_deadline_starts_resolution |
 

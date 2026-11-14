@@ -7,7 +7,7 @@ signal opened
 signal closed
 signal message(msg: Dictionary)
 
-const PROTOCOL_VERSION := 6
+const PROTOCOL_VERSION := 7
 const MAX_BYTES := 1048576
 
 var _ws := WebSocketPeer.new()

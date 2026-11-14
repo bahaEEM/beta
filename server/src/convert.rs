@@ -80,6 +80,10 @@ pub fn order(o: &p::Order) -> Order {
             carrier: UnitId(*carrier),
         },
         p::Order::Disembark { units: ids } => Order::Disembark { units: units(ids) },
+        p::Order::SetSilence { units: ids, on } => Order::SetSilence {
+            units: units(ids),
+            on: *on,
+        },
         p::Order::SetStance { units: ids, stance } => Order::SetStance {
             units: units(ids),
             stance: match stance {

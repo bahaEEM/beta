@@ -617,6 +617,40 @@ x = 19881.0
 y = 28197.0
 heading_deg = 270.0
 
+# ---- M5: loitering-munition launcher and counter-battery radar
+
+[[unit]]
+id = 77
+owner = 0
+type = "harpy"
+x = 23760.0
+y = 12513.0
+heading_deg = 90.0
+
+[[unit]]
+id = 78
+owner = 0
+type = "cb_radar"
+x = 23760.0
+y = 12713.0
+heading_deg = 90.0
+
+[[unit]]
+id = 79
+owner = 1
+type = "harpy"
+x = 19981.0
+y = 27697.0
+heading_deg = 270.0
+
+[[unit]]
+id = 80
+owner = 1
+type = "cb_radar"
+x = 19981.0
+y = 27897.0
+heading_deg = 270.0
+
 [[zone]]
 id = 1
 name_tr = "Sağlık"

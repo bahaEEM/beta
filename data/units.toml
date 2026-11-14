@@ -331,6 +331,7 @@ sensors = [{ kind = "optical", range_m = 5000.0 }]  # placeholder; long-range da
 id = "uav"
 name_tr = "Keşif İHA"
 class = "air"
+remote_piloted = true            # K-155: flies home without a data link
 speed_offroad_mps = 35.0         # placeholder; cruise
 speed_road_mps = 35.0
 max_slope_deg = 90.0
@@ -356,6 +357,7 @@ sensors = [{ kind = "optical", range_m = 6000.0 }]  # placeholder; EO/IR gimbal
 id = "suav"
 name_tr = "SİHA"
 class = "air"
+remote_piloted = true            # K-155: flies home without a data link
 speed_offroad_mps = 40.0         # placeholder
 speed_road_mps = 40.0
 max_slope_deg = 90.0
@@ -672,6 +674,7 @@ sensors = [
 id = "airfield"
 name_tr = "Hava Alanı"
 class = "structure"
+airbase = true                   # K-155: home for drones that lose their link
 supply_fuel_l = 20000.0         # placeholder; stock capacity (starts full)
 supply_ammo = 1000               # placeholder
 speed_offroad_mps = 0.0          # placeholder
@@ -868,3 +871,63 @@ fuel_l = 100.0                   # placeholder
 fuel_l_per_km = 0.4              # placeholder
 ammo = 0
 sensors = [{ kind = "radar", range_m = 1.0, min_target_speed_mps = 0.0 }]  # 1 m: sees nothing, only imitates the emission
+
+# ---- M5: electronic warfare
+
+[[unit]]
+id = "harpy"
+name_tr = "Kamikaze İHA Rampası"
+class = "vehicle"
+deploy_s = 60.0                  # placeholder; raising the launch rails (K-120)
+speed_offroad_mps = 7.0          # placeholder
+speed_road_mps = 15.0            # placeholder
+max_slope_deg = 22.0             # placeholder
+armor_front_mm = 10.0            # placeholder
+armor_side_mm = 8.0              # placeholder
+armor_rear_mm = 8.0              # placeholder
+weapon_range_m = 0.0
+penetration_mm = 0.0
+damage_hp = 0.0
+reload_s = 30.0                  # placeholder; between launches
+hit_close = 0.0
+hit_far = 0.0
+aim_s = 30.0                     # placeholder; programming the mission
+height_m = 3.0                   # placeholder
+radio_range_m = 10000.0          # placeholder
+hp = 80.0                        # placeholder
+fuel_l = 400.0                   # placeholder
+fuel_l_per_km = 0.8              # placeholder
+ammo = 6                         # placeholder; loitering munitions
+sensors = [{ kind = "optical", range_m = 1500.0 }]  # placeholder
+# Loitering anti-radiation munition (K-152): slow, homes on a radiating radar or jammer.
+indirect = { range_m = 40000.0, min_range_m = 2000.0, shell_speed_mps = 100.0, radius_m = 40.0, damage_hp = 90.0, penetration_mm = 100.0, anti_radiation = true }  # placeholder
+
+[[unit]]
+id = "cb_radar"
+name_tr = "Karşı-Batarya Radarı"
+class = "vehicle"
+deploy_s = 60.0                  # placeholder (K-120)
+counter_battery_range_m = 30000.0  # placeholder; locates enemy guns firing from or into this range (K-153)
+speed_offroad_mps = 7.0          # placeholder
+speed_road_mps = 15.0            # placeholder
+max_slope_deg = 22.0             # placeholder
+armor_front_mm = 10.0            # placeholder
+armor_side_mm = 8.0              # placeholder
+armor_rear_mm = 8.0              # placeholder
+weapon_range_m = 0.0
+penetration_mm = 0.0
+damage_hp = 0.0
+reload_s = 1.0
+hit_close = 0.0
+hit_far = 0.0
+aim_s = 1.0
+height_m = 6.0                   # placeholder
+radio_range_m = 10000.0          # placeholder
+hp = 80.0                        # placeholder
+fuel_l = 400.0                   # placeholder
+fuel_l_per_km = 0.8              # placeholder
+ammo = 0
+sensors = [
+  { kind = "optical", range_m = 1500.0 },                            # placeholder
+  { kind = "radar", range_m = 1.0, min_target_speed_mps = 0.0 },     # 1 m: tracks shells, not units; makes it an emitter
+]

@@ -232,7 +232,8 @@ pub fn update_tracks(
                         })
                         .max()
                         .unwrap_or(0);
-                    let emitting = target.radiating() && tt.is_emitter();
+                    let emitting =
+                        (target.radiating() && tt.is_emitter()) || target.transmitting(world.tick);
                     let bearings: Vec<Bearing> = observers
                         .iter()
                         .filter(|_| emitting)

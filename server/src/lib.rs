@@ -435,6 +435,7 @@ impl Match {
                 carried_by: u.carried_by.map(|c| c.0),
                 packed_s: u.packed_s,
                 unsupplied_turns: u.unsupplied_turns,
+                silent: u.silent,
                 suppression: u.suppression,
                 pinned: self
                     .catalog

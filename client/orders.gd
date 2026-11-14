@@ -5,6 +5,7 @@
 #             | {"type": "set_stance", "units": [ids], "stance": "free"|"return"|"hold"}
 #             | {"type": "fire_mission", "units": [ids], "target": {"kind": "point", "pos": Vector2} | {"kind": "unit", "unit": id}}
 #             | {"type": "embark", "units": [ids], "carrier": id} | {"type": "disembark", "units": [ids]}
+#             | {"type": "set_silence", "units": [ids], "on": bool}
 extends RefCounted
 
 var list: Array = []
@@ -66,8 +67,14 @@ func disembark(sel: Array) -> void:
 	list.append({"type": "disembark", "units": sel.duplicate()})
 
 
+# Radio silence on or off for the selection; replaces earlier silence orders of these units.
+func set_silence(sel: Array, on: bool) -> void:
+	_remove_units(sel, ["set_silence"])
+	list.append({"type": "set_silence", "units": sel.duplicate(), "on": on})
+
+
 func remove(sel: Array) -> void:
-	_remove_units(sel, ["move", "stop", "set_emitter", "set_stance", "fire_mission", "embark", "disembark"])
+	_remove_units(sel, ["move", "stop", "set_emitter", "set_stance", "fire_mission", "embark", "disembark", "set_silence"])
 
 
 # Pending stance for a unit, or null.

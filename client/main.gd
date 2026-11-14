@@ -20,8 +20,8 @@ const SIDE_DATIVE := ["Mavi'ye", "Kırmızı'ya"]
 const STANCES := ["free", "return", "hold", "ambush"]
 const TEAM_COLORS := [Color(0.25, 0.55, 1.0), Color(1.0, 0.3, 0.25)]
 const DEAD_COLOR := Color(0.2, 0.2, 0.2)
-const EMITTER_TYPES := ["gsr", "jammer", "shorad", "radar_mobile", "radar_tower", "ad_site", "decoy_radar"]
-const ARTILLERY_TYPES := ["spg", "rocket"]
+const EMITTER_TYPES := ["gsr", "jammer", "shorad", "radar_mobile", "radar_tower", "ad_site", "decoy_radar", "cb_radar"]
+const ARTILLERY_TYPES := ["spg", "rocket", "harpy"]
 const CARRIER_TYPES := ["ifv", "ambulance"]
 const MISSION_MARK_M := 150.0  # display only; the real blast radius comes with shell_impact
 const BEARING_LENGTH := 40000.0
@@ -761,6 +761,13 @@ func _key(event: InputEventKey) -> void:
 	if event.keycode in [KEY_DELETE, KEY_BACKSPACE]:
 		orders.remove(selection)
 		_orders_changed()
+		return
+	if event.keycode == KEY_X:  # radio silence; the one order a silent (unlinked) unit still takes
+		var on: bool = not units[selection[0]].get("silent", false)
+		orders.set_silence(selection, on)
+		_orders_changed()
+		_status("Telsiz sessizliği %s: %d birim%s" % ["AÇIK" if on else "kapalı", selection.size(),
+			" (yol kablosunda değilse başka emir almaz)" if on else ""])
 		return
 	if not event.keycode in [KEY_S, KEY_F, KEY_T, KEY_R, KEY_B, KEY_N]:
 		return

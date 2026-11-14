@@ -6,7 +6,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt;
 use std::io::Read;
 
-pub const PROTOCOL_VERSION: u32 = 6;
+pub const PROTOCOL_VERSION: u32 = 7;
 /// Maximum size of a message's JSON (uncompressed).
 pub const MAX_MESSAGE_BYTES: usize = 1024 * 1024;
 const ZSTD_LEVEL: i32 = 3;
@@ -69,6 +69,9 @@ pub enum Order {
     Embark { units: Vec<UnitId>, carrier: UnitId },
     /// Passengers get out.
     Disembark { units: Vec<UnitId> },
+    /// Radio silence on or off. A silent unit never transmits (enemy ESM cannot hear its
+    /// radio) but takes no other new order unless it is on the HQ's road wire.
+    SetSilence { units: Vec<UnitId>, on: bool },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -115,6 +118,8 @@ pub struct OwnUnit {
     /// Suppression from incoming fire, 0..1: lowers hit share and speed; infantry at the
     /// pin threshold of `rules.toml` lies down and does not move.
     pub suppression: f64,
+    /// Under radio silence (see `set_silence`).
+    pub silent: bool,
     /// Infantry suppressed so much that it has gone to ground and will not move.
     pub pinned: bool,
     /// Concealment right now: enemy optical ranges against this unit are multiplied by
@@ -373,6 +378,10 @@ mod tests {
                         units: vec![3],
                         carrier: 4,
                     },
+                    Order::SetSilence {
+                        units: vec![5],
+                        on: true,
+                    },
                 ],
             },
             ClientMsg::RequestPreview {
@@ -417,6 +426,7 @@ mod tests {
                         unsupplied_turns: 0,
                         suppression: 0.0,
                         pinned: false,
+                        silent: false,
                         conceal: 0.35,
                     }],
                     contacts: vec![

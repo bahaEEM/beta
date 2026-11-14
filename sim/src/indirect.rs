@@ -6,7 +6,7 @@ use crate::combat::{penetration_factor, protection, suppress, CombatState};
 use crate::data::{Rules, UnitCatalog};
 use crate::event::Event;
 use crate::sensor::TrackTable;
-use crate::world::{PlayerId, UnitId, UnitState, Vec2, World};
+use crate::world::{PlayerId, Stance, UnitId, UnitState, Vec2, World};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -25,6 +25,24 @@ pub struct Shell {
     pub radius_m: f64,
     pub damage_hp: f64,
     pub penetration_mm: f64,
+    /// Anti-radiation munition (K-152): lands on this unit if it is radiating on arrival.
+    #[serde(default)]
+    pub homing: Option<UnitId>,
+}
+
+/// K-153: an enemy gun located by a counter-battery radar of `player`.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct GunFix {
+    pub player: PlayerId,
+    pub gun: UnitId,
+    pub pos: Vec2,
+    pub tick: u32,
+}
+
+/// What `step_launch` adds to: rounds in flight and guns given away to counter-battery radars.
+pub struct Launches<'a> {
+    pub shells: &'a mut Vec<Shell>,
+    pub fixes: &'a mut Vec<GunFix>,
 }
 
 /// Launches shells for active fire missions (after direct fire in the tick order).
@@ -35,11 +53,39 @@ pub fn step_launch(
     tracks: &TrackTable,
     missions: &BTreeMap<UnitId, FireTarget>,
     combat: &mut CombatState,
-    shells: &mut Vec<Shell>,
+    Launches { shells, fixes }: Launches,
 ) -> Vec<Event> {
     let mut events = Vec::new();
     let tick = world.tick;
-    for (&id, &target) in missions {
+    let window = rules.ticks(rules.indirect.counter_fire_window_s, 0);
+    fixes.retain(|f| tick.saturating_sub(f.tick) <= window);
+    // K-154: guns on 'return' without a mission shoot back at the most recently located
+    // enemy gun in their range (ties: lowest gun id).
+    let mut missions = missions.clone();
+    for u in world.units() {
+        if missions.contains_key(&u.id)
+            || u.stance != Stance::Return
+            || u.state == UnitState::Destroyed
+        {
+            continue;
+        }
+        let Some(gun) = catalog
+            .get(&u.type_id)
+            .and_then(|t| t.indirect)
+            .filter(|g| !g.anti_radiation)
+        else {
+            continue;
+        };
+        let fix = fixes
+            .iter()
+            .filter(|f| f.player == u.owner)
+            .filter(|f| (gun.min_range_m..=gun.range_m).contains(&u.pos.distance(f.pos)))
+            .max_by(|a, b| a.tick.cmp(&b.tick).then(b.gun.cmp(&a.gun)));
+        if let Some(f) = fix {
+            missions.insert(u.id, FireTarget::Point(f.pos));
+        }
+    }
+    for (&id, &target) in &missions {
         let Some(u) = world.unit(id) else { continue };
         let Some(t) = catalog.get(&u.type_id) else {
             continue;
@@ -77,7 +123,36 @@ pub fn step_launch(
             radius_m: gun.radius_m,
             damage_hp: gun.damage_hp,
             penetration_mm: gun.penetration_mm,
+            homing: match target {
+                FireTarget::Unit(enemy) if gun.anti_radiation => Some(enemy),
+                _ => None,
+            },
         });
+        // K-153: radiating enemy counter-battery radars covering the gun or the aim point
+        // locate the gun. Loitering munitions give nothing away.
+        if !gun.anti_radiation {
+            let (gun_pos, owner) = (u.pos, u.owner);
+            for radar in world.units() {
+                let range = catalog
+                    .get(&radar.type_id)
+                    .map_or(0.0, |t| t.counter_battery_range_m);
+                let covers = radar.pos.distance(gun_pos).min(radar.pos.distance(point)) <= range;
+                if radar.owner != owner
+                    && radar.state != UnitState::Destroyed
+                    && radar.radiating()
+                    && range > 0.0
+                    && covers
+                {
+                    fixes.retain(|f| (f.player, f.gun) != (radar.owner, id));
+                    fixes.push(GunFix {
+                        player: radar.owner,
+                        gun: id,
+                        pos: gun_pos,
+                        tick,
+                    });
+                }
+            }
+        }
         combat.reloads.insert(id, rules.reload_ticks(t));
         events.push(Event::ShellFired { shooter: id });
         if let Some(u) = world.unit_mut(id) {
@@ -101,7 +176,15 @@ pub fn step_impacts(
         shells.drain(..).partition(|s| s.impact_tick <= tick);
     *shells = flying;
     let mut events = Vec::new();
-    for s in landing {
+    for mut s in landing {
+        // K-152: an anti-radiation munition ends on its target if that is still radiating.
+        if let Some(t) = s
+            .homing
+            .and_then(|id| world.unit(id))
+            .filter(|t| t.state != UnitState::Destroyed && t.radiating())
+        {
+            s.pos = t.pos;
+        }
         events.push(Event::ShellImpact {
             pos: s.pos,
             radius_m: s.radius_m,

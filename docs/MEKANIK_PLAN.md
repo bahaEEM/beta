@@ -56,6 +56,8 @@ ZMA + piyade taşıma · bölge noktaları + puan + zafer · yakıt/mühimmat + 
 - Radar karşıtı füze: yayın yapan radara kilitlenir (ESM üçgenleme yeter).
 - Karşı-batarya radarı: düşen/atılan mermiden atıcının konumunu bulur.
 - İHA veri bağı karıştırma: karıştırıcı altındaki İHA/SİHA emir alamaz, eve döner.
+- ✔ (2026-11-14) K-150…K-155. Kullanıcı kararları: sessizdeki birim **yeni emir alamaz** · radar avcısı **kamikaze İHA rampası** ·
+  karşı-batarya radarı topu bulunca **topçu kendiliğinden karşılık verir**.
 
 ### M6 — Deniz
 - Gemi sınıfları: devriye botu, korvet/firkateyn (hava savunma radarı, gemisavar füze), denizaltı, çıkarma gemisi, ikmal gemisi;

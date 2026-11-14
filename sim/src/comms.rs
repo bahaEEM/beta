@@ -49,7 +49,11 @@ pub fn road_components(map: &HeightMap) -> Vec<u32> {
 }
 
 /// Wire network a unit is plugged into: component of the nearest road sample within reach.
-fn wire_component(map: &HeightMap, comps: &[u32], u: &Unit, reach_m: f64) -> u32 {
+/// Aircraft are never on the wire.
+fn wire_component(map: &HeightMap, comps: &[u32], u: &Unit, t: &UnitType, reach_m: f64) -> u32 {
+    if t.class.is_air() {
+        return 0;
+    }
     let cell = map.cell_size_m();
     let r = (reach_m / cell).ceil() as i64;
     let (ci, cj) = (
@@ -73,6 +77,33 @@ fn wire_component(map: &HeightMap, comps: &[u32], u: &Unit, reach_m: f64) -> u32
         }
     }
     best.map_or(0, |(_, c)| c)
+}
+
+/// Living units of `player` plugged into the same road wire as one of its living HQs:
+/// they get their orders by wire and do not transmit (K-150).
+pub fn wired_to_hq(
+    world: &World,
+    catalog: &UnitCatalog,
+    rules: &Rules,
+    player: PlayerId,
+) -> BTreeSet<UnitId> {
+    let comps = road_components(&world.map);
+    let wires: Vec<(UnitId, bool, u32)> = world
+        .units()
+        .iter()
+        .filter(|u| u.owner == player && u.state != UnitState::Destroyed)
+        .filter_map(|u| {
+            let t = catalog.get(&u.type_id)?;
+            let wire = wire_component(&world.map, &comps, u, t, rules.comms.wire_reach_m);
+            (wire != 0).then_some((u.id, t.hq, wire))
+        })
+        .collect();
+    let hq_wires: BTreeSet<u32> = wires.iter().filter(|w| w.1).map(|w| w.2).collect();
+    wires
+        .iter()
+        .filter(|w| hq_wires.contains(&w.2))
+        .map(|w| w.0)
+        .collect()
 }
 
 /// Players that started with an HQ; the command-network rule applies only to them.
@@ -110,14 +141,16 @@ pub fn connected_units(
             .iter()
             .filter(|(u, _)| u.owner == player)
             .map(|&(u, t)| {
-                let radio = !radio_jammers
-                    .iter()
-                    .any(|&(o, pos, r)| o != player && pos.distance(u.pos) <= r);
+                // K-151: a silent unit is off the radio net.
+                let radio = !u.silent
+                    && !radio_jammers
+                        .iter()
+                        .any(|&(o, pos, r)| o != player && pos.distance(u.pos) <= r);
                 (
                     u,
                     t,
                     radio,
-                    wire_component(&world.map, &comps, u, rules.comms.wire_reach_m),
+                    wire_component(&world.map, &comps, u, t, rules.comms.wire_reach_m),
                 )
             })
             .collect();

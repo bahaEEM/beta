@@ -100,6 +100,12 @@ pub struct Unit {
     /// Tick of this unit's last shot; it gives the position away for a while (K-140).
     #[serde(default)]
     pub last_fired_tick: Option<u32>,
+    /// Radio silence (K-151): never transmits, takes no new orders by radio, relays nothing.
+    #[serde(default)]
+    pub silent: bool,
+    /// Transmitting by radio up to and including this tick (K-150).
+    #[serde(default)]
+    pub radio_until_tick: Option<u32>,
     /// Decoys: the type the enemy takes this unit for (K-144), copied from the unit type.
     #[serde(default)]
     pub decoy_of: Option<String>,
@@ -109,6 +115,11 @@ impl Unit {
     /// Set up and working (always true for types that need no deployment).
     pub fn deployed(&self) -> bool {
         self.packed_s <= 0.0
+    }
+
+    /// On the radio right now (K-150); enemy ESM can take a bearing.
+    pub fn transmitting(&self, tick: u32) -> bool {
+        self.radio_until_tick.is_some_and(|until| tick <= until)
     }
 
     /// Radar/jammer actually on the air: switched on and set up.

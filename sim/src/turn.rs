@@ -2,13 +2,13 @@
 //! G5: turn engine. Planning validates orders (KBG budget); resolution runs 200 ticks.
 
 use crate::combat::{step_combat, CombatState};
-use crate::comms::{connected_units, players_with_hq};
+use crate::comms::{connected_units, players_with_hq, wired_to_hq};
 use crate::data::{Rules, UnitCatalog, UnitClass};
 use crate::event::{Event, TickEvent};
-use crate::indirect::{step_impacts, step_launch, FireTarget, Shell};
+use crate::indirect::{step_impacts, step_launch, FireTarget, GunFix, Launches, Shell};
 use crate::logistics::{end_of_turn, step_capture, MatchResult, Zone};
 use crate::movement::{plan_route, step_movement, MoveError, MoveOrder, Routes};
-use crate::sensor::{update_tracks, TrackTable};
+use crate::sensor::{update_tracks, Track, TrackTable};
 use crate::world::{PlayerId, Stance, UnitId, UnitState, Vec2, World};
 use crate::TICKS_PER_TURN;
 use serde::{Deserialize, Serialize};
@@ -40,6 +40,9 @@ pub struct Game {
     /// Rounds in flight (may cross a turn boundary).
     #[serde(default)]
     pub shells: Vec<Shell>,
+    /// Enemy guns located by counter-battery radars (K-153).
+    #[serde(default)]
+    pub gun_fixes: Vec<GunFix>,
 }
 
 impl Game {
@@ -61,6 +64,7 @@ impl Game {
             connected,
             missions: BTreeMap::new(),
             shells: Vec::new(),
+            gun_fixes: Vec::new(),
         }
     }
 }
@@ -87,6 +91,8 @@ pub enum Order {
     Embark { units: Vec<UnitId>, carrier: UnitId },
     /// Passengers get out next to their carrier.
     Disembark { units: Vec<UnitId> },
+    /// Radio silence on or off (K-151).
+    SetSilence { units: Vec<UnitId>, on: bool },
 }
 
 impl Order {
@@ -98,6 +104,7 @@ impl Order {
             | Order::SetStance { units, .. }
             | Order::FireMission { units, .. }
             | Order::Embark { units, .. }
+            | Order::SetSilence { units, .. }
             | Order::Disembark { units } => units,
         }
     }
@@ -155,6 +162,10 @@ pub struct Validated {
     pub missions: BTreeMap<UnitId, FireTarget>,
     /// Passenger -> Some(carrier) to board, None to get out.
     pub boarding: BTreeMap<UnitId, Option<UnitId>>,
+    /// Radio silence switches: unit -> on.
+    pub silences: BTreeMap<UnitId, bool>,
+    /// Every unit that got an accepted order (they transmit, K-150).
+    pub ordered: BTreeSet<UnitId>,
     pub rejected: Vec<Rejection>,
     pub kbg_spent: u32,
 }
@@ -225,6 +236,7 @@ pub fn validate_orders(
             Order::SetEmitter { .. } => 1,
             Order::SetStance { .. } => 2,
             Order::FireMission { .. } => 3,
+            Order::SetSilence { .. } => 4,
         };
         let cost = order_cost(rules, units.len());
         let unique: BTreeSet<_> = units.iter().collect();
@@ -238,6 +250,8 @@ pub fn validate_orders(
         {
             Some(RejectReason::NotOwner)
         } else if game.hq_players.contains(&player)
+            // K-151: the silence switch is the one order a silent unit still takes.
+            && !matches!(order, Order::SetSilence { .. })
             && units
                 .iter()
                 .any(|id| !game.connected.get(&player).is_some_and(|c| c.contains(id)))
@@ -338,6 +352,10 @@ pub fn validate_orders(
                         Some(RejectReason::CannotEmbark)
                     }
                 }
+                Order::SetSilence { units, on } => {
+                    v.silences.extend(units.iter().map(|&id| (id, *on)));
+                    None
+                }
                 Order::FireMission { units, target } => {
                     let armed = |id: &UnitId| {
                         game.world
@@ -361,6 +379,7 @@ pub fn validate_orders(
             }),
             None => {
                 seen.extend(units.iter().map(|&id| (id, kind)));
+                v.ordered.extend(units.iter().copied());
                 v.kbg_spent += cost;
             }
         }
@@ -376,6 +395,7 @@ pub fn plan_phase(
     orders_by_player: &BTreeMap<PlayerId, Vec<Order>>,
 ) -> BTreeMap<PlayerId, Vec<Rejection>> {
     let mut all_rejected = BTreeMap::new();
+    fly_home_without_link(game, catalog);
     for (&player, orders) in orders_by_player {
         let v = validate_orders(game, catalog, rules, player, orders);
         for (id, change) in v.changes {
@@ -392,6 +412,30 @@ pub fn plan_phase(
         for (id, stance) in v.stances {
             if let Some(u) = game.world.unit_mut(id) {
                 u.stance = stance;
+            }
+        }
+        for (&id, &on) in &v.silences {
+            if let Some(u) = game.world.unit_mut(id) {
+                u.silent = on;
+            }
+        }
+        // K-150: units that got an order by radio answer on the air for a while, and so
+        // does their HQ. Wire to the HQ and radio silence keep a unit quiet.
+        if game.hq_players.contains(&player) {
+            let wired = wired_to_hq(&game.world, catalog, rules, player);
+            let until = Some(game.world.tick + rules.ticks(rules.comms.radio_emit_s, 0));
+            let mut on_air = false;
+            for u in game.world.units_mut() {
+                if v.ordered.contains(&u.id) && !u.silent && !wired.contains(&u.id) {
+                    u.radio_until_tick = until;
+                    on_air = true;
+                }
+            }
+            for u in game.world.units_mut() {
+                let hq = catalog.get(&u.type_id).is_some_and(|t| t.hq);
+                if on_air && hq && u.owner == player && !u.silent && u.active() {
+                    u.radio_until_tick = until;
+                }
             }
         }
         for (id, carrier) in v.boarding {
@@ -411,6 +455,45 @@ pub fn plan_phase(
         all_rejected.insert(player, v.rejected);
     }
     all_rejected
+}
+
+/// K-155: remote-piloted aircraft without a link to their HQ (jammed, out of range or
+/// silent) head for the nearest friendly airbase, or the nearest HQ if there is none.
+fn fly_home_without_link(game: &mut Game, catalog: &UnitCatalog) {
+    for &player in &game.hq_players {
+        let standing = |pick: fn(&crate::data::UnitType) -> bool| -> Vec<Vec2> {
+            game.world
+                .units()
+                .iter()
+                .filter(|u| u.owner == player && u.state != UnitState::Destroyed)
+                .filter(|u| catalog.get(&u.type_id).is_some_and(pick))
+                .map(|u| u.pos)
+                .collect()
+        };
+        let mut homes = standing(|t| t.airbase);
+        if homes.is_empty() {
+            homes = standing(|t| t.hq);
+        }
+        let linked = game.connected.get(&player);
+        let lost: Vec<(UnitId, Vec2)> = game
+            .world
+            .units()
+            .iter()
+            .filter(|u| u.owner == player && u.active())
+            .filter(|u| catalog.get(&u.type_id).is_some_and(|t| t.remote_piloted))
+            .filter(|u| !linked.is_some_and(|c| c.contains(&u.id)))
+            .filter_map(|u| {
+                let home = homes
+                    .iter()
+                    .copied()
+                    .min_by(|a, b| a.distance(u.pos).total_cmp(&b.distance(u.pos)))?;
+                Some((u.id, home))
+            })
+            .collect();
+        for (id, home) in lost {
+            game.routes.insert(id, vec![home]);
+        }
+    }
 }
 
 /// One tick: movement -> sensors/tracks -> fire + damage. Track events are listed before
@@ -469,8 +552,34 @@ pub fn step_tick(game: &mut Game, catalog: &UnitCatalog, rules: &Rules) -> Vec<E
         &game.tracks,
         &game.missions,
         &mut game.combat,
-        &mut game.shells,
+        Launches {
+            shells: &mut game.shells,
+            fixes: &mut game.gun_fixes,
+        },
     ));
+    // K-153: a freshly located gun shows up as a last-known position.
+    let now = game.world.tick;
+    for f in game.gun_fixes.iter().filter(|f| f.tick == now) {
+        let track = game
+            .tracks
+            .tracks
+            .entry((f.player, f.gun))
+            .or_insert(Track {
+                observer_player: f.player,
+                target_unit: f.gun,
+                quality: 0,
+                last_seen_tick: now,
+                last_known_pos: f.pos,
+                bearing: None,
+                position_known: true,
+                identified: false,
+            });
+        if track.quality == 0 {
+            track.last_seen_tick = now;
+            track.last_known_pos = f.pos;
+            track.position_known = true;
+        }
+    }
     events.extend(step_impacts(
         &mut game.world,
         catalog,

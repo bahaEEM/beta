@@ -87,6 +87,16 @@ pub struct UnitType {
     /// Hit points given to each friendly infantry unit in reach at the end of a turn (K-123).
     #[serde(default)]
     pub heal_hp_per_turn: f64,
+    /// Counter-battery radar (K-153): while it radiates, enemy guns that fire from, or
+    /// at a point, within this range are located. 0 = none.
+    #[serde(default)]
+    pub counter_battery_range_m: f64,
+    /// Flown over a data link (K-155): without a link to the HQ it flies home.
+    #[serde(default)]
+    pub remote_piloted: bool,
+    /// Home for remote-piloted aircraft that lose their link (K-155).
+    #[serde(default)]
+    pub airbase: bool,
     /// Decoy (K-144): the enemy sees this type id until he identifies it from close up.
     #[serde(default)]
     pub decoy_of: Option<String>,
@@ -107,6 +117,10 @@ pub struct IndirectSpec {
     pub radius_m: f64,
     pub damage_hp: f64,
     pub penetration_mm: f64,
+    /// Loitering anti-radiation munition (K-152): fired at an enemy unit it homes on it
+    /// for as long as that unit's radar or jammer is on the air.
+    #[serde(default)]
+    pub anti_radiation: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -256,6 +270,7 @@ fn validate(t: &UnitType) -> Result<(), DataError> {
         ("radio_range_m", t.radio_range_m),
         ("deploy_s", t.deploy_s),
         ("produce_fuel_l", t.produce_fuel_l),
+        ("counter_battery_range_m", t.counter_battery_range_m),
         ("heal_hp_per_turn", t.heal_hp_per_turn),
     ];
     for (field, v) in fields {
@@ -333,6 +348,8 @@ pub struct Rules {
 pub struct IndirectRules {
     /// Track quality needed to fire a mission at an enemy unit.
     pub min_track_quality: u8,
+    /// A gun located by a counter-battery radar stays a counter-fire target this long (K-154).
+    pub counter_fire_window_s: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -349,6 +366,8 @@ pub struct TransportRules {
 pub struct CommsRules {
     /// A unit this close to a road cell is on the wire network of that road.
     pub wire_reach_m: f64,
+    /// Game seconds a unit transmits by radio after receiving an order (K-150).
+    pub radio_emit_s: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -565,6 +584,11 @@ pub fn load_rules(toml_text: &str) -> Result<Rules, DataError> {
     if !(s.esm.min_cross_deg > 0.0 && s.esm.min_cross_deg < 90.0 && s.esm.bearing_update_deg > 0.0)
     {
         return Err(DataError::InvalidRule("sensor.esm.min_cross_deg"));
+    }
+    if !(rules.comms.radio_emit_s >= 0.0 && rules.indirect.counter_fire_window_s >= 0.0) {
+        return Err(DataError::InvalidRule(
+            "comms.radio_emit_s / indirect.counter_fire_window_s",
+        ));
     }
     if !(rules.comms.wire_reach_m.is_finite() && rules.comms.wire_reach_m >= 0.0) {
         return Err(DataError::InvalidRule("comms.wire_reach_m"));

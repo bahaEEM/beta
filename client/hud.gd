@@ -38,6 +38,8 @@ const TYPE_NAMES := {
 	"cargo_plane": "Kargo Uçağı",
 	"decoy_tank": "Sahte Tank",
 	"decoy_radar": "Sahte Radar",
+	"harpy": "Kamikaze İHA Rampası",
+	"cb_radar": "Karşı-Batarya Radarı",
 }
 # type -> [short label, "your ..." (log), "enemy's ..." (log)]
 const TYPE_WORDS := {
@@ -66,6 +68,8 @@ const TYPE_WORDS := {
 	"cargo_plane": ["Kargo Uçağı", "Kargo uçağınız", "kargo uçağı"],
 	"decoy_tank": ["Sahte Tank", "Sahte tankınız", "sahte tankı"],
 	"decoy_radar": ["Sahte Radar", "Sahte radarınız", "sahte radarı"],
+	"harpy": ["Kamikaze İHA", "Kamikaze İHA rampanız", "kamikaze İHA rampası"],
+	"cb_radar": ["KB Radarı", "Karşı-batarya radarınız", "karşı-batarya radarı"],
 }
 const STOCK_TYPES := ["supply", "cargo_plane", "logistics_base", "depot", "airfield", "port"]
 const LOG_LINES := 8
@@ -207,6 +211,8 @@ func show_selection(sel: Array, orders) -> void:
 			stance += " -> %s (emir)" % STANCE_NAMES.get(st, st)
 		lines.append(stance)
 		lines.append("Komuta: %s" % ("bağlı" if u.connected else "KOPUK (emir alamaz)"))
+		if u.get("silent", false):
+			lines.append("TELSİZ SESSİZLİĞİ (X ile kaldır)")
 		if float(u.get("packed_s", 0.0)) > 0.0:
 			lines.append("KURULU DEĞİL: %d sn (ateş ve yayın yok)" % ceili(float(u.packed_s)))
 		var t = orders.pending_mission(u.id)

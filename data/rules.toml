@@ -47,9 +47,11 @@ attrition_hp_share = 0.1    # ...losing this share of their maximum hp per turn
 
 [comms]
 wire_reach_m = 150.0   # placeholder; distance to a road cell to plug into its wire network
+radio_emit_s = 20.0    # placeholder; a unit that gets an order by radio transmits this long (enemy ESM hears it)
 
 [indirect]
 min_track_quality = 2  # fire missions at a unit need its position (radar, triangulation or sight)
+counter_fire_window_s = 120.0  # placeholder; guns on 'return' fire at an enemy gun located this recently
 
 [transport]
 embark_radius_m = 100.0  # placeholder
