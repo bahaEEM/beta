@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! G3: line of sight, sensors and tracks.
 
-use crate::data::{Rules, SensorSpec, UnitCatalog, UnitType};
-use crate::world::{HeightMap, PlayerId, Unit, UnitId, Vec2, World};
+use crate::data::{Rules, SensorSpec, UnitCatalog, UnitClass, UnitType};
+use crate::world::{HeightMap, PlayerId, Terrain, Unit, UnitId, Vec2, World};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -25,8 +25,34 @@ pub fn line_of_sight(
     })
 }
 
+/// K-140: factor on the optical range of whoever looks at `target`. Forest, settlement,
+/// being infantry and standing still multiply; a unit that fired recently, aircraft and
+/// structures have no concealment.
+pub fn concealment(map: &HeightMap, rules: &Rules, target: &Unit, tt: &UnitType, tick: u32) -> f64 {
+    let c = &rules.conceal;
+    let fired = target
+        .last_fired_tick
+        .is_some_and(|t| tick.saturating_sub(t) <= rules.ticks(c.fire_reveal_s, 0));
+    if fired || matches!(tt.class, UnitClass::Air | UnitClass::Structure) {
+        return 1.0;
+    }
+    let mut f = match map.terrain_at(target.pos) {
+        Terrain::Forest => c.forest_factor,
+        Terrain::Settlement => c.settlement_factor,
+        Terrain::Open | Terrain::Water => 1.0,
+    };
+    if tt.class == UnitClass::Infantry {
+        f *= c.infantry_factor;
+    }
+    if target.speed_mps == 0.0 {
+        f *= c.halted_factor;
+    }
+    f
+}
+
 /// Direct (non-ESM) track quality one sensor of `observer` achieves on `target`.
-/// `jammed`: an enemy jammer currently covers the observer.
+/// `jammed`: an enemy jammer currently covers the observer. `conceal`: the target's
+/// concealment factor (K-140), applied to optical ranges.
 pub fn sensor_quality(
     sensor: &SensorSpec,
     map: &HeightMap,
@@ -34,6 +60,7 @@ pub fn sensor_quality(
     observer: (&Unit, &UnitType),
     target: (&Unit, &UnitType),
     jammed: bool,
+    conceal: f64,
 ) -> u8 {
     let d = observer.0.pos.distance(target.0.pos);
     let los = || {
@@ -48,6 +75,7 @@ pub fn sensor_quality(
     match *sensor {
         SensorSpec::Optical { range_m } => {
             let o = &rules.sensor.optical;
+            let range_m = range_m * conceal;
             if d > range_m * o.track_range_factor || !los() {
                 0
             } else if d <= range_m {
@@ -101,6 +129,9 @@ pub struct Track {
     /// True once any sensor other than a single bearing has located the target.
     #[serde(default)]
     pub position_known: bool,
+    /// Decoys only: seen from close enough to tell it is a dummy (K-144). Sticky.
+    #[serde(default)]
+    pub identified: bool,
 }
 
 /// Every track ever gained, keyed by (observer player, target unit).
@@ -183,11 +214,20 @@ pub fn update_tracks(
             let (direct, bearings) = match live_type(catalog, target) {
                 None => (0, Vec::new()),
                 Some(tt) => {
+                    let conceal = concealment(&world.map, rules, target, tt, world.tick);
                     let direct = observers
                         .iter()
                         .flat_map(|&(o, ot, jammed)| {
                             ot.sensors.iter().map(move |s| {
-                                sensor_quality(s, &world.map, rules, (o, ot), (target, tt), jammed)
+                                sensor_quality(
+                                    s,
+                                    &world.map,
+                                    rules,
+                                    (o, ot),
+                                    (target, tt),
+                                    jammed,
+                                    conceal,
+                                )
                             })
                         })
                         .max()
@@ -244,11 +284,22 @@ pub fn update_tracks(
                     last_known_pos: target.pos,
                     bearing: None,
                     position_known: false,
+                    identified: false,
                 });
                 entry.quality = quality;
                 entry.last_seen_tick = world.tick;
                 entry.bearing = bearing;
                 entry.position_known = prev_known || located;
+                // K-144: eyes at fire quality within the reveal range unmask a decoy.
+                entry.identified |= target.decoy_of.is_some()
+                    && direct >= rules.sensor.optical.fire_quality
+                    && observers.iter().any(|&(o, ot, _)| {
+                        o.pos.distance(target.pos) <= rules.decoy.reveal_range_m
+                            && ot
+                                .sensors
+                                .iter()
+                                .any(|s| matches!(s, SensorSpec::Optical { .. }))
+                    });
                 if located {
                     entry.last_known_pos = target.pos;
                 }
@@ -360,8 +411,14 @@ mod tests {
 
     #[test]
     fn g3_optical_range_boundaries() {
-        // Infantry optical range 1000 m, contact range 1500 m.
-        for (x, expected) in [(1049.0, 3), (1051.0, 1), (1549.0, 1), (1551.0, 0)] {
+        // Infantry optical range 1000 m, contact range 1500 m; the target is halted
+        // infantry in the open, so both shrink by the concealment factor (K-140).
+        let c = load_rules(include_str!("../../data/rules.toml"))
+            .unwrap()
+            .conceal;
+        let f = c.infantry_factor * c.halted_factor;
+        for (d, expected) in [(999.0, 3), (1001.0, 1), (1499.0, 1), (1501.0, 0)] {
+            let x = 50.0 + d * f;
             let units = vec![unit(1, 0, "infantry", 50.0), unit(2, 1, "infantry", x)];
             let (w, cat, rules) = setup(flat_map(200), units);
             assert_eq!(quality_after_update(&w, &cat, &rules), expected, "x = {x}");

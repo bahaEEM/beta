@@ -13,6 +13,7 @@ pub fn stance(s: Stance) -> p::Stance {
         Stance::Free => p::Stance::Free,
         Stance::Return => p::Stance::Return,
         Stance::Hold => p::Stance::Hold,
+        Stance::Ambush => p::Stance::Ambush,
     }
 }
 
@@ -85,6 +86,7 @@ pub fn order(o: &p::Order) -> Order {
                 p::Stance::Free => Stance::Free,
                 p::Stance::Return => Stance::Return,
                 p::Stance::Hold => Stance::Hold,
+                p::Stance::Ambush => Stance::Ambush,
             },
         },
     }

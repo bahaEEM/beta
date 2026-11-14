@@ -21,6 +21,8 @@ mod ew_tests;
 #[cfg(test)]
 mod m2_tests;
 #[cfg(test)]
+mod m4_tests;
+#[cfg(test)]
 mod supply_tests;
 #[cfg(test)]
 mod transport_tests;

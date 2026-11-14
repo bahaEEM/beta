@@ -57,3 +57,30 @@ bail_out_damage = 0.5    # passengers lose half their hp when the carrier is des
 
 [medical]
 radius_m = 300.0         # placeholder; medical units treat infantry this close at the end of a turn
+
+[conceal]                 # K-140; factors on the optical range of whoever looks at the unit (multiplied)
+forest_factor = 0.5       # placeholder; standing in forest
+settlement_factor = 0.6   # placeholder; standing in a settlement
+infantry_factor = 0.7     # placeholder; infantry is small
+halted_factor = 0.7       # placeholder; not moving
+fire_reveal_s = 30.0      # placeholder; no concealment for this long after firing
+
+[cover]                   # K-141; damage multipliers for infantry in cover
+forest_damage_factor = 0.75      # placeholder
+settlement_damage_factor = 0.6   # placeholder
+
+[ambush]                  # K-142; the 'ambush' stance
+range_share = 0.5         # placeholder; hold fire until the target is within half the weapon range
+damage_factor = 1.5       # placeholder; damage multiplier while the enemy has not located the shooter
+
+[suppression]             # K-143; 0..1 per ground unit
+per_shot = 0.15           # placeholder; per direct-fire shot aimed at the unit
+per_shell = 0.3           # placeholder; shell landing on the unit (less towards the blast edge)
+decay_per_s = 0.02        # placeholder; full suppression wears off in 50 s
+hit_penalty = 0.6         # placeholder; hit share lost at full suppression
+speed_penalty = 0.5       # placeholder; speed lost at full suppression
+pin_threshold = 0.6       # placeholder; infantry at or above this lies down and does not move
+pinned_damage_factor = 0.6  # placeholder; pinned infantry is harder to hurt
+
+[decoy]                   # K-144
+reveal_range_m = 800.0    # placeholder; eyes this close recognise a decoy for good

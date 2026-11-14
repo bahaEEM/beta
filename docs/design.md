@@ -110,6 +110,24 @@ Hepsi tur sonunda, bu sırayla işler: üretim → taşıyıcılar → yakın ik
   "ikmalsiz" sayılır. Üst üste `attrition_after_turns` (3) tur ikmalsiz kalan birim, o turdan başlayarak her tur azami canının
   `attrition_hp_share` (%10) kadarını kaybeder ve sonunda yok olur. İkmale kavuşunca sayaç sıfırlanır. Hava birimleri ve yapılar erimez.
 
+## Gizlenme, pusu, baskı, aldatma (M4)
+- **K-140 Gizlenme.** Bir kara birimine bakan her optik sensörün menzili (hem ateş kalitesi menzili hem 1,5 katı temas menzili) hedefin
+  gizlenme çarpanıyla çarpılır. Çarpanlar çarpılarak birleşir: ormanda 0,5 · yerleşimde 0,6 · piyade sınıfı 0,7 · duruyorsa 0,7.
+  Ateş eden birim (direkt ya da dolaylı) `fire_reveal_s` (30 sn) boyunca gizlenemez (çarpan 1). Hava birimleri ve yapılar gizlenmez.
+  Radar ve ESM etkilenmez. Sayılar `rules.toml [conceal]`.
+- **K-141 Koruma.** Ormandaki piyade sınıfı birim hasarın 0,75'ini, yerleşimdeki 0,6'sını alır (direkt ve dolaylı ateş). Araçlar korunmaz.
+- **K-142 Pusu.** Dördüncü ateş kuralı `ambush`: birim, hedef silah menzilinin `range_share` (yarısı) içine girene kadar ateş etmez;
+  kendisine ateş edilirse (K-046'daki süre boyunca) tam menzilde karşılık verir. Atış anında hedefin sahibi atıcının yerini bilmiyorsa
+  (iz kalitesi 2'nin altı) hasar `damage_factor` (1,5) ile çarpılır. Atış atıcıyı ifşa ettiği için (K-140) bonus pratikte ilk atışlardadır.
+- **K-143 Baskı.** Her kara biriminin 0–1 arası baskı değeri vardır. Üzerine nişanlanan her direkt atış (isabet etmese de) `per_shot` (0,15),
+  yanına düşen her mermi `per_shell` (0,3; patlama kenarına doğru azalır) ekler; değer saniyede `decay_per_s` (0,02) azalır. Baskı altındaki
+  birimin isabet payı `baskı × 0,6`, hızı `baskı × 0,5` oranında düşer. Baskısı `pin_threshold` (0,6) ve üstü olan piyade yere yatar:
+  hareket etmez (rotası durur, baskı azalınca devam eder), aldığı hasar 0,6 ile çarpılır. Araçlar yere yatmaz; hava birimleri ve yapılar baskılanmaz.
+- **K-144 Sahte birimler.** `decoy_of` değeri olan tip (sahte tank → `mbt`, sahte radar → `gsr`) düşmana taklit ettiği tip olarak
+  bildirilir. Düşman onu ateş kalitesinde ve `decoy.reveal_range_m` (800 m) içinden gözle görürse sahte olduğunu kalıcı olarak öğrenir;
+  o andan sonra gerçek tipi görür ve birimleri ona kendiliğinden ateş etmez. Tanınmamış sahte birim ateş çeker. Sahte radar yayını açıkken
+  düşman ESM'ine gerçek radar gibi kerteriz verir; kendisi hiçbir şey görmez. Sahte birimler de kurulur (K-120).
+
 ## Görünürlük
 - **K-050 Görünürlük filtresi.** Oyuncuya giden hiçbir mesaj, o an göremediği birimin kimliğini veya konumunu içermez.
   İz 1 = 500 m'lik hücrenin merkezi; kerterizle bilinen birim için sadece yön; iz ≥ 2 = kesin konum, iz ≥ 2'de tip.
@@ -200,6 +218,11 @@ Bütün sayılar yer tutucudur; görsel aşamadan önce oyun testiyle ayarlanaca
 | K-132 | k132_carriers_load_at_the_network_unload_at_a_cut_off_storage_and_fill_units |
 | K-133 | k133_units_in_a_supplied_region_get_a_share_each_turn |
 | K-134 | k134_cut_off_ground_units_wither_and_die |
+| K-140 | k140_cover_and_standing_still_hide_ground_units, g3_optical_range_boundaries |
+| K-141 | k141_cover_protects_infantry_only |
+| K-142 | k142_ambush_waits_for_a_close_target_and_strikes_from_hiding |
+| K-143 | k143_fire_suppresses_slows_and_pins |
+| K-144 | k144_decoys_look_real_until_seen_from_close_up |
 | K-071 | g6_client_messages_round_trip, g6_server_messages_round_trip, g6_version_mismatch_rejected, g6_oversized_message_rejected, g6_protocol_md_up_to_date |
 | K-072 | g7_resume_after_shutdown, g7_reconnect_same_name, g7_planning_deadline_starts_resolution |
 

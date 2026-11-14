@@ -567,6 +567,56 @@ x = 13800.0
 y = 24800.0
 heading_deg = 270.0
 
+# ---- M4: decoys (two dummy tanks and a dummy radar per side)
+
+[[unit]]
+id = 71
+owner = 0
+type = "decoy_tank"
+x = 22260.0
+y = 12413.0
+heading_deg = 90.0
+
+[[unit]]
+id = 72
+owner = 0
+type = "decoy_tank"
+x = 22260.0
+y = 12613.0
+heading_deg = 90.0
+
+[[unit]]
+id = 73
+owner = 0
+type = "decoy_radar"
+x = 23660.0
+y = 13013.0
+heading_deg = 90.0
+
+[[unit]]
+id = 74
+owner = 1
+type = "decoy_tank"
+x = 18481.0
+y = 27597.0
+heading_deg = 270.0
+
+[[unit]]
+id = 75
+owner = 1
+type = "decoy_tank"
+x = 18481.0
+y = 27797.0
+heading_deg = 270.0
+
+[[unit]]
+id = 76
+owner = 1
+type = "decoy_radar"
+x = 19881.0
+y = 28197.0
+heading_deg = 270.0
+
 [[zone]]
 id = 1
 name_tr = "Sağlık"

@@ -75,7 +75,7 @@ pub struct Contact {
 }
 
 const OWN: u8 = u8::MAX;
-const EXACT_QUALITY: u8 = 2;
+pub const EXACT_QUALITY: u8 = 2;
 
 /// Snaps a position to the centre of its contact cell.
 pub fn area(rules: &Rules, pos: Vec2) -> Position {
@@ -246,9 +246,14 @@ pub fn contacts(
             Some(Contact {
                 unit: t.target_unit,
                 quality: t.quality,
+                // K-144: an unidentified decoy is reported as the type it imitates.
                 type_id: (t.quality >= EXACT_QUALITY)
-                    .then(|| world.unit(t.target_unit).map(|u| u.type_id.clone()))
-                    .flatten(),
+                    .then(|| world.unit(t.target_unit))
+                    .flatten()
+                    .map(|u| match (&u.decoy_of, t.identified) {
+                        (Some(fake), false) => fake.clone(),
+                        _ => u.type_id.clone(),
+                    }),
                 position,
                 last_seen_tick: t.last_seen_tick,
             })
@@ -429,7 +434,10 @@ mod tests {
             HeightMap::new(400, 400, 50.0, vec![0.0; 160_000]).unwrap(),
             vec![
                 unit(1, 0, "mbt", 1000.0, 1000.0),
-                unit(2, 1, "mbt", 4000.0, 1000.0),
+                crate::world::Unit {
+                    speed_mps: 5.0, // on the move: no concealment (K-140)
+                    ..unit(2, 1, "mbt", 4000.0, 1000.0)
+                },
                 unit(3, 1, "mbt", 19000.0, 19000.0),
             ],
         );

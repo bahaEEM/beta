@@ -6,7 +6,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt;
 use std::io::Read;
 
-pub const PROTOCOL_VERSION: u32 = 5;
+pub const PROTOCOL_VERSION: u32 = 6;
 /// Maximum size of a message's JSON (uncompressed).
 pub const MAX_MESSAGE_BYTES: usize = 1024 * 1024;
 const ZSTD_LEVEL: i32 = 3;
@@ -84,6 +84,8 @@ pub enum Stance {
     Free,
     Return,
     Hold,
+    /// Hold fire until a target is within half the weapon range, then strike from hiding.
+    Ambush,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -110,6 +112,14 @@ pub struct OwnUnit {
     /// Turns in a row without supply; ground units start losing hit points at the limit
     /// in `rules.toml` (3).
     pub unsupplied_turns: u32,
+    /// Suppression from incoming fire, 0..1: lowers hit share and speed; infantry at the
+    /// pin threshold of `rules.toml` lies down and does not move.
+    pub suppression: f64,
+    /// Infantry suppressed so much that it has gone to ground and will not move.
+    pub pinned: bool,
+    /// Concealment right now: enemy optical ranges against this unit are multiplied by
+    /// this factor (1 = none; lower = harder to see).
+    pub conceal: f64,
 }
 
 /// An enemy unit as known to this player. `type_id` is only present at quality >= 2.
@@ -405,6 +415,9 @@ mod tests {
                         carried_by: None,
                         packed_s: 0.0,
                         unsupplied_turns: 0,
+                        suppression: 0.0,
+                        pinned: false,
+                        conceal: 0.35,
                     }],
                     contacts: vec![
                         Contact {

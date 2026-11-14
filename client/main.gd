@@ -17,10 +17,10 @@ const RESOLUTION_TICKS := 200
 const APPROX_SIZE := Vector3(50, 30, 50)  # faded box of a contact without an exact position
 const SIDE_NAMES := ["Mavi", "Kırmızı"]
 const SIDE_DATIVE := ["Mavi'ye", "Kırmızı'ya"]
-const STANCES := ["free", "return", "hold"]
+const STANCES := ["free", "return", "hold", "ambush"]
 const TEAM_COLORS := [Color(0.25, 0.55, 1.0), Color(1.0, 0.3, 0.25)]
 const DEAD_COLOR := Color(0.2, 0.2, 0.2)
-const EMITTER_TYPES := ["gsr", "jammer", "shorad", "radar_mobile", "radar_tower", "ad_site"]
+const EMITTER_TYPES := ["gsr", "jammer", "shorad", "radar_mobile", "radar_tower", "ad_site", "decoy_radar"]
 const ARTILLERY_TYPES := ["spg", "rocket"]
 const CARRIER_TYPES := ["ifv", "ambulance"]
 const MISSION_MARK_M := 150.0  # display only; the real blast radius comes with shell_impact
@@ -244,6 +244,8 @@ func _load_terrain() -> void:
 	terrain.material.show_checkered = false
 	terrain.material.show_colormap = true
 	var colors := _height_colors(img, float(r["min_height_m"]), float(r["max_height_m"]), float(meta.get("sea_level_m", -INF)))
+	_tint_cover(colors, dir.path_join("terrain.bin"), int(meta.get("width", 0)),
+		float(r["pixel_size_x_m"]) / maxf(float(meta.get("cell_size_m", 50.0)), 1.0))
 	terrain.data.import_images([img, null, colors], Vector3.ZERO, 0.0, 1.0)
 
 
@@ -283,6 +285,29 @@ func _height_colors(heights: Image, lo: float, hi: float, sea: float) -> Image:
 		out[o + 2] = lut[i + 2]
 		out[o + 3] = 255
 	return Image.create_from_data(src.get_width(), src.get_height(), false, Image.FORMAT_RGBA8, out)
+
+
+## Paints forest and settlement cells of terrain.bin (one byte per sim cell: 1 = forest, 2 = settlement)
+## over the colour map. `scale` = colour map pixel size / sim cell size. Display only.
+func _tint_cover(colors: Image, path: String, sim_width: int, scale: float) -> void:
+	var cover := FileAccess.get_file_as_bytes(path)
+	if sim_width <= 0 or cover.is_empty():
+		return
+	var sim_height := cover.size() / sim_width
+	var tint := {1: Color(0.13, 0.33, 0.16), 2: Color(0.62, 0.55, 0.48)}
+	var data := colors.get_data()
+	var w := colors.get_width()
+	for py in colors.get_height():
+		var j := mini(int(py * scale + 0.5), sim_height - 1)
+		for px in w:
+			var c: int = cover[j * sim_width + mini(int(px * scale + 0.5), sim_width - 1)]
+			if c == 1 or c == 2:
+				var o := (py * w + px) * 4
+				var mixed: Color = Color8(data[o], data[o + 1], data[o + 2]).lerp(tint[c], 0.6)
+				data[o] = mixed.r8
+				data[o + 1] = mixed.g8
+				data[o + 2] = mixed.b8
+	colors.set_data(w, colors.get_height(), false, Image.FORMAT_RGBA8, data)
 
 
 func ground(p: Vector2) -> float:

@@ -11,6 +11,7 @@ use futures_util::{SinkExt, StreamExt};
 use protocol::{self as p, ClientMsg, ServerMsg};
 use setup::{save_game, SaveFile};
 use sim::data::{Rules, UnitCatalog};
+use sim::sensor::concealment;
 use sim::supply::Networks;
 use sim::turn::{group_routes, plan_phase, resolve_phase, validate_orders, Game, Order};
 use sim::visibility::{contacts, filter_for_player, SeenTickEvent};
@@ -434,6 +435,20 @@ impl Match {
                 carried_by: u.carried_by.map(|c| c.0),
                 packed_s: u.packed_s,
                 unsupplied_turns: u.unsupplied_turns,
+                suppression: u.suppression,
+                pinned: self
+                    .catalog
+                    .get(&u.type_id)
+                    .is_some_and(|t| sim::combat::pinned(&self.rules, u, t)),
+                conceal: self.catalog.get(&u.type_id).map_or(1.0, |t| {
+                    concealment(
+                        &self.game.world.map,
+                        &self.rules,
+                        u,
+                        t,
+                        self.game.world.tick,
+                    )
+                }),
             })
             .collect();
         let contacts = contacts(&self.game.tracks, &self.game.world, &self.rules, player)

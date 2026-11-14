@@ -87,6 +87,9 @@ pub struct UnitType {
     /// Hit points given to each friendly infantry unit in reach at the end of a turn (K-123).
     #[serde(default)]
     pub heal_hp_per_turn: f64,
+    /// Decoy (K-144): the enemy sees this type id until he identifies it from close up.
+    #[serde(default)]
+    pub decoy_of: Option<String>,
 }
 
 fn yes() -> bool {
@@ -220,6 +223,15 @@ pub fn load_units(toml_text: &str) -> Result<UnitCatalog, DataError> {
         }
         types.insert(t.id.clone(), t);
     }
+    if let Some(t) = types
+        .values()
+        .find(|t| t.decoy_of.as_ref().is_some_and(|d| !types.contains_key(d)))
+    {
+        return Err(DataError::Invalid {
+            unit: t.id.clone(),
+            field: "decoy_of",
+        });
+    }
     Ok(UnitCatalog { types })
 }
 
@@ -308,6 +320,11 @@ pub struct Rules {
     pub comms: CommsRules,
     pub transport: TransportRules,
     pub medical: MedicalRules,
+    pub conceal: ConcealRules,
+    pub cover: CoverRules,
+    pub ambush: AmbushRules,
+    pub suppression: SuppressionRules,
+    pub decoy: DecoyRules,
     pub indirect: IndirectRules,
 }
 
@@ -340,6 +357,65 @@ pub struct ZoneRules {
     /// Game seconds of uncontested infantry presence needed to capture.
     pub capture_s: f64,
     pub max_turns: u32,
+}
+
+/// K-140: factors on the optical range of whoever looks at a ground unit (multiplied).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ConcealRules {
+    pub forest_factor: f64,
+    pub settlement_factor: f64,
+    /// Infantry class, anywhere.
+    pub infantry_factor: f64,
+    /// Not moving.
+    pub halted_factor: f64,
+    /// After firing a unit has no concealment for this long (game seconds).
+    pub fire_reveal_s: f64,
+}
+
+/// K-141: damage multipliers for infantry in cover.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CoverRules {
+    pub forest_damage_factor: f64,
+    pub settlement_damage_factor: f64,
+}
+
+/// K-142: the 'ambush' stance.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AmbushRules {
+    /// Fire is held until a target is within this share of the weapon range.
+    pub range_share: f64,
+    /// Damage multiplier while the enemy does not know where the shooter is.
+    pub damage_factor: f64,
+}
+
+/// K-143: suppression, a value from 0 to 1 per ground unit.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SuppressionRules {
+    /// Added per direct-fire shot aimed at the unit (hit or miss).
+    pub per_shot: f64,
+    /// Added by a shell landing on the unit; falls to zero at the blast radius.
+    pub per_shell: f64,
+    pub decay_per_s: f64,
+    /// At full suppression the unit's hit share drops by this share...
+    pub hit_penalty: f64,
+    /// ...and its speed by this share.
+    pub speed_penalty: f64,
+    /// Infantry at or above this value is pinned: it lies down and does not move.
+    pub pin_threshold: f64,
+    /// Damage multiplier for pinned infantry (it has gone to ground).
+    pub pinned_damage_factor: f64,
+}
+
+/// K-144: decoys.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DecoyRules {
+    /// An enemy with eyes on a decoy from this close recognises it for good.
+    pub reveal_range_m: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -492,6 +568,30 @@ pub fn load_rules(toml_text: &str) -> Result<Rules, DataError> {
     }
     if !(rules.comms.wire_reach_m.is_finite() && rules.comms.wire_reach_m >= 0.0) {
         return Err(DataError::InvalidRule("comms.wire_reach_m"));
+    }
+    let (cn, cv, sp) = (&rules.conceal, &rules.cover, &rules.suppression);
+    let shares = [
+        cn.forest_factor,
+        cn.settlement_factor,
+        cn.infantry_factor,
+        cn.halted_factor,
+        cv.forest_damage_factor,
+        cv.settlement_damage_factor,
+        rules.ambush.range_share,
+        sp.per_shot,
+        sp.per_shell,
+        sp.hit_penalty,
+        sp.speed_penalty,
+        sp.pin_threshold,
+        sp.pinned_damage_factor,
+    ];
+    if shares.iter().any(|v| !(0.0..=1.0).contains(v))
+        || !(cn.fire_reveal_s >= 0.0 && sp.decay_per_s >= 0.0)
+        || !(rules.ambush.damage_factor >= 1.0 && rules.decoy.reveal_range_m >= 0.0)
+    {
+        return Err(DataError::InvalidRule(
+            "conceal/cover/ambush/suppression/decoy",
+        ));
     }
     let sup = &rules.supply;
     if !((0.0..=1.0).contains(&sup.region_share) && (0.0..=1.0).contains(&sup.attrition_hp_share))

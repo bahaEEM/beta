@@ -36,6 +36,8 @@ const TYPE_NAMES := {
 	"hq_bunker": "Karargâh Sığınağı",
 	"ad_site": "Hava Savunma Mevzisi",
 	"cargo_plane": "Kargo Uçağı",
+	"decoy_tank": "Sahte Tank",
+	"decoy_radar": "Sahte Radar",
 }
 # type -> [short label, "your ..." (log), "enemy's ..." (log)]
 const TYPE_WORDS := {
@@ -62,10 +64,12 @@ const TYPE_WORDS := {
 	"hq_bunker": ["Sığınak", "Karargâh sığınağınız", "karargâh sığınağı"],
 	"ad_site": ["HS Mevzisi", "Hava savunma mevziniz", "hava savunma mevzisi"],
 	"cargo_plane": ["Kargo Uçağı", "Kargo uçağınız", "kargo uçağı"],
+	"decoy_tank": ["Sahte Tank", "Sahte tankınız", "sahte tankı"],
+	"decoy_radar": ["Sahte Radar", "Sahte radarınız", "sahte radarı"],
 }
 const STOCK_TYPES := ["supply", "cargo_plane", "logistics_base", "depot", "airfield", "port"]
 const LOG_LINES := 8
-const STANCE_NAMES := {"free": "Serbest", "return": "Karşılık", "hold": "Ateş Yok"}
+const STANCE_NAMES := {"free": "Serbest", "return": "Karşılık", "hold": "Ateş Yok", "ambush": "Pusu"}
 const STATE_NAMES := {"healthy": "Sağlam", "damaged": "Hasarlı", "destroyed": "Yok edildi"}
 
 var name_box := LineEdit.new()
@@ -210,6 +214,13 @@ func show_selection(sel: Array, orders) -> void:
 			lines.append("Atış görevi: %s" % ("nokta" if t.kind == "point" else "birim #%d" % t.unit))
 		if u.type in STOCK_TYPES:
 			lines.append("İkmal stoğu: yakıt %.0f, mühimmat %d" % [u.supply_fuel, u.supply_ammo])
+		var conceal := float(u.get("conceal", 1.0))
+		if conceal < 1.0:
+			lines.append("Gizlenme: düşman %%%d menzilden görür" % roundi(conceal * 100.0))
+		var pressure := float(u.get("suppression", 0.0))
+		if pressure > 0.0:
+			lines.append("Baskı altında: %%%d%s" % [roundi(pressure * 100.0),
+				"  YERE YATTI (ilerleyemez)" if u.get("pinned", false) else ""])
 		if u.get("carried_by") != null:
 			lines.append("Araçta: #%d (inmek için N)" % int(u.carried_by))
 		if int(u.get("unsupplied_turns", 0)) > 0:

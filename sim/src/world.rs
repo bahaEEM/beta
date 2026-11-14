@@ -49,6 +49,8 @@ pub enum Stance {
     Free,
     /// Fire only for a while after being shot at.
     Return,
+    /// Hold fire until a target is close, then strike from hiding (K-142).
+    Ambush,
     /// Never fire.
     Hold,
 }
@@ -92,6 +94,15 @@ pub struct Unit {
     /// Turns in a row that ended without any supply in reach (K-134).
     #[serde(default)]
     pub unsupplied_turns: u32,
+    /// Suppression from incoming fire, 0..=1 (K-143).
+    #[serde(default)]
+    pub suppression: f64,
+    /// Tick of this unit's last shot; it gives the position away for a while (K-140).
+    #[serde(default)]
+    pub last_fired_tick: Option<u32>,
+    /// Decoys: the type the enemy takes this unit for (K-144), copied from the unit type.
+    #[serde(default)]
+    pub decoy_of: Option<String>,
 }
 
 impl Unit {
@@ -131,6 +142,7 @@ impl Unit {
             ammo: t.ammo,
             supply_fuel: t.supply_fuel_l,
             supply_ammo: t.supply_ammo,
+            decoy_of: t.decoy_of.clone(),
             ..Self::default()
         }
     }

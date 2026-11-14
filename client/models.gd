@@ -11,7 +11,7 @@ const METAL := Color(0.42, 0.44, 0.43)
 const KHAKI := Color(0.62, 0.56, 0.4)
 const SKIN := Color(0.25, 0.3, 0.2)
 # Types drawn with another type's model until they get their own.
-const LOOKS_LIKE := {"radar_mobile": "gsr", "ambulance": "supply", "mg_team": "atgm", "rocket_inf": "atgm", "ad_site": "shorad", "cargo_plane": "uav"}
+const LOOKS_LIKE := {"radar_mobile": "gsr", "ambulance": "supply", "mg_team": "atgm", "rocket_inf": "atgm", "ad_site": "shorad", "cargo_plane": "uav", "decoy_tank": "mbt", "decoy_radar": "gsr"}
 const STRUCTURES := ["radar_tower", "field_hospital", "logistics_base", "depot", "airfield", "port", "hq_bunker"]
 const DISH_PIVOT := Vector3(0, 7.2, 1.6) * SCALE  # gsr radar head / jammer glow centre (scaled)
 

@@ -47,6 +47,9 @@ ZMA + piyade taşıma · bölge noktaları + puan + zafer · yakıt/mühimmat + 
 - Pusu: gizli + "karşılık"/"pusu" ateş kuralı; yakın menzilde ilk atış bonusu.
 - Baskı (suppression): ateş altındaki birimin isabeti/hızı düşer, piyade siper alır; zarsız, birikimli bir değer.
 - Aldatma: şişme/sahte birimler (tank, radar) — iz 1–2'de gerçek gibi görünür.
+- ✔ (2026-11-14) K-140…K-144. Kullanıcı kararları: pusu **yeni ateş kuralı** · ağır baskı altındaki piyade **yere yatar, ilerleyemez** ·
+  sahte birimler **senaryoda hazır** (taraf başı 2 sahte tank + 1 sahte radar; satın alma M7'de).
+  Plandan sapma: sahte birim "iz 1–2'de" değil, 800 m'den yakından görülene kadar gerçek görünür (yoksa optikle hemen anlaşılıyordu).
 
 ### M5 — Elektronik harp derinliği
 - Telsiz yayını: emir alan/röle yapan birimler kısa süre yayın yapar → ESM görür. Telsiz sessizliği (EMCON) ateş kuralı gibi seçilir.

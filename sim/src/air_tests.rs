@@ -195,21 +195,14 @@ fn k103_shells_do_not_hit_aircraft() {
 
 #[test]
 fn k104_altitude_sees_over_ridges() {
-    // Enemy infantry behind the wall: a ground recon vehicle cannot see it, a UAV can.
-    let g = game(
-        wall(),
-        vec![
-            unit(1, 0, "recon", 8000.0, 5000.0),
-            unit(9, 1, "infantry", 11000.0, 5000.0),
-        ],
-    );
+    // Enemy tank on the move behind the wall (moving in the open: no concealment, K-140):
+    // a ground recon vehicle cannot see it, a UAV can.
+    let tank = || crate::world::Unit {
+        speed_mps: 5.0,
+        ..unit(9, 1, "mbt", 11000.0, 5000.0)
+    };
+    let g = game(wall(), vec![unit(1, 0, "recon", 8000.0, 5000.0), tank()]);
     assert_eq!(quality(&g, 0, 9), 0);
-    let g = game(
-        wall(),
-        vec![
-            unit(1, 0, "uav", 8000.0, 5000.0),
-            unit(9, 1, "infantry", 11000.0, 5000.0),
-        ],
-    );
+    let g = game(wall(), vec![unit(1, 0, "uav", 8000.0, 5000.0), tank()]);
     assert_eq!(quality(&g, 0, 9), 3);
 }

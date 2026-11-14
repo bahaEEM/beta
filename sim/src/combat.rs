@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! Direct fire with deterministic expected damage (no dice), aim time and rules of engagement.
 
-use crate::data::UnitCatalog;
-use crate::data::{Rules, UnitType};
+use crate::data::{Rules, UnitCatalog, UnitClass, UnitType};
 use crate::event::Event;
 use crate::sensor::{line_of_sight, TrackTable};
-use crate::world::{Stance, Unit, UnitId, UnitState, Vec2, World};
+use crate::world::{HeightMap, Stance, Terrain, Unit, UnitId, UnitState, Vec2, World};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::f64::consts::{FRAC_PI_4, PI};
@@ -43,13 +42,51 @@ pub fn penetration_factor(rules: &Rules, penetration: f64, effective_armor: f64)
     }
 }
 
-fn may_fire(u: &Unit, rules: &Rules, tick: u32) -> bool {
+/// Shot at within the last `return_fire_s`.
+fn under_fire(u: &Unit, rules: &Rules, tick: u32) -> bool {
+    u.under_fire_tick
+        .is_some_and(|t| tick.saturating_sub(t) <= rules.ticks(rules.combat.return_fire_s, 0))
+}
+
+/// Share of the weapon range the unit may engage in under its rules of engagement
+/// (0 = holds fire). K-142: an ambusher waits for a close target unless it is shot at.
+fn fire_range_share(u: &Unit, rules: &Rules, tick: u32) -> f64 {
     match u.stance {
-        Stance::Free => true,
-        Stance::Hold => false,
-        Stance::Return => u
-            .under_fire_tick
-            .is_some_and(|t| tick.saturating_sub(t) <= rules.ticks(rules.combat.return_fire_s, 0)),
+        Stance::Free => 1.0,
+        Stance::Hold => 0.0,
+        Stance::Return => f64::from(u8::from(under_fire(u, rules, tick))),
+        Stance::Ambush if under_fire(u, rules, tick) => 1.0,
+        Stance::Ambush => rules.ambush.range_share,
+    }
+}
+
+/// K-143: infantry suppressed to the pin threshold lies down and does not move.
+pub fn pinned(rules: &Rules, u: &Unit, t: &UnitType) -> bool {
+    t.class == UnitClass::Infantry && u.suppression >= rules.suppression.pin_threshold
+}
+
+/// K-143: incoming fire suppresses ground units (not aircraft or structures).
+pub fn suppress(u: &mut Unit, t: &UnitType, amount: f64) {
+    if matches!(t.class, UnitClass::Infantry | UnitClass::Vehicle) {
+        u.suppression = (u.suppression + amount).clamp(0.0, 1.0);
+    }
+}
+
+/// Damage multiplier for infantry: cover of forest and settlement (K-141) and having
+/// gone to ground when pinned (K-143). 1 for everything else.
+pub fn protection(map: &HeightMap, rules: &Rules, u: &Unit, t: &UnitType) -> f64 {
+    if t.class != UnitClass::Infantry {
+        return 1.0;
+    }
+    let cover = match map.terrain_at(u.pos) {
+        Terrain::Forest => rules.cover.forest_damage_factor,
+        Terrain::Settlement => rules.cover.settlement_damage_factor,
+        Terrain::Open | Terrain::Water => 1.0,
+    };
+    if pinned(rules, u, t) {
+        cover * rules.suppression.pinned_damage_factor
+    } else {
+        cover
     }
 }
 
@@ -67,12 +104,16 @@ pub fn step_combat(
     }
     state.reloads.retain(|_, left| *left > 0);
 
-    let mut shots: Vec<(UnitId, UnitId)> = Vec::new();
+    // (shooter, target, damage factor from the shooter's own state before this tick's fire)
+    let mut shots: Vec<(UnitId, UnitId, f64)> = Vec::new();
     for s in world.units() {
-        let target = (s.active() && s.deployed() && s.ammo > 0 && may_fire(s, rules, world.tick))
+        let share = fire_range_share(s, rules, world.tick);
+        let target = (s.active() && s.deployed() && s.ammo > 0 && share > 0.0)
             .then(|| catalog.get(&s.type_id))
             .flatten()
-            .and_then(|st| pick_target(world, catalog, rules, tracks, s, st).map(|t| (st, t)));
+            .and_then(|st| {
+                pick_target(world, catalog, rules, tracks, s, st, share).map(|t| (st, t))
+            });
         let Some((st, target)) = target else {
             state.aims.remove(&s.id);
             continue;
@@ -83,13 +124,24 @@ pub fn step_combat(
         };
         state.aims.insert(s.id, (target, held));
         if held >= rules.aim_ticks(st) && !state.reloads.contains_key(&s.id) {
-            shots.push((s.id, target));
+            // K-143: a suppressed shooter hits less. K-142: an ambusher the enemy has not
+            // located hits harder.
+            let mut factor = 1.0 - s.suppression * rules.suppression.hit_penalty;
+            let located = world.unit(target).is_some_and(|t| {
+                tracks
+                    .get(t.owner, s.id)
+                    .is_some_and(|tr| tr.quality >= crate::visibility::EXACT_QUALITY)
+            });
+            if s.stance == Stance::Ambush && !located {
+                factor *= rules.ambush.damage_factor;
+            }
+            shots.push((s.id, target, factor));
         }
     }
 
     let mut events = Vec::new();
     let tick = world.tick;
-    for (shooter_id, target_id) in shots {
+    for (shooter_id, target_id, factor) in shots {
         let (Some(shooter), Some(target)) = (world.unit(shooter_id), world.unit(target_id)) else {
             continue;
         };
@@ -105,6 +157,8 @@ pub fn step_combat(
         let already_dead = target.state == UnitState::Destroyed;
         let d = shooter.pos.distance(target.pos);
         let damage = st.damage_hp
+            * factor
+            * protection(&world.map, rules, target, tt)
             * hit_share(st, d)
             * penetration_factor(
                 rules,
@@ -114,6 +168,7 @@ pub fn step_combat(
         let damaged_at = tt.hp * rules.combat.damaged_hp_fraction;
         if let Some(s) = world.unit_mut(shooter_id) {
             s.ammo = s.ammo.saturating_sub(1);
+            s.last_fired_tick = Some(tick);
         }
         if already_dead {
             continue; // killed by an earlier shot this tick; the round is still spent
@@ -122,6 +177,7 @@ pub fn step_combat(
             continue;
         };
         target.under_fire_tick = Some(tick);
+        suppress(target, tt, rules.suppression.per_shot);
         if damage <= 0.0 {
             continue;
         }
@@ -144,7 +200,8 @@ pub fn step_combat(
 }
 
 /// Nearest living enemy that the shooter's player tracks at fire quality, within
-/// weapon range and in the shooter's own line of sight. Ties: lowest id.
+/// `range_share` of the weapon range and in the shooter's own line of sight. Decoys
+/// already recognised are ignored (K-144). Ties: lowest id.
 fn pick_target(
     world: &World,
     catalog: &UnitCatalog,
@@ -152,6 +209,7 @@ fn pick_target(
     tracks: &TrackTable,
     shooter: &Unit,
     st: &UnitType,
+    range_share: f64,
 ) -> Option<UnitId> {
     if st.weapon_range_m <= 0.0 {
         return None;
@@ -168,7 +226,7 @@ fn pick_target(
                 } else {
                     rules.sensor.optical.fire_quality
                 };
-                tr.quality >= needed
+                tr.quality >= needed && !(t.decoy_of.is_some() && tr.identified)
             })
         })
         .filter_map(|t| {
@@ -180,7 +238,7 @@ fn pick_target(
                 st.weapon_vs_ground
             };
             (engageable
-                && d <= st.weapon_range_m
+                && d <= st.weapon_range_m * range_share
                 && line_of_sight(&world.map, shooter.pos, t.pos, st.height_m, tt.height_m))
             .then_some((d, t.id))
         })
@@ -243,6 +301,7 @@ mod tests {
                     last_known_pos: e.pos,
                     bearing: None,
                     position_known: true,
+                    identified: false,
                 };
                 t.tracks.insert((o.owner, e.id), track);
             }

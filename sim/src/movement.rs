@@ -184,6 +184,11 @@ pub fn step_movement(world: &mut World, catalog: &UnitCatalog, rules: &Rules, ro
             .get(&unit.type_id)
             .filter(|_| unit.state != UnitState::Destroyed);
         let route = routes.get_mut(&unit.id).filter(|r| !r.is_empty());
+        // K-143: suppression wears off; pinned infantry stays down where it is.
+        unit.suppression = (unit.suppression - rules.suppression.decay_per_s * dt).max(0.0);
+        if t.is_some_and(|t| crate::combat::pinned(rules, unit, t)) {
+            continue;
+        }
         // K-120: units that deploy set up while halted and pack up before they move.
         if let Some(t) = t.filter(|t| t.deploy_s > 0.0) {
             if unit.carried_by.is_some() {
@@ -215,6 +220,7 @@ pub fn step_movement(world: &mut World, catalog: &UnitCatalog, rules: &Rules, ro
         if unit.state == UnitState::Damaged {
             speed *= rules.combat.damaged_speed_factor;
         }
+        speed *= 1.0 - unit.suppression * rules.suppression.speed_penalty;
         let mut budget = speed * dt;
         // Fuel: vehicles stop when the tank is empty (fuel_l_per_km = 0 means no fuel needed).
         let per_m = t.fuel_l_per_km / 1000.0;

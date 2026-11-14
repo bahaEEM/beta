@@ -2,7 +2,7 @@
 //! F2-3: indirect fire (artillery, rockets). Fire missions at a ground point or at a tracked
 //! enemy; shells fly for distance / speed and hit everything within their radius.
 
-use crate::combat::{penetration_factor, CombatState};
+use crate::combat::{penetration_factor, protection, suppress, CombatState};
 use crate::data::{Rules, UnitCatalog};
 use crate::event::Event;
 use crate::sensor::TrackTable;
@@ -82,6 +82,7 @@ pub fn step_launch(
         events.push(Event::ShellFired { shooter: id });
         if let Some(u) = world.unit_mut(id) {
             u.ammo = u.ammo.saturating_sub(1);
+            u.last_fired_tick = Some(tick);
         }
     }
     events
@@ -105,7 +106,7 @@ pub fn step_impacts(
             pos: s.pos,
             radius_m: s.radius_m,
         });
-        let hits: Vec<(UnitId, f64, f64)> = world
+        let hits: Vec<(UnitId, f64, f64, f64)> = world
             .units()
             .iter()
             .filter(|u| u.active())
@@ -113,18 +114,24 @@ pub fn step_impacts(
                 let t = catalog.get(&u.type_id).filter(|t| !t.class.is_air())?; // shells do not hit aircraft
                 let d = u.pos.distance(s.pos);
                 (d < s.radius_m).then(|| {
+                    let near = 1.0 - d / s.radius_m;
                     let dmg = s.damage_hp
-                        * (1.0 - d / s.radius_m)
+                        * near
+                        * protection(&world.map, rules, u, t)
                         * penetration_factor(rules, s.penetration_mm, t.armor_rear_mm);
-                    (u.id, dmg, t.hp * rules.combat.damaged_hp_fraction)
+                    (u.id, dmg, t.hp * rules.combat.damaged_hp_fraction, near)
                 })
             })
             .collect();
-        for (id, dmg, damaged_at) in hits {
+        for (id, dmg, damaged_at, near) in hits {
+            let t = world.unit(id).and_then(|u| catalog.get(&u.type_id));
             let Some(u) = world.unit_mut(id) else {
                 continue;
             };
             u.under_fire_tick = Some(tick);
+            if let Some(t) = t {
+                suppress(u, t, rules.suppression.per_shell * near);
+            }
             if dmg <= 0.0 || u.state == UnitState::Destroyed {
                 continue;
             }
