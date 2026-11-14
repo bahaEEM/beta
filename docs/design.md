@@ -77,6 +77,21 @@ Yeni testlerin adı kural kimliğiyle başlar (`k043_...`). Eski testler aşağ�
   inene kadar başka emir almaz.
 - **K-112 Araç vurulursa.** Taşıyıcı yok olunca yolcular canlarının `bail_out_damage` (yarı) kadarını kaybederek iner.
 
+## Kurulum, yapılar, sağlık (M2)
+- **K-120 Kurulum.** `deploy_s` değeri olan tipler (obüs, füze rampası, kara gözetleme radarı, mobil arama radarı, ESM, karıştırıcı,
+  makineli tüfek timi, roketatar timi) ancak kuruluyken çalışır. Geçiş otomatiktir, emir ve KBG harcamaz: rotası olmayan birim her adımda
+  kurulur (`deploy_s` saniye); hareket emri alan birim önce aynı süre toplanır, sonra yürür. Kurulu olmayan birim ateş edemez (direkt ve
+  dolaylı), radarı / karıştırıcısı yayın yapmaz (ESM de onu duymaz), ESM'i dinlemez; gözle görmeye devam eder. Araçta taşınan tim toplanmış
+  sayılır, inince baştan kurulur. Senaryo başında herkes kuruludur.
+- **K-121 Yapılar.** `class = "structure"`: radar kulesi, sahra hastanesi, lojistik üs, depo, hava alanı, liman, karargâh sığınağı, hava
+  savunma mevzisi. Hareket etmez (hareket emri reddedilir), diğer birimler gibi görülür, vurulur ve yok edilir. Lojistik üs, depo, hava
+  alanı ve liman şimdilik işlevsizdir; işlevleri M3 (ikmal), M6 (deniz) ve M7 (ekonomi) ile gelir.
+- **K-122 Yapıların el değiştirmesi.** Bir bölge ele geçirildiğinde (K-060) o bölgenin içindeki yıkılmamış yapılar yeni sahibine geçer.
+  "İçinde" = bölge ızgarasına göre (`regions.bin`); ızgara yoksa ele geçirme dairesi.
+- **K-123 Sağlık.** Tur sonunda `heal_hp_per_turn` değeri olan birim (sağlık aracı, sahra hastanesi), `medical.radius_m` içindeki dost
+  piyade sınıfı birimlerin canını o kadar artırır (tipin azami canını geçmez; birden çok sağlık birimi varsa en yükseği sayılır).
+  Hastane tam iyileştirir. Sağlık aracı bir piyade timi taşıyabilir (K-110): yaralıyı hastaneye götürmek böyle olur. Yok edilmiş birim iyileşmez.
+
 ## Görünürlük
 - **K-050 Görünürlük filtresi.** Oyuncuya giden hiçbir mesaj, o an göremediği birimin kimliğini veya konumunu içermez.
   İz 1 = 500 m'lik hücrenin merkezi; kerterizle bilinen birim için sadece yön; iz ≥ 2 = kesin konum, iz ≥ 2'de tip.
@@ -160,6 +175,10 @@ Bütün sayılar yer tutucudur; görsel aşamadan önce oyun testiyle ayarlanaca
 | K-110 | k110_infantry_boards_nearby_carrier_and_rides_along, k110_boarding_limits |
 | K-111 | k111_passengers_are_hidden_protected_and_take_no_orders |
 | K-112 | k112_carrier_destroyed_passengers_bail_out_hurt |
+| K-120 | k120_deployable_packs_before_moving_and_sets_up_after_halting, k120_not_deployed_means_no_fire_no_radar_no_esm, k120_teams_riding_in_a_carrier_come_out_packed |
+| K-121 | k121_structures_do_not_move |
+| K-122 | k122_structures_change_hands_with_their_region |
+| K-123 | k123_medical_units_heal_infantry_at_the_end_of_the_turn |
 | K-071 | g6_client_messages_round_trip, g6_server_messages_round_trip, g6_version_mismatch_rejected, g6_oversized_message_rejected, g6_protocol_md_up_to_date |
 | K-072 | g7_resume_after_shutdown, g7_reconnect_same_name, g7_planning_deadline_starts_resolution |
 

@@ -355,6 +355,200 @@ x = 18681.0
 y = 28097.0
 heading_deg = 270.0
 
+# ---- M2: structures (change hands with their region), deployable teams, mobile radar, ambulance
+
+[[unit]]
+id = 45
+owner = 0
+type = "hq_bunker"
+x = 23060.0
+y = 12613.0
+heading_deg = 90.0
+
+[[unit]]
+id = 46
+owner = 0
+type = "logistics_base"
+x = 23360.0
+y = 12713.0
+heading_deg = 90.0
+
+[[unit]]
+id = 47
+owner = 0
+type = "depot"
+x = 23260.0
+y = 12913.0
+heading_deg = 90.0
+
+[[unit]]
+id = 48
+owner = 0
+type = "field_hospital"
+x = 22960.0
+y = 12813.0
+heading_deg = 90.0
+
+[[unit]]
+id = 49
+owner = 0
+type = "radar_tower"
+x = 23310.0
+y = 12463.0
+heading_deg = 90.0
+
+[[unit]]
+id = 50
+owner = 0
+type = "ad_site"
+x = 22860.0
+y = 12513.0
+heading_deg = 90.0
+
+[[unit]]
+id = 51
+owner = 0
+type = "radar_mobile"
+x = 23510.0
+y = 12263.0
+heading_deg = 90.0
+
+[[unit]]
+id = 52
+owner = 0
+type = "ambulance"
+x = 22910.0
+y = 12963.0
+heading_deg = 90.0
+
+[[unit]]
+id = 53
+owner = 0
+type = "mg_team"
+x = 22460.0
+y = 13063.0
+heading_deg = 90.0
+
+[[unit]]
+id = 54
+owner = 0
+type = "rocket_inf"
+x = 22660.0
+y = 13063.0
+heading_deg = 90.0
+
+[[unit]]
+id = 55
+owner = 0
+type = "airfield"
+x = 17400.0
+y = 7300.0
+heading_deg = 90.0
+
+[[unit]]
+id = 56
+owner = 0
+type = "port"
+x = 24700.0
+y = 9600.0
+heading_deg = 90.0
+
+[[unit]]
+id = 57
+owner = 1
+type = "hq_bunker"
+x = 19281.0
+y = 27797.0
+heading_deg = 270.0
+
+[[unit]]
+id = 58
+owner = 1
+type = "logistics_base"
+x = 19581.0
+y = 27897.0
+heading_deg = 270.0
+
+[[unit]]
+id = 59
+owner = 1
+type = "depot"
+x = 19481.0
+y = 28097.0
+heading_deg = 270.0
+
+[[unit]]
+id = 60
+owner = 1
+type = "field_hospital"
+x = 19181.0
+y = 27997.0
+heading_deg = 270.0
+
+[[unit]]
+id = 61
+owner = 1
+type = "radar_tower"
+x = 19531.0
+y = 27647.0
+heading_deg = 270.0
+
+[[unit]]
+id = 62
+owner = 1
+type = "ad_site"
+x = 19081.0
+y = 27697.0
+heading_deg = 270.0
+
+[[unit]]
+id = 63
+owner = 1
+type = "radar_mobile"
+x = 19731.0
+y = 27447.0
+heading_deg = 270.0
+
+[[unit]]
+id = 64
+owner = 1
+type = "ambulance"
+x = 19131.0
+y = 28147.0
+heading_deg = 270.0
+
+[[unit]]
+id = 65
+owner = 1
+type = "mg_team"
+x = 18681.0
+y = 28247.0
+heading_deg = 270.0
+
+[[unit]]
+id = 66
+owner = 1
+type = "rocket_inf"
+x = 18881.0
+y = 28247.0
+heading_deg = 270.0
+
+[[unit]]
+id = 67
+owner = 1
+type = "airfield"
+x = 13800.0
+y = 24800.0
+heading_deg = 270.0
+
+[[unit]]
+id = 68
+owner = 1
+type = "port"
+x = 25650.0
+y = 29350.0
+heading_deg = 270.0
+
 [[zone]]
 id = 1
 name_tr = "Sağlık"

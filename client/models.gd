@@ -10,6 +10,9 @@ const DARK := Color(0.12, 0.13, 0.12)
 const METAL := Color(0.42, 0.44, 0.43)
 const KHAKI := Color(0.62, 0.56, 0.4)
 const SKIN := Color(0.25, 0.3, 0.2)
+# Types drawn with another type's model until they get their own.
+const LOOKS_LIKE := {"radar_mobile": "gsr", "ambulance": "supply", "mg_team": "atgm", "rocket_inf": "atgm", "ad_site": "shorad"}
+const STRUCTURES := ["radar_tower", "field_hospital", "logistics_base", "depot", "airfield", "port", "hq_bunker"]
 const DISH_PIVOT := Vector3(0, 7.2, 1.6) * SCALE  # gsr radar head / jammer glow centre (scaled)
 
 static var _cache := {}
@@ -45,7 +48,14 @@ static func extra(type: String, t: Color) -> ArrayMesh:
 
 static func _build(p: Array, type: String, t: Color) -> void:
 	var d := t.darkened(0.35)
-	match type:
+	if type in STRUCTURES:  # placeholder building: a block with a team-coloured roof (and a mast for the radar tower)
+		_part(p, _box(14.0, 5.0, 10.0), Vector3(0, 2.5, 0), KHAKI.darkened(0.15))
+		_part(p, _box(14.4, 0.6, 10.4), Vector3(0, 5.3, 0), t)
+		if type == "radar_tower":
+			_rod(p, Vector3(0, 5.3, 0), Vector3(0, 20.0, 0), 0.5, METAL)
+			_part(p, _box(5.0, 2.0, 0.4), Vector3(0, 20.0, 0), METAL.lightened(0.3))
+		return
+	match LOOKS_LIKE.get(type, type):
 		"infantry":
 			for o in [Vector2(0, -2.2), Vector2(-2.2, 0), Vector2(2.2, 0), Vector2(0, 2.2)]:
 				_soldier(p, Vector3(o.x, 0, o.y), t, 1.5)

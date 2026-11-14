@@ -40,6 +40,7 @@ pub fn step_capture(game: &mut Game, catalog: &UnitCatalog, rules: &Rules) -> Ve
         .ceil()
         .max(1.0) as u32;
     let mut events = Vec::new();
+    let mut taken: Vec<(u32, Vec2, f64, PlayerId)> = Vec::new();
     for zone in &mut game.zones {
         let present: BTreeSet<PlayerId> = game
             .world
@@ -64,6 +65,7 @@ pub fn step_capture(game: &mut Game, catalog: &UnitCatalog, rules: &Rules) -> Ve
                 if ticks >= needed {
                     zone.owner = Some(p);
                     zone.progress = None;
+                    taken.push((zone.id, zone.center, zone.radius_m, p));
                     events.push(Event::ZoneCaptured {
                         zone: zone.id,
                         player: p,
@@ -74,6 +76,34 @@ pub fn step_capture(game: &mut Game, catalog: &UnitCatalog, rules: &Rules) -> Ve
             }
             (None, _) => zone.progress = None,
             _ => {} // contested or held by the owner: progress frozen
+        }
+    }
+    // K-122: standing structures of a captured region go to the new owner. Without a
+    // region grid the capture circle stands in for the region.
+    for (zone_id, center, radius_m, player) in taken {
+        let map = &game.world.map;
+        let inside: Vec<UnitId> = game
+            .world
+            .units()
+            .iter()
+            .filter(|u| u.owner != player && u.state != UnitState::Destroyed)
+            .filter(|u| {
+                catalog
+                    .get(&u.type_id)
+                    .is_some_and(|t| t.class == UnitClass::Structure)
+            })
+            .filter(|u| match map.region_at(u.pos) {
+                0 => u.pos.distance(center) <= radius_m,
+                region => region == zone_id,
+            })
+            .map(|u| u.id)
+            .collect();
+        for id in inside {
+            if let Some(u) = game.world.unit_mut(id) {
+                u.owner = player;
+            }
+            game.tracks.tracks.remove(&(player, id));
+            game.missions.remove(&id);
         }
     }
     events
@@ -147,6 +177,41 @@ pub fn end_of_turn(game: &mut Game, catalog: &UnitCatalog, rules: &Rules) {
                 u.fuel += fuel;
                 u.ammo += ammo;
             }
+        }
+    }
+
+    // K-123: medical units treat friendly infantry in reach (the best one counts).
+    let medics: Vec<(PlayerId, Vec2, f64)> = game
+        .world
+        .units()
+        .iter()
+        .filter(|u| u.state != UnitState::Destroyed)
+        .filter_map(|u| {
+            let heal = catalog.get(&u.type_id)?.heal_hp_per_turn;
+            (heal > 0.0).then_some((u.owner, u.pos, heal))
+        })
+        .collect();
+    for u in game.world.units_mut() {
+        let Some(t) = catalog
+            .get(&u.type_id)
+            .filter(|t| t.class == UnitClass::Infantry && u.state != UnitState::Destroyed)
+        else {
+            continue;
+        };
+        let heal = medics
+            .iter()
+            .filter(|&&(owner, pos, _)| {
+                owner == u.owner && pos.distance(u.pos) <= rules.medical.radius_m
+            })
+            .map(|&(_, _, heal)| heal)
+            .fold(0.0, f64::max);
+        if heal > 0.0 {
+            u.hp = (u.hp + heal).min(t.hp);
+            u.state = if u.hp <= t.hp * rules.combat.damaged_hp_fraction {
+                UnitState::Damaged
+            } else {
+                UnitState::Healthy
+            };
         }
     }
 

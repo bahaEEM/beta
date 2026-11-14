@@ -6,7 +6,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt;
 use std::io::Read;
 
-pub const PROTOCOL_VERSION: u32 = 3;
+pub const PROTOCOL_VERSION: u32 = 4;
 /// Maximum size of a message's JSON (uncompressed).
 pub const MAX_MESSAGE_BYTES: usize = 1024 * 1024;
 const ZSTD_LEVEL: i32 = 3;
@@ -104,6 +104,9 @@ pub struct OwnUnit {
     pub connected: bool,
     /// Riding inside this carrier (hidden, cannot act).
     pub carried_by: Option<UnitId>,
+    /// Game seconds of setting up still to go; above 0 the unit cannot fire and its
+    /// radar, ESM and jammer are off. Always 0 for types that need no deployment.
+    pub packed_s: f64,
 }
 
 /// An enemy unit as known to this player. `type_id` is only present at quality >= 2.
@@ -395,6 +398,7 @@ mod tests {
                         stance: Stance::Free,
                         connected: true,
                         carried_by: None,
+                        packed_s: 0.0,
                     }],
                     contacts: vec![
                         Contact {

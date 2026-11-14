@@ -18,6 +18,8 @@ mod air_tests;
 #[cfg(test)]
 mod ew_tests;
 #[cfg(test)]
+mod m2_tests;
+#[cfg(test)]
 mod transport_tests;
 
 /// Resolution phase length: 20 s = 200 ticks.

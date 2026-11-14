@@ -44,17 +44,32 @@ enum Plan {
     Fire(Vec<u32>, f64, f64),
 }
 
-/// Fixed orders (Mavi north, Kırmızı south): the front group advances 2 km towards the mountain, the rear group (radar,
-/// ESM, jammer, supply) follows 800 m; radars and jammers are switched on. 3 KBG points.
+/// Fixed orders (Mavi north, Kırmızı south): the front group advances 2 km towards the mountain, the rear group
+/// (supply, HQ, ...) follows 800 m; structures and the electronic-warfare vehicles stay where they are set up
+/// (K-120) with radars and jammers switched on. 3 KBG points.
 fn orders_for(player: u8, own: &[(u32, String, f64, f64)]) -> Vec<Plan> {
     let sign = if player == 0 { 1.0 } else { -1.0 };
     let front = |t: &str| t == "infantry" || t == "mbt" || t == "atgm";
     let guns = |t: &str| t == "spg" || t == "rocket";
+    let emits = |t: &str| ["gsr", "jammer", "radar_mobile", "radar_tower", "ad_site"].contains(&t);
+    let stays = |t: &str| {
+        emits(t)
+            || [
+                "esm",
+                "field_hospital",
+                "logistics_base",
+                "depot",
+                "airfield",
+                "port",
+                "hq_bunker",
+            ]
+            .contains(&t)
+    };
     let mut plans = Vec::new();
     for (is_front, dx) in [(true, 2000.0), (false, 800.0)] {
         let group: Vec<_> = own
             .iter()
-            .filter(|u| !guns(&u.1) && front(&u.1) == is_front)
+            .filter(|u| !guns(&u.1) && !stays(&u.1) && front(&u.1) == is_front)
             .collect();
         if group.is_empty() {
             continue;
@@ -69,11 +84,7 @@ fn orders_for(player: u8, own: &[(u32, String, f64, f64)]) -> Vec<Plan> {
             cy + sign * dx,
         ));
     }
-    let emitters: Vec<u32> = own
-        .iter()
-        .filter(|u| u.1 == "gsr" || u.1 == "jammer")
-        .map(|u| u.0)
-        .collect();
+    let emitters: Vec<u32> = own.iter().filter(|u| emits(&u.1)).map(|u| u.0).collect();
     if !emitters.is_empty() {
         plans.push(Plan::Emit(emitters));
     }
@@ -82,8 +93,8 @@ fn orders_for(player: u8, own: &[(u32, String, f64, f64)]) -> Vec<Plan> {
     if !artillery.is_empty() {
         plans.push(Plan::Fire(
             artillery,
-            if player == 0 { 19500.0 } else { 21500.0 },
-            if player == 0 { 26500.0 } else { 13500.0 },
+            if player == 0 { 19400.0 } else { 22600.0 },
+            if player == 0 { 25500.0 } else { 15200.0 },
         ));
     }
     plans

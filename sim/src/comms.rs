@@ -101,7 +101,7 @@ pub fn connected_units(
         .collect();
     let radio_jammers: Vec<(PlayerId, crate::world::Vec2, f64)> = alive
         .iter()
-        .filter(|(u, _)| u.emitting)
+        .filter(|(u, _)| u.radiating())
         .filter_map(|(u, t)| t.radio_jam_range_m().map(|r| (u.owner, u.pos, r)))
         .collect();
     let mut out = BTreeMap::new();

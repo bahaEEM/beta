@@ -25,6 +25,11 @@ ZMA + piyade taşıma · bölge noktaları + puan + zafer · yakıt/mühimmat + 
   hava alanı, liman, karargâh sığınağı, hava savunma mevzisi.
 - Kurulabilir sistemler: radar çadırı / mobil radar — yürüyüş ↔ konuşlu geçişi zaman alır; sadece konuşluyken çalışır.
 - Sağlık aracı: yakınındaki piyadeyi tur sonunda iyileştirir; yaralıyı sahra hastanesine taşıyınca tam iyileşme.
+- ✔ (2026-11-14) K-120…K-123. Kullanıcı kararları: kurulum **otomatik** (durunca kurulur, hareket emrinde önce toplanır) ·
+  kurulum isteyenler: topçu + füze rampası, kara gözetleme radarı, karıştırıcı + ESM, yeni mobil radar (hava savunma hariç) ·
+  yeni piyade türleri: makineli tüfek timi (kurulur), roketatar timi (çok hafif kurulum) · yapılar **bölgeyle birlikte el değiştirir**.
+- Oyunun felsefesi (kullanıcı, 2026-11-14): Go'nun alan hakimiyeti + günümüz teknolojisi + Sun Tzu — doğru zamanda çekilen, doğru yerden
+  vuran, rakibini tahmin eden, ikmalini ve askerini iyi yöneten kazanır. Yeni mekanikler bu ölçüyle seçilir.
 
 ### M3 — Fiziksel ikmal
 - Kaynaklar: lojistik üs (tur başı üretim), depo, hava alanı, liman stoklar tutar.

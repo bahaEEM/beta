@@ -12,6 +12,8 @@ pub enum UnitClass {
     Vehicle,
     /// Flies at `height_m` above ground in straight lines; only anti-air weapons can hit it.
     Air,
+    /// Building (K-121): never moves and changes hands with its region.
+    Structure,
 }
 
 impl UnitClass {
@@ -71,6 +73,14 @@ pub struct UnitType {
     pub supply_fuel_l: f64,
     #[serde(default)]
     pub supply_ammo: u32,
+    /// Game seconds to set up after stopping and to pack up before moving (K-120);
+    /// 0 = works on the move. Until set up the unit cannot fire and its radar, ESM
+    /// and jammer are off.
+    #[serde(default)]
+    pub deploy_s: f64,
+    /// Hit points given to each friendly infantry unit in reach at the end of a turn (K-123).
+    #[serde(default)]
+    pub heal_hp_per_turn: f64,
 }
 
 fn yes() -> bool {
@@ -226,6 +236,8 @@ fn validate(t: &UnitType) -> Result<(), DataError> {
         ("fuel_l_per_km", t.fuel_l_per_km),
         ("supply_fuel_l", t.supply_fuel_l),
         ("radio_range_m", t.radio_range_m),
+        ("deploy_s", t.deploy_s),
+        ("heal_hp_per_turn", t.heal_hp_per_turn),
     ];
     for (field, v) in fields {
         if !v.is_finite() || v < 0.0 {
@@ -288,6 +300,7 @@ pub struct Rules {
     pub supply: SupplyRules,
     pub comms: CommsRules,
     pub transport: TransportRules,
+    pub medical: MedicalRules,
     pub indirect: IndirectRules,
 }
 
@@ -320,6 +333,13 @@ pub struct ZoneRules {
     /// Game seconds of uncontested infantry presence needed to capture.
     pub capture_s: f64,
     pub max_turns: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MedicalRules {
+    /// Medical units treat friendly infantry this close at the end of each turn.
+    pub radius_m: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -458,7 +478,9 @@ pub fn load_rules(toml_text: &str) -> Result<Rules, DataError> {
     if !(rules.comms.wire_reach_m.is_finite() && rules.comms.wire_reach_m >= 0.0) {
         return Err(DataError::InvalidRule("comms.wire_reach_m"));
     }
-    if !(rules.zones.capture_s > 0.0 && rules.supply.radius_m > 0.0) || rules.zones.max_turns == 0 {
+    if !(rules.zones.capture_s > 0.0 && rules.supply.radius_m > 0.0 && rules.medical.radius_m > 0.0)
+        || rules.zones.max_turns == 0
+    {
         return Err(DataError::InvalidRule("zones/supply"));
     }
     let c = &rules.combat;

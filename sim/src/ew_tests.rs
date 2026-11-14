@@ -108,12 +108,12 @@ fn f1_5_enemy_jammer_degrades_radar() {
 
 #[test]
 fn f1_5_one_bearing_reveals_direction_not_position() {
-    // ESM 30 km from an emitting enemy radar.
+    // ESM 30 km from an emitting enemy radar (an air-defence vehicle: radiates on the move).
     let mut g = game(
         flat(),
         vec![
             unit(1, 0, "esm", 1000.0, 1000.0),
-            unit(2, 1, "gsr", 20000.0, 20000.0),
+            unit(2, 1, "shorad", 20000.0, 20000.0),
         ],
     );
     emit(&mut g, &[2]);

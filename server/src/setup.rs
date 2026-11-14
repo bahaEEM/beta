@@ -78,6 +78,10 @@ pub fn load_map(map_dir: &Path) -> Result<HeightMap, BoxError> {
     if terrain.exists() {
         map = map.with_terrain(fs::read(terrain)?)?;
     }
+    let regions = map_dir.join("regions.bin");
+    if regions.exists() {
+        map = map.with_regions(fs::read(regions)?)?;
+    }
     Ok(map)
 }
 

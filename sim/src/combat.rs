@@ -69,7 +69,7 @@ pub fn step_combat(
 
     let mut shots: Vec<(UnitId, UnitId)> = Vec::new();
     for s in world.units() {
-        let target = (s.active() && s.ammo > 0 && may_fire(s, rules, world.tick))
+        let target = (s.active() && s.deployed() && s.ammo > 0 && may_fire(s, rules, world.tick))
             .then(|| catalog.get(&s.type_id))
             .flatten()
             .and_then(|st| pick_target(world, catalog, rules, tracks, s, st).map(|t| (st, t)));

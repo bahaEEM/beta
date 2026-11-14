@@ -340,6 +340,10 @@ mod tests {
                 }
             }
             for u in g.world.units() {
+                // Half of the units that must deploy stay put, so radars and ESM keep working.
+                if cat.get(&u.type_id).is_some_and(|t| t.deploy_s > 0.0) && rng.next() < 0.5 {
+                    continue;
+                }
                 orders.entry(u.owner).or_default().push(Order::Move {
                     units: vec![u.id],
                     waypoints: vec![Vec2::new(rng.next() * 5900.0, rng.next() * 5900.0)],

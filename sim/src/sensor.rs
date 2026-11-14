@@ -62,7 +62,7 @@ pub fn sensor_quality(
             air,
         } => {
             let r = &rules.sensor.radar;
-            if !observer.0.emitting
+            if !observer.0.radiating()
                 || air != target.1.class.is_air()
                 || d > range_m
                 || target.0.speed_mps < min_target_speed_mps
@@ -162,7 +162,7 @@ pub fn update_tracks(
         .collect();
     let jammers: Vec<(PlayerId, Vec2, f64)> = alive
         .iter()
-        .filter(|(u, _)| u.emitting)
+        .filter(|(u, _)| u.radiating())
         .filter_map(|(u, t)| t.jammer_range_m().map(|r| (u.owner, u.pos, r)))
         .collect();
     let players: BTreeSet<PlayerId> = world.units().iter().map(|u| u.owner).collect();
@@ -192,12 +192,12 @@ pub fn update_tracks(
                         })
                         .max()
                         .unwrap_or(0);
-                    let emitting = target.emitting && tt.is_emitter();
+                    let emitting = target.radiating() && tt.is_emitter();
                     let bearings: Vec<Bearing> = observers
                         .iter()
                         .filter(|_| emitting)
                         .filter(|&&(o, ot, _)| {
-                            ot.sensors.iter().any(|s| {
+                            o.deployed() && ot.sensors.iter().any(|s| {
                                 matches!(s, SensorSpec::Esm { range_m } if o.pos.distance(target.pos) <= *range_m)
                             }) && line_of_sight(&world.map, o.pos, target.pos, ot.height_m, tt.height_m)
                         })

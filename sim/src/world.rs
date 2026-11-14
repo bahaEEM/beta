@@ -85,9 +85,23 @@ pub struct Unit {
     /// Carrier this unit rides in (infantry in an IFV): hidden, protected, cannot act.
     #[serde(default)]
     pub carried_by: Option<UnitId>,
+    /// Game seconds of setting up still to go (K-120): 0 = deployed, the type's
+    /// `deploy_s` = fully packed for the march.
+    #[serde(default)]
+    pub packed_s: f64,
 }
 
 impl Unit {
+    /// Set up and working (always true for types that need no deployment).
+    pub fn deployed(&self) -> bool {
+        self.packed_s <= 0.0
+    }
+
+    /// Radar/jammer actually on the air: switched on and set up.
+    pub fn radiating(&self) -> bool {
+        self.emitting && self.deployed()
+    }
+
     /// On the battlefield: alive and not riding inside another unit.
     pub fn active(&self) -> bool {
         self.state != UnitState::Destroyed && self.carried_by.is_none()
@@ -176,6 +190,9 @@ pub struct HeightMap {
     /// Ground cover per sample (`Terrain` bytes); empty = all open land.
     #[serde(default)]
     terrain: Vec<u8>,
+    /// Region id per sample (K-063); 0 = none. Empty = no region data.
+    #[serde(default)]
+    regions: Vec<u8>,
 }
 
 /// A 1x1 flat placeholder, only used until the real map is attached after loading a save.
@@ -188,6 +205,7 @@ impl Default for HeightMap {
             heights: vec![0.0],
             roads: Vec::new(),
             terrain: Vec::new(),
+            regions: Vec::new(),
         }
     }
 }
@@ -216,6 +234,7 @@ impl HeightMap {
             heights,
             roads: Vec::new(),
             terrain: Vec::new(),
+            regions: Vec::new(),
         })
     }
 
@@ -241,6 +260,32 @@ impl HeightMap {
         }
         self.terrain = terrain;
         Ok(self)
+    }
+
+    /// Attaches a region grid (one region id per sample, same layout as the heights).
+    pub fn with_regions(mut self, regions: Vec<u8>) -> Result<Self, WorldError> {
+        if regions.len() != self.heights.len() {
+            return Err(WorldError::BadMapSize {
+                expected: self.heights.len(),
+                got: regions.len(),
+            });
+        }
+        self.regions = regions;
+        Ok(self)
+    }
+
+    /// Region id of the sample nearest to a world position; 0 = none (water, outside
+    /// the map or no region data).
+    pub fn region_at(&self, pos: Vec2) -> u32 {
+        let (gx, gy) = (
+            (pos.x / self.cell_size_m).round(),
+            (pos.y / self.cell_size_m).round(),
+        );
+        if gx < 0.0 || gy < 0.0 || gx >= self.width as f64 || gy >= self.height as f64 {
+            return 0;
+        }
+        let k = gy as usize * self.width + gx as usize;
+        u32::from(self.regions.get(k).copied().unwrap_or(0))
     }
 
     /// Ground cover of sample (i, j); open land outside the map or without cover data.

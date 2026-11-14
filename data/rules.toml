@@ -51,3 +51,6 @@ min_track_quality = 2  # fire missions at a unit need its position (radar, trian
 [transport]
 embark_radius_m = 100.0  # placeholder
 bail_out_damage = 0.5    # passengers lose half their hp when the carrier is destroyed
+
+[medical]
+radius_m = 300.0         # placeholder; medical units treat infantry this close at the end of a turn

@@ -17,6 +17,24 @@ const TYPE_NAMES := {
 	"hq": "Karargâh",
 	"spg": "Obüs",
 	"rocket": "Füze Rampası",
+	"ifv": "Zırhlı Muharebe Aracı",
+	"recon": "Keşif Aracı",
+	"uav": "İHA",
+	"suav": "SİHA",
+	"shorad": "Alçak İrtifa Hava Savunma",
+	"helo": "Taarruz Helikopteri",
+	"mg_team": "Makineli Tüfek Timi",
+	"rocket_inf": "Roketatar Timi",
+	"radar_mobile": "Mobil Arama Radarı",
+	"ambulance": "Sağlık Aracı",
+	"radar_tower": "Radar Kulesi",
+	"field_hospital": "Sahra Hastanesi",
+	"logistics_base": "Lojistik Üs",
+	"depot": "Depo",
+	"airfield": "Hava Alanı",
+	"port": "Liman",
+	"hq_bunker": "Karargâh Sığınağı",
+	"ad_site": "Hava Savunma Mevzisi",
 }
 # type -> [short label, "your ..." (log), "enemy's ..." (log)]
 const TYPE_WORDS := {
@@ -30,6 +48,18 @@ const TYPE_WORDS := {
 	"hq": ["Karargâh", "Karargâhınız", "karargâhı"],
 	"spg": ["Obüs", "Obüsünüz", "obüsü"],
 	"rocket": ["Füze", "Füze rampanız", "füze rampası"],
+	"mg_team": ["Makineli", "Makineli timiniz", "makineli timi"],
+	"rocket_inf": ["Roketatar", "Roketatar timiniz", "roketatar timi"],
+	"radar_mobile": ["Arama Radarı", "Arama radarınız", "arama radarı"],
+	"ambulance": ["Sağlık", "Sağlık aracınız", "sağlık aracı"],
+	"radar_tower": ["Radar Kulesi", "Radar kuleniz", "radar kulesi"],
+	"field_hospital": ["Hastane", "Hastaneniz", "hastanesi"],
+	"logistics_base": ["Lojistik Üs", "Lojistik üssünüz", "lojistik üssü"],
+	"depot": ["Depo", "Deponuz", "deposu"],
+	"airfield": ["Hava Alanı", "Hava alanınız", "hava alanı"],
+	"port": ["Liman", "Limanınız", "limanı"],
+	"hq_bunker": ["Sığınak", "Karargâh sığınağınız", "karargâh sığınağı"],
+	"ad_site": ["HS Mevzisi", "Hava savunma mevziniz", "hava savunma mevzisi"],
 }
 const LOG_LINES := 8
 const STANCE_NAMES := {"free": "Serbest", "return": "Karşılık", "hold": "Ateş Yok"}
@@ -170,6 +200,8 @@ func show_selection(sel: Array, orders) -> void:
 			stance += " -> %s (emir)" % STANCE_NAMES.get(st, st)
 		lines.append(stance)
 		lines.append("Komuta: %s" % ("bağlı" if u.connected else "KOPUK (emir alamaz)"))
+		if float(u.get("packed_s", 0.0)) > 0.0:
+			lines.append("KURULU DEĞİL: %d sn (ateş ve yayın yok)" % ceili(float(u.packed_s)))
 		var t = orders.pending_mission(u.id)
 		if t != null:
 			lines.append("Atış görevi: %s" % ("nokta" if t.kind == "point" else "birim #%d" % t.unit))

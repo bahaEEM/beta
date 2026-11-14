@@ -178,14 +178,29 @@ fn successors(
 /// routes of destroyed, missing or untyped units are removed.
 pub fn step_movement(world: &mut World, catalog: &UnitCatalog, rules: &Rules, routes: &mut Routes) {
     let (units, map) = world.units_and_map_mut();
+    let dt = rules.turn.game_seconds_per_tick;
     for unit in units.iter_mut() {
-        let Some(route) = routes.get_mut(&unit.id) else {
+        let t = catalog
+            .get(&unit.type_id)
+            .filter(|_| unit.state != UnitState::Destroyed);
+        let route = routes.get_mut(&unit.id).filter(|r| !r.is_empty());
+        // K-120: units that deploy set up while halted and pack up before they move.
+        if let Some(t) = t.filter(|t| t.deploy_s > 0.0) {
+            if unit.carried_by.is_some() {
+                unit.packed_s = t.deploy_s;
+            } else if route.is_some() {
+                unit.packed_s = (unit.packed_s + dt).min(t.deploy_s);
+                if unit.packed_s < t.deploy_s {
+                    continue;
+                }
+            } else {
+                unit.packed_s = (unit.packed_s - dt).max(0.0);
+            }
+        }
+        let Some(route) = route else {
             continue;
         };
-        let Some(t) = catalog
-            .get(&unit.type_id)
-            .filter(|_| unit.state != UnitState::Destroyed)
-        else {
+        let Some(t) = t else {
             route.clear();
             continue;
         };
@@ -200,7 +215,7 @@ pub fn step_movement(world: &mut World, catalog: &UnitCatalog, rules: &Rules, ro
         if unit.state == UnitState::Damaged {
             speed *= rules.combat.damaged_speed_factor;
         }
-        let mut budget = speed * rules.turn.game_seconds_per_tick;
+        let mut budget = speed * dt;
         // Fuel: vehicles stop when the tank is empty (fuel_l_per_km = 0 means no fuel needed).
         let per_m = t.fuel_l_per_km / 1000.0;
         if per_m > 0.0 {

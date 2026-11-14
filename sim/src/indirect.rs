@@ -45,7 +45,7 @@ pub fn step_launch(
             continue;
         };
         let Some(gun) = t.indirect else { continue };
-        if u.state == UnitState::Destroyed || u.ammo == 0 {
+        if u.state == UnitState::Destroyed || u.ammo == 0 || !u.deployed() {
             combat.lay.remove(&id);
             continue;
         }
