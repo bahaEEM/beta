@@ -16,8 +16,9 @@ pub struct Zone {
     pub name_tr: String,
     pub center: Vec2,
     pub radius_m: f64,
-    /// Supply units of the owner refill here.
-    pub depot: bool,
+    /// Ids of the regions joined to this one directly by a road (K-130).
+    #[serde(default)]
+    pub links: Vec<u32>,
     pub owner: Option<PlayerId>,
     /// Home base of this player: whoever else takes it wins the match (K-061).
     #[serde(default)]
@@ -118,67 +119,9 @@ pub fn region_counts(zones: &[Zone]) -> BTreeMap<PlayerId, u32> {
     counts
 }
 
-/// End of turn: refill supply units at depots, resupply nearby friendly units, then
-/// decide the match.
+/// End of turn: supply (K-130…K-134), medical care, then the match decision.
 pub fn end_of_turn(game: &mut Game, catalog: &UnitCatalog, rules: &Rules) {
-    let suppliers: Vec<UnitId> = game
-        .world
-        .units()
-        .iter()
-        .filter(|u| u.state != UnitState::Destroyed)
-        .filter(|u| {
-            catalog
-                .get(&u.type_id)
-                .is_some_and(|t| t.supply_fuel_l > 0.0 || t.supply_ammo > 0)
-        })
-        .map(|u| u.id)
-        .collect();
-    for sid in suppliers {
-        let Some(s) = game.world.unit(sid) else {
-            continue;
-        };
-        let (owner, pos) = (s.owner, s.pos);
-        let at_depot = game
-            .zones
-            .iter()
-            .any(|z| z.depot && z.owner == Some(owner) && pos.distance(z.center) <= z.radius_m);
-        if at_depot {
-            if let (Some(t), Some(s)) = (catalog.get(&s.type_id).cloned(), game.world.unit_mut(sid))
-            {
-                s.supply_fuel = t.supply_fuel_l;
-                s.supply_ammo = t.supply_ammo;
-            }
-        }
-        // Units in reach, in id order (the supplier itself included).
-        let needs: Vec<(UnitId, f64, u32)> = game
-            .world
-            .units()
-            .iter()
-            .filter(|u| u.owner == owner && u.state != UnitState::Destroyed)
-            .filter(|u| u.pos.distance(pos) <= rules.supply.radius_m)
-            .filter_map(|u| {
-                let t = catalog.get(&u.type_id)?;
-                Some((
-                    u.id,
-                    (t.fuel_l - u.fuel).max(0.0),
-                    t.ammo.saturating_sub(u.ammo),
-                ))
-            })
-            .collect();
-        for (uid, fuel_need, ammo_need) in needs {
-            let Some(s) = game.world.unit_mut(sid) else {
-                break;
-            };
-            let fuel = fuel_need.min(s.supply_fuel);
-            let ammo = ammo_need.min(s.supply_ammo);
-            s.supply_fuel -= fuel;
-            s.supply_ammo -= ammo;
-            if let Some(u) = game.world.unit_mut(uid) {
-                u.fuel += fuel;
-                u.ammo += ammo;
-            }
-        }
-    }
+    crate::supply::step_supply(game, catalog, rules);
 
     // K-123: medical units treat friendly infantry in reach (the best one counts).
     let medics: Vec<(PlayerId, Vec2, f64)> = game
@@ -251,13 +194,13 @@ mod tests {
         HeightMap::new(200, 200, 50.0, vec![0.0; 40_000]).unwrap()
     }
 
-    fn zone(id: u32, x: f64, owner: Option<u8>, depot: bool) -> Zone {
+    fn zone(id: u32, x: f64, owner: Option<u8>) -> Zone {
         Zone {
             id,
             name_tr: format!("Bölge {id}"),
             center: Vec2::new(x, 1000.0),
             radius_m: 300.0,
-            depot,
+            links: Vec::new(),
             owner: owner.map(PlayerId),
             base: None,
             progress: None,
@@ -273,7 +216,7 @@ mod tests {
                 unit(2, 1, "mbt", 8000.0, 8000.0),
             ],
         );
-        g.zones = vec![zone(1, 3000.0, Some(1), false)];
+        g.zones = vec![zone(1, 3000.0, Some(1))];
         let needed = (rules().zones.capture_s / rules().turn.game_seconds_per_tick).ceil() as u32;
         let mut captured_at = None;
         for tick in 1..=needed + 1 {
@@ -304,7 +247,7 @@ mod tests {
                 unit(3, 1, "infantry", 6050.0, 1000.0),
             ],
         );
-        g.zones = vec![zone(1, 3000.0, None, false), zone(2, 6000.0, None, false)];
+        g.zones = vec![zone(1, 3000.0, None), zone(2, 6000.0, None)];
         for _ in 0..300 {
             step_tick(&mut g, &catalog(), &rules());
         }
@@ -326,9 +269,9 @@ mod tests {
             ],
         );
         g.zones = vec![
-            zone(1, 3000.0, Some(0), true),
-            zone(2, 6000.0, Some(1), true),
-            zone(3, 8000.0, Some(1), false),
+            zone(1, 3000.0, Some(0)),
+            zone(2, 6000.0, Some(1)),
+            zone(3, 8000.0, Some(1)),
         ];
         g.zones[0].base = Some(PlayerId(0));
         g.zones[1].base = Some(PlayerId(1));
@@ -352,10 +295,10 @@ mod tests {
     fn k061_most_regions_wins_after_the_last_turn() {
         let mut g = game(flat(), vec![unit(1, 0, "mbt", 9000.0, 9000.0)]);
         g.zones = vec![
-            zone(1, 3000.0, Some(0), false),
-            zone(2, 6000.0, Some(1), false),
-            zone(3, 8000.0, Some(1), false),
-            zone(4, 9000.0, None, false),
+            zone(1, 3000.0, Some(0)),
+            zone(2, 6000.0, Some(1)),
+            zone(3, 8000.0, Some(1)),
+            zone(4, 9000.0, None),
         ];
         g.zones[0].base = Some(PlayerId(0));
         assert_eq!(
@@ -417,49 +360,6 @@ mod tests {
         g.world.unit_mut(UnitId(2)).unwrap().ammo = 0;
         let ev = step_tick(&mut g, &catalog(), &rules());
         assert!(!ev.iter().any(|e| matches!(e, Event::ShotFired { .. })));
-    }
-
-    #[test]
-    fn f1_4_supply_refills_nearby_units_and_restocks_at_depot() {
-        let cat = catalog();
-        let mbt = cat.get("mbt").unwrap().clone();
-        let truck = cat.get("supply").unwrap().clone();
-        let mut g = game(
-            flat(),
-            vec![
-                unit(1, 0, "mbt", 3000.0, 1000.0),
-                unit(2, 0, "supply", 3100.0, 1000.0),
-                unit(3, 0, "mbt", 6000.0, 1000.0),
-            ],
-        );
-        for id in [1, 3] {
-            let u = g.world.unit_mut(UnitId(id)).unwrap();
-            u.fuel = 100.0;
-            u.ammo = 1;
-        }
-        {
-            let s = g.world.unit_mut(UnitId(2)).unwrap();
-            s.fuel = truck.fuel_l;
-            s.ammo = 0;
-            s.supply_fuel = 500.0;
-            s.supply_ammo = 10;
-        }
-        end_of_turn(&mut g, &cat, &rules());
-        let (a, far) = (
-            g.world.unit(UnitId(1)).unwrap(),
-            g.world.unit(UnitId(3)).unwrap(),
-        );
-        assert_eq!(
-            (a.fuel, a.ammo),
-            (600.0, 11),
-            "limited by the truck's stock"
-        );
-        assert_eq!((far.fuel, far.ammo), (100.0, 1), "out of reach");
-        // At an owned depot the truck restocks to full and serves the tank completely.
-        g.zones = vec![zone(1, 3050.0, Some(0), true)];
-        end_of_turn(&mut g, &cat, &rules());
-        let a = g.world.unit(UnitId(1)).unwrap();
-        assert_eq!((a.fuel, a.ammo), (mbt.fuel_l, mbt.ammo));
     }
 }
 

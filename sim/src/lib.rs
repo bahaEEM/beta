@@ -9,6 +9,7 @@ pub mod indirect;
 pub mod logistics;
 pub mod movement;
 pub mod sensor;
+pub mod supply;
 pub mod turn;
 pub mod visibility;
 pub mod world;
@@ -19,6 +20,8 @@ mod air_tests;
 mod ew_tests;
 #[cfg(test)]
 mod m2_tests;
+#[cfg(test)]
+mod supply_tests;
 #[cfg(test)]
 mod transport_tests;
 

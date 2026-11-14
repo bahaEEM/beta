@@ -40,7 +40,10 @@ capture_s = 60.0       # placeholder; uncontested infantry presence needed to ca
 max_turns = 100        # highest score wins after this turn
 
 [supply]
-radius_m = 300.0       # placeholder; resupply reach at the end of a turn
+radius_m = 300.0       # placeholder; resupply reach of trucks and storages at the end of a turn
+region_share = 0.25    # placeholder; share of its capacity a unit gets per turn inside a supplied own region
+attrition_after_turns = 3   # ground units start to wither at the end of the 3rd unsupplied turn in a row
+attrition_hp_share = 0.1    # ...losing this share of their maximum hp per turn
 
 [comms]
 wire_reach_m = 150.0   # placeholder; distance to a road cell to plug into its wire network

@@ -113,8 +113,9 @@ struct ScenarioZone {
     x: f64,
     y: f64,
     radius_m: f64,
+    /// Regions joined to this one by road (`road_links` of regions.toml).
     #[serde(default)]
-    depot: bool,
+    road_links: Vec<u32>,
     owner: Option<u8>,
     /// Home base of this player (K-061).
     base: Option<u8>,
@@ -163,7 +164,7 @@ pub fn load_game(
             name_tr: z.name_tr,
             center: Vec2::new(z.x, z.y),
             radius_m: z.radius_m,
-            depot: z.depot,
+            links: z.road_links,
             owner: z.owner.map(PlayerId),
             base: z.base.map(PlayerId),
             progress: None,

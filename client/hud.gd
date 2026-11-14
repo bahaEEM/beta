@@ -35,6 +35,7 @@ const TYPE_NAMES := {
 	"port": "Liman",
 	"hq_bunker": "Karargâh Sığınağı",
 	"ad_site": "Hava Savunma Mevzisi",
+	"cargo_plane": "Kargo Uçağı",
 }
 # type -> [short label, "your ..." (log), "enemy's ..." (log)]
 const TYPE_WORDS := {
@@ -60,7 +61,9 @@ const TYPE_WORDS := {
 	"port": ["Liman", "Limanınız", "limanı"],
 	"hq_bunker": ["Sığınak", "Karargâh sığınağınız", "karargâh sığınağı"],
 	"ad_site": ["HS Mevzisi", "Hava savunma mevziniz", "hava savunma mevzisi"],
+	"cargo_plane": ["Kargo Uçağı", "Kargo uçağınız", "kargo uçağı"],
 }
+const STOCK_TYPES := ["supply", "cargo_plane", "logistics_base", "depot", "airfield", "port"]
 const LOG_LINES := 8
 const STANCE_NAMES := {"free": "Serbest", "return": "Karşılık", "hold": "Ateş Yok"}
 const STATE_NAMES := {"healthy": "Sağlam", "damaged": "Hasarlı", "destroyed": "Yok edildi"}
@@ -205,8 +208,12 @@ func show_selection(sel: Array, orders) -> void:
 		var t = orders.pending_mission(u.id)
 		if t != null:
 			lines.append("Atış görevi: %s" % ("nokta" if t.kind == "point" else "birim #%d" % t.unit))
-		if u.type == "supply":
+		if u.type in STOCK_TYPES:
 			lines.append("İkmal stoğu: yakıt %.0f, mühimmat %d" % [u.supply_fuel, u.supply_ammo])
+		if u.get("carried_by") != null:
+			lines.append("Araçta: #%d (inmek için N)" % int(u.carried_by))
+		if int(u.get("unsupplied_turns", 0)) > 0:
+			lines.append("İKMALSİZ: %d tur (3. turdan itibaren erir)" % int(u.unsupplied_turns))
 		info.text = "\n".join(lines)
 	elif sel.size() > 1:
 		var count := {}

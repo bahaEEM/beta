@@ -90,13 +90,14 @@ pub fn order(o: &p::Order) -> Order {
     }
 }
 
-pub fn zone(z: &Zone) -> p::ZoneView {
+/// `supplied`: Some for the viewer's own regions only (K-133).
+pub fn zone(z: &Zone, supplied: Option<bool>) -> p::ZoneView {
     p::ZoneView {
         id: z.id,
         name_tr: z.name_tr.clone(),
         center: vec2(z.center),
         radius_m: z.radius_m,
-        depot: z.depot,
+        supplied,
         owner: z.owner.map(|o| o.0),
         base: z.base.map(|o| o.0),
     }

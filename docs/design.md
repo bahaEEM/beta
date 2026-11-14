@@ -10,7 +10,7 @@ Yeni testlerin adı kural kimliğiyle başlar (`k043_...`). Eski testler aşağ�
   birimler kimlik sırasıyla işlenir, sıralı kaplar kullanılır.
 - **K-002 Tur.** Planlama (45 sn gerçek zaman; iki oyuncu "Hazır" derse erken biter) → çözüm 200 adım → tur sonu.
   Bir adım 0,6 sn oyun zamanıdır: bir tur = 2 dk oyun, ekranda 20 sn oynatılır.
-- **K-003 Adım sırası.** hareket → sensör/iz → direkt ateş (eşzamanlı) → dolaylı atış → çarpma/hasar → ele geçirme. Tur sonu: ikmal → zafer kontrolü.
+- **K-003 Adım sırası.** hareket → sensör/iz → direkt ateş (eşzamanlı) → dolaylı atış → çarpma/hasar → ele geçirme. Tur sonu: ikmal (K-130…K-134) → sağlık → zafer kontrolü.
 
 ## Emirler ve KBG
 - **K-010 KBG bütçesi.** Oyuncu başına tur başı 8 puan. Her emir, içindeki her başlayan 12 birim için 1 puan
@@ -92,6 +92,24 @@ Yeni testlerin adı kural kimliğiyle başlar (`k043_...`). Eski testler aşağ�
   piyade sınıfı birimlerin canını o kadar artırır (tipin azami canını geçmez; birden çok sağlık birimi varsa en yükseği sayılır).
   Hastane tam iyileştirir. Sağlık aracı bir piyade timi taşıyabilir (K-110): yaralıyı hastaneye götürmek böyle olur. Yok edilmiş birim iyileşmez.
 
+## İkmal (M3)
+Hepsi tur sonunda, bu sırayla işler: üretim → taşıyıcılar → yakın ikmal → bölge ikmali → erime (sonra sağlık ve zafer).
+- **K-130 İkmal ağı.** Bir oyuncunun, yolla birbirine bağlı (`road_links`) kendi bölgeleri bir ağ oluşturur. Ağın stoğu, o bölgelerdeki
+  yıkılmamış depolama yapılarının (lojistik üs, depo, hava alanı, liman) stoklarının toplamıdır; çekişler yapılardan kimlik sırasıyla düşer.
+  Düşman aradaki bölgeyi alırsa ağ ikiye bölünür: lojistik üssü olmayan parça elindeki stokla kalır. Kendi bölgesinde olmayan depo tek başına bir ağdır.
+- **K-131 Stok ve üretim.** `supply_fuel_l` / `supply_ammo` bir yapının ya da taşıyıcının stok kapasitesidir; herkes dolu başlar.
+  Lojistik üs her tur `produce_fuel_l` / `produce_ammo` üretir: önce kendi stoğuna, dolunca ağındaki diğer yapılara; sığmayan kaybolur.
+- **K-132 Taşıyıcılar ve yakın ikmal.** Taşıyıcı = stok taşıyan hareketli birim (ikmal kamyonu, kargo uçağı). Emir gerekmez:
+  `supply.radius_m` (300 m) içinde dost bir depolama yapısı varsa ve o yapının ağında lojistik üs varsa taşıyıcı ağdan dolar;
+  ağda üs yoksa (kopuk depo) yükünü o depoya boşaltır. Sonra stoğu olan her taşıyıcı ve depolama yapısı, 300 m içindeki dost birimlerin
+  yakıt ve mühimmatını tam doldurur (stoğu yettiğince, kimlik sırasıyla). İkmal gemisi M6'da (deniz) gelecek.
+- **K-133 Bölge ikmali.** Kendi bölgesinde duran ve o bölgenin ağında stok olan birim, her tur yakıt ve mühimmat kapasitesinin
+  `supply.region_share` (%25) kadarını ağdan alır. Tarafsız ya da düşman bölgesindeki birim almaz; oraya ikmali taşıyıcı götürür.
+  İstemcide stoğu kalmamış kendi bölgen "İKMALSİZ" yazar (rakibinkini göremezsin).
+- **K-134 Erime.** Tur sonunda ne bölge ikmali ne de stoğu olan bir taşıyıcı/depo menzilinde olan kara birimi (piyade ve araç sınıfı)
+  "ikmalsiz" sayılır. Üst üste `attrition_after_turns` (3) tur ikmalsiz kalan birim, o turdan başlayarak her tur azami canının
+  `attrition_hp_share` (%10) kadarını kaybeder ve sonunda yok olur. İkmale kavuşunca sayaç sıfırlanır. Hava birimleri ve yapılar erimez.
+
 ## Görünürlük
 - **K-050 Görünürlük filtresi.** Oyuncuya giden hiçbir mesaj, o an göremediği birimin kimliğini veya konumunu içermez.
   İz 1 = 500 m'lik hücrenin merkezi; kerterizle bilinen birim için sadece yön; iz ≥ 2 = kesin konum, iz ≥ 2'de tip.
@@ -108,8 +126,7 @@ Yeni testlerin adı kural kimliğiyle başlar (`k043_...`). Eski testler aşağ�
   Dosyada her bölgenin sınır komşuları (`neighbours`) ve yolla doğrudan bağlı olduğu bölgeler (`road_links`, M3 ikmalinde kullanılacak) yazar.
   Başlangıç sahipliği senaryodadır: her taraf üssüne en yakın 8 bölge, gerisi tarafsız. Cephe hattı = iki tarafın bölgeleri arasındaki sınır
   (istemcide sarı çizgi).
-- **K-062 İkmal.** Tur sonunda ikmal kamyonu 300 m içindeki dost birimlerin yakıt ve mühimmatını stokundan doldurur;
-  kendisi kendi depo bölgesinde tam dolar.
+- **K-062 İkmal.** (2026-11-14) Eski "kamyon depo bölgesinde dolar" kuralı kalktı; yerine K-130…K-134 geldi (aşağıda "İkmal (M3)").
 
 ## Haberleşme
 - **K-080 Komuta ağı.** Her tarafın karargâhı (`hq`) ağın köküdür. Birim, karargâha bir bağlantı zinciriyle ulaşabiliyorsa bağlıdır;
@@ -159,7 +176,6 @@ Bütün sayılar yer tutucudur; görsel aşamadan önce oyun testiyle ayarlanaca
 | K-060 | f1_3_infantry_captures_after_capture_time, f1_3_only_infantry_captures_and_contest_freezes |
 | K-061 | k061_taking_the_enemy_base_wins_at_the_end_of_the_turn, k061_most_regions_wins_after_the_last_turn |
 | K-063 | k063_regions_split_land_by_nearest_place, g10_cheat_oracle_and_resolution_time (30 bölgeli senaryo yüklenir) |
-| K-062 | f1_4_supply_refills_nearby_units_and_restocks_at_depot |
 | K-080 | k080_radio_links_relay_through_units, k082_no_hq_no_command |
 | K-081 / K-082 | k081_enemy_jammer_cuts_radio_but_not_wire |
 | K-083 | k083_cut_off_units_reject_new_orders_but_keep_moving |
@@ -179,6 +195,11 @@ Bütün sayılar yer tutucudur; görsel aşamadan önce oyun testiyle ayarlanaca
 | K-121 | k121_structures_do_not_move |
 | K-122 | k122_structures_change_hands_with_their_region |
 | K-123 | k123_medical_units_heal_infantry_at_the_end_of_the_turn |
+| K-130 | k130_networks_follow_road_links_through_own_regions, k130_hasandag_starts_with_all_owned_regions_supplied |
+| K-131 | k131_base_produces_and_overflow_fills_linked_storages |
+| K-132 | k132_carriers_load_at_the_network_unload_at_a_cut_off_storage_and_fill_units |
+| K-133 | k133_units_in_a_supplied_region_get_a_share_each_turn |
+| K-134 | k134_cut_off_ground_units_wither_and_die |
 | K-071 | g6_client_messages_round_trip, g6_server_messages_round_trip, g6_version_mismatch_rejected, g6_oversized_message_rejected, g6_protocol_md_up_to_date |
 | K-072 | g7_resume_after_shutdown, g7_reconnect_same_name, g7_planning_deadline_starts_resolution |
 

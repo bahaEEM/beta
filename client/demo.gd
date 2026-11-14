@@ -40,7 +40,7 @@ static func start(main, crowd: bool) -> void:
 	contacts.append({"unit": 90, "quality": 1, "type_id": null, "last_seen_tick": 0,
 		"position": {"kind": "area", "center": _xy(CENTRE + Vector2(900, 900)), "radius_m": 250.0}})
 	var zone := {"id": 1, "name_tr": "Batı Köyü", "center": _xy(CENTRE + Vector2(-750, 0)), "radius_m": 300.0,
-		"depot": false, "owner": null, "base": null}
+		"supplied": null, "owner": null, "base": null}
 	main._on_message({"type": "turn_start", "turn": 3, "deadline_secs": 60, "view": {"own_units": own,
 		"contacts": contacts, "kbg_budget": 8, "zones": [zone], "scores": [8, 8]}})
 	for id in main.units:  # enemy heading and damage come with events in a real game

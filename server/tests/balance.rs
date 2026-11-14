@@ -29,7 +29,8 @@ fn balance_report_hasandag_advance() {
             let front: Vec<_> = mine
                 .iter()
                 .filter(|u| {
-                    ["infantry", "mbt", "atgm", "ifv", "recon"].contains(&u.type_id.as_str())
+                    ["infantry", "mbt", "atgm", "ifv", "recon", "supply"]
+                        .contains(&u.type_id.as_str())
                 })
                 .map(|u| u.id)
                 .collect();

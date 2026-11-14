@@ -37,6 +37,10 @@ ZMA + piyade taşıma · bölge noktaları + puan + zafer · yakıt/mühimmat + 
 - Bölge ikmal durumu: kendi bölgelerinden geçen yollarla bir kaynağa bağlı bölge "ikmalli" — içindeki birimler tur sonunda
   azar azar ikmal alır; kopuk bölgede ikmal yok, uzun süre kopuk kalan birim zayıflar.
 - İkmal hattı kesme: düşman bölgeyi alırsa ya da kamyonu vurursa hat kopar.
+- ✔ (2026-11-14) K-130…K-134. Kullanıcı kararları: **bölge ağı + kamyon** (ağdaki birim kendiliğinden azar azar, ağ dışındaki kamyonla) ·
+  kuşatılan birim **erir ve sonunda yok olur** (3 tur sonra tur başı %10) · yükleme/boşaltma **otomatik**, emir yok.
+  İkmal gemisi deniz hareketi gerektirdiği için M6'ya bırakıldı. Hava birimlerinin yakıtı hâlâ modellenmiyor; her kendi bölgesinde mühimmat alabiliyorlar
+  (hava alanı şartı M6/M7'de düşünülecek).
 
 ### M4 — Gizlenme, pusu, baskı
 - Gizlenme: ormanda/yerleşimde ve dururken görülme menzili düşer; hareket ve ateş görünürlüğü artırır (atış izi bir süre ifşa eder).

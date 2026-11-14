@@ -4,6 +4,7 @@
 #             | {"type": "set_emitter", "units": [ids], "on": bool}
 #             | {"type": "set_stance", "units": [ids], "stance": "free"|"return"|"hold"}
 #             | {"type": "fire_mission", "units": [ids], "target": {"kind": "point", "pos": Vector2} | {"kind": "unit", "unit": id}}
+#             | {"type": "embark", "units": [ids], "carrier": id} | {"type": "disembark", "units": [ids]}
 extends RefCounted
 
 var list: Array = []
@@ -54,8 +55,19 @@ func fire_mission(sel: Array, target: Dictionary) -> void:
 	list.append({"type": "fire_mission", "units": sel.duplicate(), "target": target})
 
 
+# Infantry boards a carrier (the server checks distance and room); replaces earlier boarding orders of these units.
+func embark(sel: Array, carrier: int) -> void:
+	_remove_units(sel, ["embark", "disembark"])
+	list.append({"type": "embark", "units": sel.duplicate(), "carrier": carrier})
+
+
+func disembark(sel: Array) -> void:
+	_remove_units(sel, ["embark", "disembark"])
+	list.append({"type": "disembark", "units": sel.duplicate()})
+
+
 func remove(sel: Array) -> void:
-	_remove_units(sel, ["move", "stop", "set_emitter", "set_stance", "fire_mission"])
+	_remove_units(sel, ["move", "stop", "set_emitter", "set_stance", "fire_mission", "embark", "disembark"])
 
 
 # Pending stance for a unit, or null.

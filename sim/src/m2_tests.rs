@@ -184,7 +184,7 @@ fn zone(id: u32, x: f64, owner: u8) -> Zone {
         name_tr: format!("Bölge {id}"),
         center: Vec2::new(x, 1000.0),
         radius_m: 300.0,
-        depot: false,
+        links: Vec::new(),
         owner: Some(PlayerId(owner)),
         base: None,
         progress: None,
@@ -257,12 +257,15 @@ fn k123_medical_units_heal_infantry_at_the_end_of_the_turn() {
         dead.hp = 0.0;
         dead.state = UnitState::Destroyed;
     }
+    // Nobody is in supply here; keep attrition (K-134) out of the picture.
+    let mut r = rules();
+    r.supply.attrition_after_turns = u32::MAX;
     let heal = catalog().get("ambulance").unwrap().heal_hp_per_turn;
     let hp = |g: &Game, id: u32| {
         let u = g.world.unit(UnitId(id)).unwrap();
         (u.hp, u.state)
     };
-    end_of_turn(&mut g, &catalog(), &rules());
+    end_of_turn(&mut g, &catalog(), &r);
     assert_eq!(hp(&g, 2), (30.0 + heal, UnitState::Damaged));
     for id in [3, 4, 5] {
         assert_eq!(hp(&g, id), (30.0, UnitState::Damaged), "unit {id}");
@@ -272,7 +275,7 @@ fn k123_medical_units_heal_infantry_at_the_end_of_the_turn() {
     assert_eq!(hp(&g, 7), (atgm_hp, UnitState::Healthy));
     assert_eq!(hp(&g, 8), (0.0, UnitState::Destroyed));
     // A second turn lifts the infantry above the damaged threshold.
-    end_of_turn(&mut g, &catalog(), &rules());
-    end_of_turn(&mut g, &catalog(), &rules());
+    end_of_turn(&mut g, &catalog(), &r);
+    end_of_turn(&mut g, &catalog(), &r);
     assert_eq!(hp(&g, 2), (30.0 + 3.0 * heal, UnitState::Healthy));
 }

@@ -89,6 +89,9 @@ pub struct Unit {
     /// `deploy_s` = fully packed for the march.
     #[serde(default)]
     pub packed_s: f64,
+    /// Turns in a row that ended without any supply in reach (K-134).
+    #[serde(default)]
+    pub unsupplied_turns: u32,
 }
 
 impl Unit {

@@ -150,7 +150,7 @@ func set_zones(zones: Array, player_id: int, team_colors: Array) -> void:
 			for kk in [k, k + 1]:
 				var a: float = TAU * kk / n
 				im.surface_add_vertex(_drape(c + Vector2(cos(a), sin(a)) * r, ZONE_LIFT))
-		if z.depot:  # depot: a cross in the middle
+		if z.get("base") != null:  # base: a cross in the middle
 			for d in [Vector2(1, 1), Vector2(1, -1)]:
 				im.surface_add_vertex(_drape(c - d * r * 0.3, ZONE_LIFT))
 				im.surface_add_vertex(_drape(c + d * r * 0.3, ZONE_LIFT))
@@ -166,8 +166,9 @@ func set_zones(zones: Array, player_id: int, team_colors: Array) -> void:
 		label.position = _drape(c, 150.0)
 		label.modulate = color.lightened(0.3)
 		var who := "tarafsız" if z.owner == null else ("bizim" if int(z.owner) == player_id else "rakip")
-		var tag := "[Üs] " if z.get("base") != null else ("[Depo] " if z.depot else "")
-		label.text = "%s%s (%s)" % [tag, z.name_tr, who]
+		if z.get("supplied") == false:  # own region whose road network has no stock (K-133)
+			who += ", İKMALSİZ"
+		label.text = "%s%s (%s)" % ["[Üs] " if z.get("base") != null else "", z.name_tr, who]
 	im.surface_end()
 
 

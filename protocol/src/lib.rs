@@ -6,7 +6,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt;
 use std::io::Read;
 
-pub const PROTOCOL_VERSION: u32 = 4;
+pub const PROTOCOL_VERSION: u32 = 5;
 /// Maximum size of a message's JSON (uncompressed).
 pub const MAX_MESSAGE_BYTES: usize = 1024 * 1024;
 const ZSTD_LEVEL: i32 = 3;
@@ -107,6 +107,9 @@ pub struct OwnUnit {
     /// Game seconds of setting up still to go; above 0 the unit cannot fire and its
     /// radar, ESM and jammer are off. Always 0 for types that need no deployment.
     pub packed_s: f64,
+    /// Turns in a row without supply; ground units start losing hit points at the limit
+    /// in `rules.toml` (3).
+    pub unsupplied_turns: u32,
 }
 
 /// An enemy unit as known to this player. `type_id` is only present at quality >= 2.
@@ -127,7 +130,9 @@ pub struct ZoneView {
     pub name_tr: String,
     pub center: Vec2,
     pub radius_m: f64,
-    pub depot: bool,
+    /// Own regions only: units standing here are in supply (the region's road network
+    /// still has stock). Null for neutral and enemy regions.
+    pub supplied: Option<bool>,
     pub owner: Option<PlayerId>,
     /// Home base of this player: an enemy who captures it wins the match.
     pub base: Option<PlayerId>,
@@ -399,6 +404,7 @@ mod tests {
                         connected: true,
                         carried_by: None,
                         packed_s: 0.0,
+                        unsupplied_turns: 0,
                     }],
                     contacts: vec![
                         Contact {
@@ -425,7 +431,7 @@ mod tests {
                         name_tr: "Helvadere".into(),
                         center: P,
                         radius_m: 400.0,
-                        depot: true,
+                        supplied: Some(true),
                         owner: Some(0),
                         base: Some(0),
                     }],

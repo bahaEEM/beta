@@ -22,6 +22,7 @@ const TEAM_COLORS := [Color(0.25, 0.55, 1.0), Color(1.0, 0.3, 0.25)]
 const DEAD_COLOR := Color(0.2, 0.2, 0.2)
 const EMITTER_TYPES := ["gsr", "jammer", "shorad", "radar_mobile", "radar_tower", "ad_site"]
 const ARTILLERY_TYPES := ["spg", "rocket"]
+const CARRIER_TYPES := ["ifv", "ambulance"]
 const MISSION_MARK_M := 150.0  # display only; the real blast radius comes with shell_impact
 const BEARING_LENGTH := 40000.0
 const DRAG_MIN_PX := 6.0
@@ -736,7 +737,7 @@ func _key(event: InputEventKey) -> void:
 		orders.remove(selection)
 		_orders_changed()
 		return
-	if not event.keycode in [KEY_S, KEY_F, KEY_T, KEY_R]:
+	if not event.keycode in [KEY_S, KEY_F, KEY_T, KEY_R, KEY_B, KEY_N]:
 		return
 	var ids := _orderable(selection)
 	if ids.is_empty():
@@ -759,6 +760,27 @@ func _key(event: InputEventKey) -> void:
 				_status("Seçimde obüs veya füze rampası yok.")
 			else:
 				_status("Atış görevi: hedef için sol tık (arazi veya düşman), Esc iptal.")
+		KEY_B:  # board: the infantry in the selection gets into the one carrier in the selection
+			var carriers := ids.filter(func(id): return units[id].type in CARRIER_TYPES)
+			var riders := ids.filter(func(id): return not units[id].type in CARRIER_TYPES)
+			if carriers.size() != 1 or riders.is_empty():
+				_status("Binmek için piyadeyi ve tek bir taşıyıcıyı (ZMA ya da sağlık aracı) birlikte seçin.")
+				return
+			orders.embark(riders, carriers[0])
+			_orders_changed()
+			_status("Binme emri: %d birim -> #%d (100 m içinde olmalı)" % [riders.size(), carriers[0]])
+		KEY_N:  # get out: selected passengers and the passengers of selected carriers
+			var riders := []
+			for id in units:
+				var c = units[id].get("carried_by")
+				if c != null and (id in ids or int(c) in ids) and _is_own_alive(id):
+					riders.append(id)
+			if riders.is_empty():
+				_status("Seçimde araçta taşınan birim yok.")
+				return
+			orders.disembark(riders)
+			_orders_changed()
+			_status("İnme emri: %d birim" % riders.size())
 		KEY_R:
 			var emitting := {}
 			for id in ids:

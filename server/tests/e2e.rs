@@ -333,3 +333,23 @@ fn k024_scenario_rejects_ground_unit_on_water() {
     assert!(err.to_string().contains("water"), "{err}");
     assert!(load_game(&scenario("uav"), sea(), &catalog, &rules).is_ok());
 }
+
+/// The Hasandag scenario starts with every owned region in supply (K-130).
+#[test]
+fn k130_hasandag_starts_with_all_owned_regions_supplied() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let (catalog, rules) = server::setup::load_data(&root.join("data")).unwrap();
+    let map = server::setup::load_map(&root.join("maps/hasandag")).unwrap();
+    let text = std::fs::read_to_string(root.join("data/scenarios/hasandag.toml")).unwrap();
+    let g = load_game(&text, map, &catalog, &rules).unwrap();
+    let nets = sim::supply::Networks::new(&g.world, &g.zones, &catalog);
+    let cut: Vec<&str> = g
+        .zones
+        .iter()
+        .enumerate()
+        .filter(|(k, z)| z.owner.is_some() && !nets.zone_supplied(&g.world, *k))
+        .map(|(_, z)| z.name_tr.as_str())
+        .collect();
+    assert!(cut.is_empty(), "owned but unsupplied: {cut:?}");
+    assert_eq!(g.zones.iter().filter(|z| z.owner.is_some()).count(), 16);
+}

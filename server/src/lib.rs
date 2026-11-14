@@ -11,6 +11,7 @@ use futures_util::{SinkExt, StreamExt};
 use protocol::{self as p, ClientMsg, ServerMsg};
 use setup::{save_game, SaveFile};
 use sim::data::{Rules, UnitCatalog};
+use sim::supply::Networks;
 use sim::turn::{group_routes, plan_phase, resolve_phase, validate_orders, Game, Order};
 use sim::visibility::{contacts, filter_for_player, SeenTickEvent};
 use sim::world::PlayerId;
@@ -432,6 +433,7 @@ impl Match {
                         .is_some_and(|c| c.contains(&u.id)),
                 carried_by: u.carried_by.map(|c| c.0),
                 packed_s: u.packed_s,
+                unsupplied_turns: u.unsupplied_turns,
             })
             .collect();
         let contacts = contacts(&self.game.tracks, &self.game.world, &self.rules, player)
@@ -445,7 +447,18 @@ impl Match {
                 own_units,
                 contacts,
                 kbg_budget: self.rules.kbg.budget_per_turn,
-                zones: self.game.zones.iter().map(convert::zone).collect(),
+                zones: {
+                    let nets = Networks::new(&self.game.world, &self.game.zones, &self.catalog);
+                    self.game
+                        .zones
+                        .iter()
+                        .enumerate()
+                        .map(|(k, z)| {
+                            let mine = z.owner == Some(player);
+                            convert::zone(z, mine.then(|| nets.zone_supplied(&self.game.world, k)))
+                        })
+                        .collect()
+                },
                 scores: self.scores(),
             },
         }

@@ -68,11 +68,17 @@ pub struct UnitType {
     /// Command post: the root of its side's command network.
     #[serde(default)]
     pub hq: bool,
-    /// Stock a supply unit carries for others.
+    /// Stock capacity: what a carrier (truck, cargo plane) hauls for others or a storage
+    /// structure (logistics base, depot, airfield, port) holds. Units start full.
     #[serde(default)]
     pub supply_fuel_l: f64,
     #[serde(default)]
     pub supply_ammo: u32,
+    /// Stock a logistics base makes every turn (K-131).
+    #[serde(default)]
+    pub produce_fuel_l: f64,
+    #[serde(default)]
+    pub produce_ammo: u32,
     /// Game seconds to set up after stopping and to pack up before moving (K-120);
     /// 0 = works on the move. Until set up the unit cannot fire and its radar, ESM
     /// and jammer are off.
@@ -237,6 +243,7 @@ fn validate(t: &UnitType) -> Result<(), DataError> {
         ("supply_fuel_l", t.supply_fuel_l),
         ("radio_range_m", t.radio_range_m),
         ("deploy_s", t.deploy_s),
+        ("produce_fuel_l", t.produce_fuel_l),
         ("heal_hp_per_turn", t.heal_hp_per_turn),
     ];
     for (field, v) in fields {
@@ -345,8 +352,16 @@ pub struct MedicalRules {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SupplyRules {
-    /// Supply units resupply friendly units this close at the end of each turn.
+    /// Carriers and storages resupply friendly units this close at the end of each turn.
     pub radius_m: f64,
+    /// Share of its fuel and ammunition capacity a unit gets per turn from the network
+    /// of the own region it stands in (K-133).
+    pub region_share: f64,
+    /// A ground unit starts losing hit points at the end of this many unsupplied turns
+    /// in a row (K-134)...
+    pub attrition_after_turns: u32,
+    /// ...by this share of its maximum per turn.
+    pub attrition_hp_share: f64,
 }
 
 /// Command budget (KBG) per player per turn.
@@ -477,6 +492,12 @@ pub fn load_rules(toml_text: &str) -> Result<Rules, DataError> {
     }
     if !(rules.comms.wire_reach_m.is_finite() && rules.comms.wire_reach_m >= 0.0) {
         return Err(DataError::InvalidRule("comms.wire_reach_m"));
+    }
+    let sup = &rules.supply;
+    if !((0.0..=1.0).contains(&sup.region_share) && (0.0..=1.0).contains(&sup.attrition_hp_share))
+        || sup.attrition_after_turns == 0
+    {
+        return Err(DataError::InvalidRule("supply"));
     }
     if !(rules.zones.capture_s > 0.0 && rules.supply.radius_m > 0.0 && rules.medical.radius_m > 0.0)
         || rules.zones.max_turns == 0

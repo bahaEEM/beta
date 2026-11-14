@@ -61,7 +61,7 @@ M5 EH derinliği → M6 deniz/sonar → M7 ekonomi/takviye). Görsel giydirme en
 | M1a deniz + arazi örtüsü | bitti | (bu commit) | doğu denize çevrildi (kıyı x≈24–31 km, %34 su); terrain.bin: açık/orman/yerleşim/su; kara birimi suya giremez (K-024/K-025); istemci denizi mavi boyar. Orman/yerleşim istemcide henüz çizilmiyor (M4'te) |
 | M1b adlı bölgeler | bitti (görsel test kullanıcıda) | (bu commit) | 30 bölge (regions.toml); üsler Helvadere (Mavi) / Karakapı (Kırmızı), 8+8 sahipli, 14 tarafsız; puan kalktı: düşman üssünü alan kazanır, 100. turda çok bölgesi olan (K-061, K-063); protokol v3; istemci sınır + cephe hattı çizer. Birimler yeni üslere kaydırıldı |
 | M2 yapılar + kurulum + sağlık | bitti (görsel test kullanıcıda) | (bu commit) | K-120 otomatik kurulum (obüs, füze, radarlar, ESM, karıştırıcı, MG ve roketatar timleri); 8 yapı tipi, bölgeyle el değiştirir (K-121/122); sağlık aracı + sahra hastanesi (K-123); yeni birimler: mg_team, rocket_inf, radar_mobile, ambulance; protokol v4. Lojistik yapılar M3'e kadar işlevsiz; yapı modelleri geçici kutu |
-| M3 fiziksel ikmal | bekliyor | | |
+| M3 fiziksel ikmal | bitti (görsel test kullanıcıda) | (bu commit) | K-130…K-134: yol bağlantılı bölge ağı, stoklu yapılar, lojistik üs üretimi, otomatik dolan/boşaltan kamyon ve kargo uçağı, bölge ikmali (%25/tur), 3 tur ikmalsiz kalan kara birimi erir. Bölge `depot` bayrağı kalktı. Protokol v5 (`supplied`, `unsupplied_turns`). İstemci: binme (B) / inme (N) tuşları. İkmal gemisi M6'ya kaldı |
 | M4 gizlenme/pusu/baskı | bekliyor | | |
 | M5 EH derinliği | bekliyor | | |
 | M6 deniz + sonar | bekliyor | | |

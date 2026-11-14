@@ -4,14 +4,14 @@
 extends RefCounted
 
 const SCALE := 4.0  # exaggeration so vehicles read on a 40 km map
-const AIR_TYPES := ["uav", "suav", "helo"]
+const AIR_TYPES := ["uav", "suav", "helo", "cargo_plane"]
 const AIR_LIFT := 150.0
 const DARK := Color(0.12, 0.13, 0.12)
 const METAL := Color(0.42, 0.44, 0.43)
 const KHAKI := Color(0.62, 0.56, 0.4)
 const SKIN := Color(0.25, 0.3, 0.2)
 # Types drawn with another type's model until they get their own.
-const LOOKS_LIKE := {"radar_mobile": "gsr", "ambulance": "supply", "mg_team": "atgm", "rocket_inf": "atgm", "ad_site": "shorad"}
+const LOOKS_LIKE := {"radar_mobile": "gsr", "ambulance": "supply", "mg_team": "atgm", "rocket_inf": "atgm", "ad_site": "shorad", "cargo_plane": "uav"}
 const STRUCTURES := ["radar_tower", "field_hospital", "logistics_base", "depot", "airfield", "port", "hq_bunker"]
 const DISH_PIVOT := Vector3(0, 7.2, 1.6) * SCALE  # gsr radar head / jammer glow centre (scaled)
 
