@@ -6,7 +6,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt;
 use std::io::Read;
 
-pub const PROTOCOL_VERSION: u32 = 7;
+pub const PROTOCOL_VERSION: u32 = 8;
 /// Maximum size of a message's JSON (uncompressed).
 pub const MAX_MESSAGE_BYTES: usize = 1024 * 1024;
 const ZSTD_LEVEL: i32 = 3;
@@ -72,6 +72,9 @@ pub enum Order {
     /// Radio silence on or off. A silent unit never transmits (enemy ESM cannot hear its
     /// radio) but takes no other new order unless it is on the HQ's road wire.
     SetSilence { units: Vec<UnitId>, on: bool },
+    /// Buy a unit from the `shop` list of the view. The price is paid at once; the unit
+    /// appears at the structure `site` after its build time. Costs no KBG.
+    Buy { type_id: String, site: UnitId },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -162,6 +165,32 @@ pub struct PlayerView {
     pub zones: Vec<ZoneView>,
     /// Regions held per player id.
     pub scores: Vec<u32>,
+    pub money: u32,
+    /// Money the own supplied regions pay at the end of this turn if nothing changes.
+    pub income: u32,
+    /// Own purchases under way, oldest first.
+    pub production: Vec<ProductionView>,
+    /// What can be bought and where.
+    pub shop: Vec<ShopItem>,
+}
+
+/// A unit that was bought and has not appeared yet. It is lost if the structure is
+/// destroyed or captured first.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ProductionView {
+    pub type_id: String,
+    pub site: UnitId,
+    /// Ends of turn still to go.
+    pub turns_left: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ShopItem {
+    pub type_id: String,
+    pub cost: u32,
+    pub build_turns: u32,
+    /// Own structures that can raise this unit right now (empty = none).
+    pub sites: Vec<UnitId>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -382,6 +411,10 @@ mod tests {
                         units: vec![5],
                         on: true,
                     },
+                    Order::Buy {
+                        type_id: "mbt".into(),
+                        site: 40,
+                    },
                 ],
             },
             ClientMsg::RequestPreview {
@@ -459,6 +492,19 @@ mod tests {
                         base: Some(0),
                     }],
                     scores: vec![8, 8],
+                    money: 340,
+                    income: 160,
+                    production: vec![ProductionView {
+                        type_id: "infantry".into(),
+                        site: 40,
+                        turns_left: 1,
+                    }],
+                    shop: vec![ShopItem {
+                        type_id: "mbt".into(),
+                        cost: 500,
+                        build_turns: 4,
+                        sites: vec![40],
+                    }],
                 },
             },
             ServerMsg::Resolution {

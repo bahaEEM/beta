@@ -121,6 +121,15 @@ pub struct UnitType {
     /// Decoy (K-144): the enemy sees this type id until he identifies it from close up.
     #[serde(default)]
     pub decoy_of: Option<String>,
+    /// Price (K-171); 0 = cannot be bought.
+    #[serde(default)]
+    pub cost: u32,
+    /// Ends of turn from the purchase until the unit appears (K-172).
+    #[serde(default)]
+    pub build_turns: u32,
+    /// Structures: the unit classes bought here appear at this structure (K-171).
+    #[serde(default)]
+    pub produces: Vec<UnitClass>,
 }
 
 fn yes() -> bool {
@@ -369,6 +378,12 @@ fn validate(t: &UnitType) -> Result<(), DataError> {
             });
         }
     }
+    if t.cost > 0 && (t.build_turns == 0 || t.class == UnitClass::Structure) {
+        return Err(DataError::Invalid {
+            unit: t.id.clone(),
+            field: "build_turns",
+        });
+    }
     Ok(())
 }
 
@@ -391,6 +406,19 @@ pub struct Rules {
     pub suppression: SuppressionRules,
     pub decoy: DecoyRules,
     pub indirect: IndirectRules,
+    pub economy: EconomyRules,
+}
+
+/// K-170…K-173.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EconomyRules {
+    /// Money every player starts with.
+    pub start_money: u32,
+    /// Income per turn of a supplied own region that sets no value of its own.
+    pub region_income: u32,
+    /// A ship bought at a port appears on the nearest water within this distance.
+    pub launch_radius_m: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

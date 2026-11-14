@@ -56,6 +56,17 @@ func _process(delta: float) -> bool:
 		if main.orders.pending_stance(spg[0]) != "hold" or main.orders.missions().size() != 1:
 			printerr("MAIN CHECK FAILED: stance/mission not queued: ", main.orders.list)
 			quit(1)
+		# Logistics base: U opens the shop, picking the infantry entry queues a purchase.
+		main.selection = main.units.keys().filter(func(id): return main.units[id].owner == main.player_id \
+			and main.units[id].type == "logistics_base").slice(0, 1)
+		key.keycode = KEY_U
+		main._key(key)
+		var pick: int = main.shop_items.map(func(s): return s.type_id).find("infantry")
+		main.ui.shop_menu.id_pressed.emit(pick)
+		main._update_hud()
+		if main.orders.buys(main.selection[0]).size() != 1 or not "Sipariş: Piyade" in main.ui.info.text:
+			printerr("MAIN CHECK FAILED: purchase not queued: ", main.orders.list, main.ui.info.text)
+			quit(1)
 		step = 1
 	elif step == 1 and main.previews.size() == 2 and main.kbg_spent > 0:
 		print("previews ", main.previews.keys(), " kbg ", main.kbg_spent, "/", main.kbg_budget,
@@ -68,7 +79,8 @@ func _process(delta: float) -> bool:
 		var spg: Array = main.units.values().filter(func(u): return u.owner == main.player_id and u.type == "spg")
 		print("MAIN OK, emitting units: ", on.map(func(u): return u.id), " impacts: ", impacts,
 			" spg stance: ", spg[0].stance, " status: ", main.ui.status.text)
-		quit(0 if on.size() == 1 and impacts > 0 and spg[0].stance == "hold" else 1)
+		print("money ", main.money, " +", main.income, " production ", main.production)
+		quit(0 if on.size() == 1 and impacts > 0 and spg[0].stance == "hold" and main.production.size() == 1 else 1)
 	elif elapsed > 60.0:
 		printerr("MAIN CHECK FAILED at step %d, status: %s" % [step, main.ui.status.text])
 		quit(1)

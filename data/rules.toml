@@ -90,5 +90,10 @@ speed_penalty = 0.5       # placeholder; speed lost at full suppression
 pin_threshold = 0.6       # placeholder; infantry at or above this lies down and does not move
 pinned_damage_factor = 0.6  # placeholder; pinned infantry is harder to hurt
 
+[economy]                 # K-170…K-173
+start_money = 300         # placeholder
+region_income = 20        # placeholder; per turn for every own region that is in supply
+launch_radius_m = 1000.0  # placeholder; ships bought at a port appear on the nearest water this close
+
 [decoy]                   # K-144
 reveal_range_m = 800.0    # placeholder; eyes this close recognise a decoy for good

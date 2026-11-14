@@ -476,6 +476,48 @@ impl Match {
                         .collect()
                 },
                 scores: self.scores(),
+                money: self.game.money.get(&player).copied().unwrap_or(0),
+                income: sim::economy::income(&self.game, &self.catalog, player),
+                production: self
+                    .game
+                    .production
+                    .iter()
+                    .filter(|o| o.player == player)
+                    .map(|o| p::ProductionView {
+                        type_id: o.type_id.clone(),
+                        site: o.site.0,
+                        turns_left: o.turns_left,
+                    })
+                    .collect(),
+                shop: self
+                    .catalog
+                    .types
+                    .values()
+                    .filter(|t| t.cost > 0)
+                    .map(|t| p::ShopItem {
+                        type_id: t.id.clone(),
+                        cost: t.cost,
+                        build_turns: t.build_turns,
+                        sites: self
+                            .game
+                            .world
+                            .units()
+                            .iter()
+                            .filter(|s| {
+                                sim::economy::spawn_point(
+                                    &self.game,
+                                    &self.catalog,
+                                    &self.rules,
+                                    player,
+                                    t,
+                                    s.id,
+                                )
+                                .is_some()
+                            })
+                            .map(|s| s.id.0)
+                            .collect(),
+                    })
+                    .collect(),
             },
         }
     }
@@ -499,10 +541,14 @@ impl Match {
                 for r in &v.rejected {
                     let ids: Vec<String> =
                         r.order.units().iter().map(|u| u.0.to_string()).collect();
+                    let what = match &r.order {
+                        Order::Buy { type_id, .. } => format!("buy {type_id}"),
+                        _ => format!("units {}", ids.join(",")),
+                    };
                     self.send(
                         p,
                         &ServerMsg::OrderRejected {
-                            reason: format!("units {}: {}", ids.join(","), r.reason),
+                            reason: format!("{what}: {}", r.reason),
                         },
                     );
                 }

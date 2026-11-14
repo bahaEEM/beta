@@ -13,6 +13,7 @@ var log_lines := {0: [], 1: []}
 var previews := {0: 0, 1: 0}
 var radar := {0: [-1, false], 1: [-1, false]}  # [unit id, emitting at turn 1]
 var impacts := {0: 0, 1: 0}
+var paid := {0: -1, 1: -1}  # money expected at turn 2 after buying infantry
 var errors: Array = []
 var elapsed := 0.0
 
@@ -33,8 +34,11 @@ func _on_message(i: int, m: Dictionary) -> void:
 	match m.type:
 		"turn_start":
 			if int(m.turn) == 1:
-				_plan(i, m.view.own_units)
+				_plan(i, m.view.own_units, m.view)
 			elif int(m.turn) == 2:
+				if m.view.production.size() != 1 or int(m.view.money) != paid[i]:
+					errors.append("client %d: purchase not under way: %s, money %s (expected %d)" % [
+						i, m.view.production, m.view.money, paid[i]])
 				for u in m.view.own_units:
 					if int(u.id) == radar[i][0] and u.emitting == radar[i][1]:
 						errors.append("client %d: radar %d emitting not toggled" % [i, u.id])
@@ -48,7 +52,7 @@ func _on_message(i: int, m: Dictionary) -> void:
 			print("client %d: resolution with %d events, %d shell impacts" % [i, m.events.size(), impacts[i]])
 
 
-func _plan(i: int, own: Array) -> void:
+func _plan(i: int, own: Array, view: Dictionary) -> void:
 	var movers: Array = own.filter(func(u): return u.type_id == "infantry").slice(0, 2)
 	var gsr: Dictionary = own.filter(func(u): return u.type_id == "gsr")[0]
 	radar[i] = [int(gsr.id), gsr.emitting]
@@ -64,7 +68,11 @@ func _plan(i: int, own: Array) -> void:
 	# 8 km towards the enemy: inside the howitzer's range, lands within turn 1 (aim + flight).
 	var aim := Vector2(spg.pos.x + (8000.0 if i == 0 else -8000.0), spg.pos.y)
 	orders.fire_mission([int(spg.id)], {"kind": "point", "pos": aim})
-	assert(orders.list.size() == 4 and orders.moves()[0].waypoints.size() == 2)
+	# Buy infantry at the first structure that sells it; it must be under way next turn.
+	var item: Dictionary = view.shop.filter(func(s): return s.type_id == "infantry")[0]
+	orders.buy("infantry", int(item.sites[0]))
+	paid[i] = int(view.money) - int(item.cost) + int(view.income)
+	assert(orders.list.size() == 5 and orders.moves()[0].waypoints.size() == 2)
 	assert(orders.pending_stance(int(spg.id)) == "hold" and orders.missions().size() == 1)
 	var mv: Dictionary = orders.to_wire()[0]
 	clients[i].send({"type": "request_preview", "units": mv.units, "waypoints": mv.waypoints})

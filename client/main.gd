@@ -50,6 +50,11 @@ var kbg_spent := 0
 var scores: Array = []
 var zones: Array = []
 var game_over = null  # game_over message once received
+var money := 0
+var income := 0
+var production: Array = []  # own purchases under way: {type_id, site, turns_left}
+var shop: Array = []  # what is on sale: {type_id, cost, build_turns, sites}
+var shop_items: Array = []  # the shop entries listed in the open menu
 # id -> {id, owner, type, pos: Vector2, heading, state, quality, kind: exact|area|bearing, radius, angle,
 #        and for own units: hp, fuel, ammo, emitting, supply_fuel, supply_ammo, stance, connected}
 var units := {}
@@ -80,6 +85,7 @@ func _ready() -> void:
 	ui.connect_pressed.connect(func(addr):
 		if net.connect_to(addr) != OK:
 			_status("Adres geçersiz"))
+	ui.shop_menu.id_pressed.connect(_buy)
 	ui.ready_pressed.connect(func():
 		_submit_orders()
 		net.send({"type": "ready"})
@@ -400,6 +406,10 @@ func _apply_turn_start(m: Dictionary) -> void:
 	scores = m.view.scores
 	zones = m.view.zones
 	overlays.set_zones(zones, player_id, TEAM_COLORS)
+	money = int(m.view.get("money", 0))
+	income = int(m.view.get("income", 0))
+	production = m.view.get("production", [])
+	shop = m.view.get("shop", [])
 	units.clear()
 	orders.clear()
 	previews.clear()
@@ -411,6 +421,7 @@ func _apply_turn_start(m: Dictionary) -> void:
 			"fuel": u.fuel, "ammo": int(u.ammo), "emitting": u.emitting,
 			"supply_fuel": u.supply_fuel, "supply_ammo": int(u.supply_ammo),
 			"stance": u.get("stance", "free"), "connected": u.get("connected", true)}
+		units[id].merge(u)  # the rest as sent: silent, packed_s, carried_by, suppression, ...
 	for c in m.view.contacts:
 		var id := int(c.unit)
 		units[id] = {"id": id, "owner": 1 - player_id, "type": c.type_id if c.type_id != null else "",
@@ -760,7 +771,12 @@ func _key(event: InputEventKey) -> void:
 		return
 	if event.keycode in [KEY_DELETE, KEY_BACKSPACE]:
 		orders.remove(selection)
+		for id in selection:
+			orders.cancel_buys(id)
 		_orders_changed()
+		return
+	if event.keycode == KEY_U:
+		_open_shop()
 		return
 	if event.keycode == KEY_X:  # radio silence; the one order a silent (unlinked) unit still takes
 		var on: bool = not units[selection[0]].get("silent", false)
@@ -823,6 +839,44 @@ func _key(event: InputEventKey) -> void:
 				return
 			orders.toggle_emitter(emitting)
 			_orders_changed()
+
+
+# U key: lists what the one selected structure can raise (the server says which, in `shop`).
+func _open_shop() -> void:
+	var site: int = selection[0]
+	shop_items = shop.filter(func(s): return selection.size() == 1 and s.sites.map(func(x): return int(x)).has(site))
+	if shop_items.is_empty():
+		_status("Birim satın almak için tek bir lojistik üs (kara), hava alanı (hava) ya da liman (deniz) seçin.")
+		return
+	ui.shop_menu.clear()
+	for s in shop_items:
+		ui.shop_menu.add_item("%s   %d para, %d tur" % [Hud.TYPE_NAMES.get(s.type_id, s.type_id), int(s.cost), int(s.build_turns)])
+	ui.shop_menu.popup(Rect2i(Vector2i(get_viewport().get_mouse_position()), Vector2i.ZERO))
+	_status("Para: %d. Listeden birim seçin; birim bu yapıda, yazan tur sayısı sonra çıkar." % _money_left())
+
+
+# A shop menu entry was picked for the selected structure.
+func _buy(index: int) -> void:
+	if index < 0 or index >= shop_items.size() or selection.size() != 1 or not _can_order():
+		return
+	var s: Dictionary = shop_items[index]
+	if int(s.cost) > _money_left():
+		_status("Para yetmiyor: %s %d para, elde %d." % [Hud.TYPE_NAMES.get(s.type_id, s.type_id), int(s.cost), _money_left()])
+		return
+	orders.buy(s.type_id, selection[0])
+	_orders_changed()
+	_status("Sipariş: %s (%d para, %d tur sonra #%d yanında). Vazgeçmek için yapıyı seçip Delete." % [
+		Hud.TYPE_NAMES.get(s.type_id, s.type_id), int(s.cost), int(s.build_turns), selection[0]])
+
+
+# Money minus the purchases queued this turn (display; the server does the real check).
+func _money_left() -> int:
+	var left := money
+	for o in orders.buys():
+		for s in shop:
+			if s.type_id == o.type_id:
+				left -= int(s.cost)
+	return left
 
 
 # Selected units that can take orders now; reports cut-off ones (K-083) in the status line.
@@ -918,10 +972,23 @@ func _update_hud() -> void:
 	if playing:
 		ui.line.text = "  Tur %d  çözüm %.1f / 20 sn  %s" % [turn, play_time, score]
 	elif turn > 0:
-		ui.line.text = "  Tur %d  kalan %d sn  KBG: %d / %d  %s" % [turn, ceil(deadline), kbg_spent, kbg_budget, score]
+		ui.line.text = "  Tur %d  kalan %d sn  KBG: %d / %d  Para: %d (+%d/tur)  %s" % [
+			turn, ceil(deadline), kbg_spent, kbg_budget, _money_left(), income, score]
 	ui.fps.text = "FPS %d" % Engine.get_frames_per_second()
 	var sel := selection.filter(func(id): return units.has(id)).map(func(id): return units[id])
 	ui.show_selection(sel, orders)
+	if sel.size() == 1 and sel[0].owner == player_id:
+		var site: int = sel[0].id
+		var extra := []
+		for p in production:
+			if int(p.site) == site:
+				extra.append("Üretimde: %s (%d tur kaldı)" % [Hud.TYPE_NAMES.get(p.type_id, p.type_id), int(p.turns_left)])
+		for o in orders.buys(site):
+			extra.append("Sipariş: %s (bu tur)" % Hud.TYPE_NAMES.get(o.type_id, o.type_id))
+		if shop.any(func(s): return s.sites.map(func(x): return int(x)).has(site)):
+			extra.append("U: birim satın al")
+		if not extra.is_empty():
+			ui.info.text += "\n" + "\n".join(extra)
 
 
 func _status(text: String) -> void:

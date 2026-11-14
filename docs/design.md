@@ -10,7 +10,7 @@ Yeni testlerin adı kural kimliğiyle başlar (`k043_...`). Eski testler aşağ�
   birimler kimlik sırasıyla işlenir, sıralı kaplar kullanılır.
 - **K-002 Tur.** Planlama (45 sn gerçek zaman; iki oyuncu "Hazır" derse erken biter) → çözüm 200 adım → tur sonu.
   Bir adım 0,6 sn oyun zamanıdır: bir tur = 2 dk oyun, ekranda 20 sn oynatılır.
-- **K-003 Adım sırası.** hareket → sensör/iz → direkt ateş (eşzamanlı) → dolaylı atış → çarpma/hasar → ele geçirme. Tur sonu: ikmal (K-130…K-134) → sağlık → zafer kontrolü.
+- **K-003 Adım sırası.** hareket → sensör/iz → direkt ateş (eşzamanlı) → dolaylı atış → çarpma/hasar → ele geçirme. Tur sonu: ikmal (K-130…K-134) → gelir ve üretim (K-170…K-173) → sağlık → zafer kontrolü.
 
 ## Emirler ve KBG
 - **K-010 KBG bütçesi.** Oyuncu başına tur başı 8 puan. Her emir, içindeki her başlayan 12 birim için 1 puan
@@ -164,6 +164,20 @@ Hepsi tur sonunda, bu sırayla işler: üretim → taşıyıcılar → yakın ik
 - **K-165 Deniz ikmali.** Liman depolama yapısıdır; ikmal gemisi taşıyıcıdır (K-132: üslü limanda dolar, kopuk limana boşaltır).
   Gemiler yakıt ve mühimmatı limanın ya da ikmal gemisinin 300 m yakınında alır; denizde erimezler.
 
+## Ekonomi ve takviye (M7)
+- **K-170 Gelir.** Her oyuncu `economy.start_money` (300) parayla başlar. Tur sonunda, ikmalden sonra, oyuncunun **ikmalli** (K-133: ağında
+  stok olan) her bölgesi `income` kadar para verir (senaryoda bölgeye yazılmamışsa `economy.region_income` = 20). İkmal hattı kesilen
+  bölge para vermez. Para ve gelir yalnız sahibine bildirilir.
+- **K-171 Satın alma.** `buy` emri (`type_id`, `site`): `cost` değeri 0'dan büyük her birim tipi alınabilir (yapılar ve karargâh alınamaz).
+  `site`, oyuncunun ayakta duran ve o sınıfı yetiştiren (`produces`) yapısı olmalı: kara birimi lojistik üste, hava birimi hava alanında,
+  gemi ve denizaltı limanda (limanın `economy.launch_radius_m` = 1000 m yakınında su olmalı). Para emir kabul edilince peşin düşer;
+  yetmezse emir reddedilir. Satın alma KBG harcamaz, telsiz bağı istemez.
+- **K-172 Üretim.** Sipariş, `build_turns` tur sonu sonra teslim edilir (1 = satın alındığı turun sonunda): birim yapının üstünde, gemi
+  limana en yakın su hücresinde, tam can / yakıt / mühimmatla belirir. Yeni birimin kimliği o ana kadarki en büyük kimlik + 1'dir;
+  siparişler veriliş sırasıyla işlenir.
+- **K-173 Sipariş kaybı.** Teslimden önce yapı yok edilir ya da el değiştirirse (K-122) sipariş yanar; para geri gelmez.
+- Onarım ve yapı inşası bu pakette yok; istihkâm birimiyle M8'de gelecek (docs/MEKANIK_PLAN.md).
+
 ## Görünürlük
 - **K-050 Görünürlük filtresi.** Oyuncuya giden hiçbir mesaj, o an göremediği birimin kimliğini veya konumunu içermez.
   İz 1 = 500 m'lik hücrenin merkezi; kerterizle bilinen birim için sadece yön; iz ≥ 2 = kesin konum, iz ≥ 2'de tip.
@@ -271,6 +285,10 @@ Bütün sayılar yer tutucudur; görsel aşamadan önce oyun testiyle ayarlanaca
 | K-163 | k163_naval_weapons_engage_their_own_kind_of_target |
 | K-164 | k164_landing_ships_carry_units_from_shore_to_shore |
 | K-165 | k165_ports_and_supply_ships_carry_the_supply_network_over_the_sea |
+| K-170 | k170_only_supplied_own_regions_pay |
+| K-171 | k171_buying_needs_money_and_the_right_structure, k171_hasandag_both_sides_can_buy_every_class |
+| K-172 | k172_bought_units_appear_at_their_structure_after_the_build_time |
+| K-173 | k173_orders_are_lost_with_their_structure |
 | K-071 | g6_client_messages_round_trip, g6_server_messages_round_trip, g6_version_mismatch_rejected, g6_oversized_message_rejected, g6_protocol_md_up_to_date |
 | K-072 | g7_resume_after_shutdown, g7_reconnect_same_name, g7_planning_deadline_starts_resolution |
 

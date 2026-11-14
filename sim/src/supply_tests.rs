@@ -21,6 +21,7 @@ fn zone(id: u32, owner: Option<u8>, links: &[u32]) -> Zone {
         links: links.to_vec(),
         owner: owner.map(PlayerId),
         base: None,
+        income: 0,
         progress: None,
     }
 }

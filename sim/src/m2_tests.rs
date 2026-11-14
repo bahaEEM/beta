@@ -187,6 +187,7 @@ fn zone(id: u32, x: f64, owner: u8) -> Zone {
         links: Vec::new(),
         owner: Some(PlayerId(owner)),
         base: None,
+        income: 0,
         progress: None,
     }
 }

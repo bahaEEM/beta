@@ -354,6 +354,7 @@ fn k165_ports_and_supply_ships_carry_the_supply_network_over_the_sea() {
         links: Vec::new(),
         owner: Some(PlayerId(0)),
         base: None,
+        income: 0,
         progress: None,
     }];
     end_of_turn(&mut g, &cat, &r);

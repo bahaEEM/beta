@@ -4,6 +4,7 @@
 pub mod combat;
 pub mod comms;
 pub mod data;
+pub mod economy;
 pub mod event;
 pub mod indirect;
 pub mod logistics;

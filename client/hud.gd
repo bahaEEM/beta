@@ -101,6 +101,7 @@ var drag_box := ColorRect.new()
 var over_panel := PanelContainer.new()
 var over_label := Label.new()
 var log_box := RichTextLabel.new()
+var shop_menu := PopupMenu.new()  # units on sale at the selected structure (U key)
 var log_lines: Array = []  # [text, colour, repeat count]
 
 
@@ -135,6 +136,8 @@ func _ready() -> void:
 	info_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	info_panel.add_child(info)
 	add_child(info_panel)
+
+	add_child(shop_menu)
 
 	drag_box.color = Color(1, 1, 0.3, 0.15)
 	drag_box.visible = false

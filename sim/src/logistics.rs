@@ -23,6 +23,9 @@ pub struct Zone {
     /// Home base of this player: whoever else takes it wins the match (K-061).
     #[serde(default)]
     pub base: Option<PlayerId>,
+    /// Money per turn for the owner while the region is in supply (K-170).
+    #[serde(default)]
+    pub income: u32,
     /// Player capturing and ticks spent so far.
     #[serde(default)]
     pub progress: Option<(PlayerId, u32)>,
@@ -119,9 +122,11 @@ pub fn region_counts(zones: &[Zone]) -> BTreeMap<PlayerId, u32> {
     counts
 }
 
-/// End of turn: supply (K-130…K-134), medical care, then the match decision.
+/// End of turn: supply (K-130…K-134), economy (K-170…K-173), medical care, then the
+/// match decision.
 pub fn end_of_turn(game: &mut Game, catalog: &UnitCatalog, rules: &Rules) {
     crate::supply::step_supply(game, catalog, rules);
+    crate::economy::step_economy(game, catalog, rules);
 
     // K-123: medical units treat friendly infantry in reach (the best one counts).
     let medics: Vec<(PlayerId, Vec2, f64)> = game
@@ -203,6 +208,7 @@ mod tests {
             links: Vec::new(),
             owner: owner.map(PlayerId),
             base: None,
+            income: 0,
             progress: None,
         }
     }

@@ -119,6 +119,8 @@ struct ScenarioZone {
     owner: Option<u8>,
     /// Home base of this player (K-061).
     base: Option<u8>,
+    /// Money per turn while in supply (K-170); default `economy.region_income`.
+    income: Option<u32>,
 }
 
 /// New game from `data/scenarios/<map_id>.toml`: starting units and zones (map metres).
@@ -173,6 +175,7 @@ pub fn load_game(
             links: z.road_links,
             owner: z.owner.map(PlayerId),
             base: z.base.map(PlayerId),
+            income: z.income.unwrap_or(rules.economy.region_income),
             progress: None,
         });
     }

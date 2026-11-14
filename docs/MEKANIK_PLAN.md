@@ -68,6 +68,17 @@ ZMA + piyade taşıma · bölge noktaları + puan + zafer · yakıt/mühimmat + 
 ### M7 — Ekonomi ve takviye (HoI4)
 - Bölgeler kaynak üretir; tur sonu gelir. Lojistik üste birim satın alma / takviye kuyruğu (birkaç tur sürer).
 - Hasarlı birimlerin onarımı (depo/liman yanında), kayıpların ikmali.
+- ✔ (2026-11-15) K-170…K-173. Kullanıcı kararları: gelir **yalnız ikmalli bölgelerden** · birim **türüne göre yapıda** (kara: lojistik üs,
+  hava: hava alanı, deniz: liman) ve **birkaç tur sonra** çıkar; yapı düşerse sipariş yanar · **onarım ve inşaat bu pakette yok**, M8'e alındı.
+  Fiyatlar, süreler ve gelir tahmini; denge ayarı yapılmadı.
+
+### M8 — İstihkâm: onarım ve inşaat (kullanıcı isteği, 2026-11-15; ayrıntısı birlikte düşünülecek)
+- Kullanıcı: "istihkâm çok hayati". Onarımın tek mantıklı yolu bir **istihkâm birimi** (C&C'de birim yenilemenin bir şey gerektirmesi gibi).
+- İnşaat da istihkâm birimiyle ve **ek ücretle**; uzun sürer (2–3 tur). Yalnız gerçekte 2–3 günde kurulabilecek şeyler:
+  **onarım çadırı**, **iyileştirme çadırı** (yalnız piyade), **baz istasyonu kulesi**, **kazılmış sığınak** (obüse dayanıklı, kara birimlerine
+  karşı iyi savunma), hava savunma mevzisi. Hava alanı gibi büyük yapılar **inşa edilemez**; beton tankeri gibi yeni araç istenmiyor.
+- Açık sorular (başlamadan sorulacak): istihkâm neyi, ne hızla onarır (araç / yapı / gemi)? Onarım para ister mi? Sığınağa kaç birim girer?
+  Baz istasyonu telsiz rölesi mi (K-081)? İnşaat sırasında istihkâm savunmasız mı? Mayın / köprü / engel gibi işler de olacak mı?
 
 ### Her paketten sonra
 Testler (K-kimlikli) + denge raporu + gerektiğinde istemci gösterimi (alt ajan) + commit + PROGRESS.md.

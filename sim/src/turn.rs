@@ -4,6 +4,7 @@
 use crate::combat::{step_combat, CombatState};
 use crate::comms::{connected_units, players_with_hq, wired_to_hq};
 use crate::data::{Rules, UnitCatalog, UnitClass};
+use crate::economy::{check_buy, BuyError, Purchase};
 use crate::event::{Event, TickEvent};
 use crate::indirect::{step_impacts, step_launch, FireTarget, GunFix, Launches, Shell};
 use crate::logistics::{end_of_turn, step_capture, MatchResult, Zone};
@@ -43,6 +44,12 @@ pub struct Game {
     /// Enemy guns located by counter-battery radars (K-153).
     #[serde(default)]
     pub gun_fixes: Vec<GunFix>,
+    /// Money per player (K-170).
+    #[serde(default)]
+    pub money: BTreeMap<PlayerId, u32>,
+    /// Units paid for and not delivered yet, in purchase order (K-172).
+    #[serde(default)]
+    pub production: Vec<Purchase>,
 }
 
 impl Game {
@@ -52,7 +59,14 @@ impl Game {
         update_tracks(&world, catalog, rules, &mut tracks);
         let hq_players = players_with_hq(&world, catalog);
         let connected = connected_units(&world, catalog, rules, &hq_players);
+        let money = world
+            .units()
+            .iter()
+            .map(|u| (u.owner, rules.economy.start_money))
+            .collect();
         Self {
+            money,
+            production: Vec::new(),
             turn: 1,
             world,
             routes: Routes::new(),
@@ -93,6 +107,8 @@ pub enum Order {
     Disembark { units: Vec<UnitId> },
     /// Radio silence on or off (K-151).
     SetSilence { units: Vec<UnitId>, on: bool },
+    /// Buys a unit; it appears at the structure `site` some turns later (K-171).
+    Buy { type_id: String, site: UnitId },
 }
 
 impl Order {
@@ -106,6 +122,7 @@ impl Order {
             | Order::Embark { units, .. }
             | Order::SetSilence { units, .. }
             | Order::Disembark { units } => units,
+            Order::Buy { .. } => &[],
         }
     }
 }
@@ -125,6 +142,7 @@ pub enum RejectReason {
     /// Embark: not infantry, carrier unsuitable, too far or full.
     CannotEmbark,
     Move(MoveError),
+    Buy(BuyError),
 }
 
 impl fmt::Display for RejectReason {
@@ -140,6 +158,11 @@ impl fmt::Display for RejectReason {
             RejectReason::Embarked => write!(f, "unit is inside a carrier"),
             RejectReason::CannotEmbark => write!(f, "cannot board that carrier"),
             RejectReason::Move(e) => write!(f, "{e}"),
+            RejectReason::Buy(BuyError::NotForSale) => write!(f, "that unit is not for sale"),
+            RejectReason::Buy(BuyError::BadSite) => {
+                write!(f, "that structure cannot raise this unit")
+            }
+            RejectReason::Buy(BuyError::NoMoney) => write!(f, "not enough money"),
         }
     }
 }
@@ -168,6 +191,9 @@ pub struct Validated {
     pub ordered: BTreeSet<UnitId>,
     pub rejected: Vec<Rejection>,
     pub kbg_spent: u32,
+    /// Accepted purchases (type, site) and their total price (K-171).
+    pub purchases: Vec<(String, UnitId)>,
+    pub money_spent: u32,
 }
 
 /// KBG cost of an order for `n` units: `order_cost` per started `units_per_point` units.
@@ -226,7 +252,23 @@ pub fn validate_orders(
     let mut v = Validated::default();
     // Movement (move/stop) and emitter switches are independent: one of each per unit.
     let mut seen = BTreeSet::new();
+    let money = game.money.get(&player).copied().unwrap_or(0);
     for order in orders {
+        // K-171: purchases need money, not command points or a radio link.
+        if let Order::Buy { type_id, site } = order {
+            let left = money.saturating_sub(v.money_spent);
+            match check_buy(game, catalog, rules, player, type_id, *site, left) {
+                Ok(cost) => {
+                    v.purchases.push((type_id.clone(), *site));
+                    v.money_spent += cost;
+                }
+                Err(e) => v.rejected.push(Rejection {
+                    order: order.clone(),
+                    reason: RejectReason::Buy(e),
+                }),
+            }
+            continue;
+        }
         let units = order.units();
         let kind = match order {
             Order::Move { .. }
@@ -237,6 +279,7 @@ pub fn validate_orders(
             Order::SetStance { .. } => 2,
             Order::FireMission { .. } => 3,
             Order::SetSilence { .. } => 4,
+            Order::Buy { .. } => continue, // handled above
         };
         let cost = order_cost(rules, units.len());
         let unique: BTreeSet<_> = units.iter().collect();
@@ -375,6 +418,7 @@ pub fn validate_orders(
                     v.silences.extend(units.iter().map(|&id| (id, *on)));
                     None
                 }
+                Order::Buy { .. } => None, // handled above
                 Order::FireMission { units, target } => {
                     let armed = |id: &UnitId| {
                         game.world
@@ -417,6 +461,18 @@ pub fn plan_phase(
     fly_home_without_link(game, catalog);
     for (&player, orders) in orders_by_player {
         let v = validate_orders(game, catalog, rules, player, orders);
+        if let Some(m) = game.money.get_mut(&player) {
+            *m = m.saturating_sub(v.money_spent);
+        }
+        for (type_id, site) in v.purchases {
+            let turns_left = catalog.get(&type_id).map_or(1, |t| t.build_turns);
+            game.production.push(Purchase {
+                player,
+                type_id,
+                site,
+                turns_left,
+            });
+        }
         for (id, change) in v.changes {
             match change {
                 Some(route) => game.routes.insert(id, route),
@@ -495,28 +551,9 @@ fn naval_carrier(world: &World, catalog: &UnitCatalog, carrier: UnitId) -> bool 
         .is_some_and(|t| t.class.is_naval())
 }
 
-/// Nearest land sample within the ship boarding distance of `pos` (ties: north, then west).
+/// Nearest land sample within the ship boarding distance of `pos`.
 fn shore_near(world: &World, rules: &Rules, pos: Vec2) -> Option<Vec2> {
-    let map = &world.map;
-    let cell = map.cell_size_m();
-    let reach = rules.transport.ship_embark_radius_m;
-    let r = (reach / cell).ceil() as i64;
-    let (ci, cj) = ((pos.x / cell).round() as i64, (pos.y / cell).round() as i64);
-    let mut best: Option<(f64, Vec2)> = None;
-    for j in (cj - r)..=(cj + r) {
-        for i in (ci - r)..=(ci + r) {
-            if i < 0 || j < 0 || i as usize >= map.width() || j as usize >= map.height() {
-                continue;
-            }
-            let p = Vec2::new(i as f64 * cell, j as f64 * cell);
-            let d = p.distance(pos);
-            let land = map.terrain(i as usize, j as usize) != crate::world::Terrain::Water;
-            if land && d <= reach && best.is_none_or(|(bd, _)| d < bd) {
-                best = Some((d, p));
-            }
-        }
-    }
-    best.map(|(_, p)| p)
+    crate::economy::nearest_cell(world, pos, rules.transport.ship_embark_radius_m, false)
 }
 
 /// K-155: remote-piloted aircraft without a link to their HQ (jammed, out of range or

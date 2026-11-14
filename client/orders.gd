@@ -6,6 +6,7 @@
 #             | {"type": "fire_mission", "units": [ids], "target": {"kind": "point", "pos": Vector2} | {"kind": "unit", "unit": id}}
 #             | {"type": "embark", "units": [ids], "carrier": id} | {"type": "disembark", "units": [ids]}
 #             | {"type": "set_silence", "units": [ids], "on": bool}
+#             | {"type": "buy", "type_id": String, "site": id}   (no units)
 extends RefCounted
 
 var list: Array = []
@@ -73,6 +74,20 @@ func set_silence(sel: Array, on: bool) -> void:
 	list.append({"type": "set_silence", "units": sel.duplicate(), "on": on})
 
 
+# Buys a unit at a structure (the server checks money and the structure).
+func buy(type_id: String, site: int) -> void:
+	list.append({"type": "buy", "type_id": type_id, "site": site})
+
+
+# Pending purchases, of one structure or (site < 0) of all.
+func buys(site := -1) -> Array:
+	return list.filter(func(o): return o.type == "buy" and (site < 0 or o.site == site))
+
+
+func cancel_buys(site: int) -> void:
+	list = list.filter(func(o): return o.type != "buy" or o.site != site)
+
+
 func remove(sel: Array) -> void:
 	_remove_units(sel, ["move", "stop", "set_emitter", "set_stance", "fire_mission", "embark", "disembark", "set_silence"])
 
@@ -129,7 +144,7 @@ func _remove_units(ids: Array, types: Array) -> void:
 	for o in list:
 		if o.type in types:
 			o.units = o.units.filter(func(u): return not (u in ids))
-	list = list.filter(func(o): return not o.units.is_empty())
+	list = list.filter(func(o): return o.type == "buy" or not o.units.is_empty())
 
 
 func _same(a: Array, b: Array) -> bool:

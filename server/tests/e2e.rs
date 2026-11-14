@@ -7,7 +7,7 @@ use protocol::{self as p, ClientMsg, ServerMsg};
 use server::setup::{load_game, load_latest};
 use server::{serve, MatchSetup};
 use sim::data::{load_rules, load_units};
-use sim::world::HeightMap;
+use sim::world::{HeightMap, PlayerId};
 use std::collections::BTreeSet;
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -357,4 +357,29 @@ fn k130_hasandag_starts_with_all_owned_regions_supplied() {
         .collect();
     assert!(cut.is_empty(), "owned but unsupplied: {cut:?}");
     assert_eq!(g.zones.iter().filter(|z| z.owner.is_some()).count(), 16);
+}
+
+/// On the Hasandag map both sides start able to buy land, air and naval units (K-171):
+/// each has a logistics base, an airfield and a port close enough to the sea.
+#[test]
+fn k171_hasandag_both_sides_can_buy_every_class() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+    let (catalog, rules) = server::setup::load_data(&root.join("data")).unwrap();
+    let map = server::setup::load_map(&root.join("maps/hasandag")).unwrap();
+    let text = std::fs::read_to_string(root.join("data/scenarios/hasandag.toml")).unwrap();
+    let g = load_game(&text, map, &catalog, &rules).unwrap();
+    for player in [PlayerId(0), PlayerId(1)] {
+        assert_eq!(g.money[&player], rules.economy.start_money);
+        assert_eq!(
+            sim::economy::income(&g, &catalog, player),
+            8 * rules.economy.region_income
+        );
+        for kind in ["infantry", "mbt", "uav", "patrol_boat", "submarine"] {
+            let t = catalog.get(kind).unwrap();
+            let ok = g.world.units().iter().any(|s| {
+                sim::economy::spawn_point(&g, &catalog, &rules, player, t, s.id).is_some()
+            });
+            assert!(ok, "player {} has nowhere to buy {kind}", player.0);
+        }
+    }
 }
