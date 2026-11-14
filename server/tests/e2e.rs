@@ -315,3 +315,21 @@ async fn g7_planning_deadline_starts_resolution() {
     assert_eq!(a.resolution().await.0, 1);
     assert_eq!(b.resolution().await.0, 1);
 }
+
+#[test]
+fn k024_scenario_rejects_ground_unit_on_water() {
+    let catalog = load_units(include_str!("../../data/units.toml")).unwrap();
+    let rules = load_rules(include_str!("../../data/rules.toml")).unwrap();
+    let sea = || {
+        HeightMap::new(120, 120, 50.0, vec![0.0; 14_400])
+            .unwrap()
+            .with_terrain(vec![3; 14_400])
+            .unwrap()
+    };
+    let scenario = |t: &str| {
+        format!("[[unit]]\nid = 1\nowner = 0\ntype = \"{t}\"\nx = 1000.0\ny = 1000.0\nheading_deg = 0.0\n")
+    };
+    let err = load_game(&scenario("mbt"), sea(), &catalog, &rules).unwrap_err();
+    assert!(err.to_string().contains("water"), "{err}");
+    assert!(load_game(&scenario("uav"), sea(), &catalog, &rules).is_ok());
+}

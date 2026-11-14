@@ -2,13 +2,19 @@
 
 //! Map tools.
 //!
-//! `tools convert --input <dem.tif> --out-dir <dir> [--cell 50]`
+//! `tools convert --input <dem.tif> --out-dir <dir> [--cell 50]
+//!                [--sea-x0 <m> --sea-slope <m per km> --sea-level <m>]`
 //! `tools roads --osm <overpass.json> --map-dir <dir>` (see `roads.rs`)
+//! `tools cover --osm <overpass.json> --map-dir <dir>` (see `cover.rs`)
 //!
 //! Reads a single-band GeoTIFF of heights (metres) in a projected metre CRS and writes
 //! `sim_height.bin` (bilinear, `cell` metres, f32 LE, row 0 = north), `terrain_r16.raw`
 //! (source resolution, u16 LE, min..max -> 0..65535) and `map.toml` describing both.
 //! Nodata / NaN samples are replaced by the minimum valid height.
+//!
+//! The three `--sea-*` flags turn the east of the map into a sea (a test coast): from
+//! `x0` metres east of the west edge the ground is lowered by `slope` metres per km, and
+//! everything that ends up below `level` becomes flat water at `level`.
 
 use std::error::Error;
 use std::fs::{self, File};
@@ -17,11 +23,12 @@ use std::path::{Path, PathBuf};
 use tiff::decoder::{Decoder, DecodingResult};
 use tiff::tags::Tag;
 
+mod cover;
 mod roads;
 
 type Res<T> = Result<T, Box<dyn Error>>;
 
-const USAGE: &str = "usage: tools convert --input <metric GeoTIFF> --out-dir <dir> [--cell <m>]\n       tools roads --osm <overpass.json> --map-dir <dir>";
+const USAGE: &str = "usage: tools convert --input <metric GeoTIFF> --out-dir <dir> [--cell <m>] [--sea-x0 <m> --sea-slope <m/km> --sea-level <m>]\n       tools roads --osm <overpass.json> --map-dir <dir>\n       tools cover --osm <overpass.json> --map-dir <dir>";
 
 /// GeoKey ids (GeoTIFF spec 1.0).
 const GT_RASTER_TYPE_KEY: u16 = 1025;
@@ -54,7 +61,7 @@ fn main() {
 
 fn run(args: &[String]) -> Res<()> {
     let (cmd, rest) = args.split_first().ok_or("missing command")?;
-    if cmd == "roads" {
+    if cmd == "roads" || cmd == "cover" {
         let (mut osm, mut map_dir) = (None, None);
         for pair in rest.chunks(2) {
             match pair {
@@ -63,10 +70,13 @@ fn run(args: &[String]) -> Res<()> {
                 _ => return Err(format!("bad arguments {pair:?}").into()),
             }
         }
-        let msg = roads::run(
-            &osm.ok_or("--osm is required")?,
-            &map_dir.ok_or("--map-dir is required")?,
-        )?;
+        let osm = osm.ok_or("--osm is required")?;
+        let map_dir = map_dir.ok_or("--map-dir is required")?;
+        let msg = if cmd == "roads" {
+            roads::run(&osm, &map_dir)?
+        } else {
+            cover::run(&osm, &map_dir)?
+        };
         println!("{msg}");
         return Ok(());
     }
@@ -76,6 +86,7 @@ fn run(args: &[String]) -> Res<()> {
     let mut input = None;
     let mut out_dir = None;
     let mut cell = 50.0;
+    let (mut sea_x0, mut sea_slope, mut sea_level) = (None, None, None);
     let mut it = rest.iter();
     while let Some(flag) = it.next() {
         let val = it
@@ -85,13 +96,21 @@ fn run(args: &[String]) -> Res<()> {
             "--input" => input = Some(PathBuf::from(val)),
             "--out-dir" => out_dir = Some(PathBuf::from(val)),
             "--cell" => cell = val.parse()?,
+            "--sea-x0" => sea_x0 = Some(val.parse::<f64>()?),
+            "--sea-slope" => sea_slope = Some(val.parse::<f64>()?),
+            "--sea-level" => sea_level = Some(val.parse::<f32>()?),
             _ => return Err(format!("unknown flag '{flag}'").into()),
         }
     }
     let input = input.ok_or("--input is required")?;
     let out_dir = out_dir.ok_or("--out-dir is required")?;
-    let dem = read_geotiff(&input)?;
-    let (w, h) = convert(&dem, &out_dir, cell)?;
+    let mut dem = read_geotiff(&input)?;
+    match (sea_x0, sea_slope, sea_level) {
+        (Some(x0), Some(slope), Some(level)) => flood_east(&mut dem, x0, slope, level),
+        (None, None, None) => {}
+        _ => return Err("--sea-x0, --sea-slope and --sea-level go together".into()),
+    }
+    let (w, h) = convert(&dem, &out_dir, cell, sea_level)?;
     println!(
         "source {}x{} @ {}x{} m, sim {w}x{h} @ {cell} m, height {}..{} m -> {}",
         dem.width,
@@ -212,7 +231,23 @@ fn bilinear(dem: &Dem, fx: f64, fy: f64) -> f32 {
 }
 
 /// Writes the three output files; returns the sim grid size.
-fn convert(dem: &Dem, out_dir: &Path, cell: f64) -> Res<(usize, usize)> {
+/// Tilts the ground down towards the east from `x0_m` (metres from the west edge) by
+/// `slope_m_per_km` and floods everything below `level_m` to a flat sea at that level.
+fn flood_east(dem: &mut Dem, x0_m: f64, slope_m_per_km: f64, level_m: f32) {
+    let (width, pixel_x) = (dem.width, dem.pixel_x);
+    for (k, h) in dem.heights.iter_mut().enumerate() {
+        let east = ((k % width) as f64 * pixel_x - x0_m).max(0.0);
+        *h = ((f64::from(*h) - slope_m_per_km * east / 1000.0) as f32).max(level_m);
+    }
+    dem.min = dem.heights.iter().copied().fold(f32::INFINITY, f32::min);
+    dem.max = dem
+        .heights
+        .iter()
+        .copied()
+        .fold(f32::NEG_INFINITY, f32::max);
+}
+
+fn convert(dem: &Dem, out_dir: &Path, cell: f64, sea_level: Option<f32>) -> Res<(usize, usize)> {
     if !(cell.is_finite() && cell > 0.0) {
         return Err("--cell must be > 0".into());
     }
@@ -259,6 +294,7 @@ fn convert(dem: &Dem, out_dir: &Path, cell: f64) -> Res<(usize, usize)> {
          min_height_m = {min}\n\
          max_height_m = {max}\n\
          heights = \"sim_height.bin\" # f32 little-endian, row-major\n\
+         {sea}\
          \n\
          # Terrain3D import: 16-bit LE unsigned, source resolution, row 0 = north.\n\
          # height_m = min_height_m + value / 65535 * (max_height_m - min_height_m)\n\
@@ -270,6 +306,9 @@ fn convert(dem: &Dem, out_dir: &Path, cell: f64) -> Res<(usize, usize)> {
          pixel_size_y_m = {py}\n\
          min_height_m = {min}\n\
          max_height_m = {max}\n",
+        sea = sea_level.map_or(String::new(), |l| format!(
+            "sea_level_m = {l} # samples at or below this height are water\n"
+        )),
         ox = dem.origin_x,
         oy = dem.origin_y,
         min = dem.min,
@@ -382,6 +421,43 @@ mod tests {
         ] {
             assert!(toml.contains(line), "missing '{line}' in:\n{toml}");
         }
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn k025_convert_floods_the_east() {
+        let dir = std::env::temp_dir().join(format!("k025_sea_{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let tif = dir.join("dem.tif");
+        write_fixture(&tif);
+        let out = dir.join("out");
+        // From x = 200 m the ground drops 1000 m per 100 m; sea level 5 m.
+        let args: Vec<String> = [
+            "convert",
+            "--input",
+            tif.to_str().unwrap(),
+            "--out-dir",
+            out.to_str().unwrap(),
+            "--sea-x0",
+            "200",
+            "--sea-slope",
+            "10000",
+            "--sea-level",
+            "5",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        run(&args).unwrap();
+        let sim = read_f32(&out.join("sim_height.bin"));
+        let row1 = |i: usize| sim[2 * 9 + i]; // sim row 2 = source row 1 (1000 + 10 * col)
+        assert_eq!(row1(4), 1020.0); // x = 200: untouched
+        assert_eq!(row1(6), 30.0); // x = 300: 1030 - 1000
+        assert_eq!(row1(8), 5.0); // x = 400: below the sea -> flat water
+        let toml = fs::read_to_string(out.join("map.toml")).unwrap();
+        assert!(toml.contains("sea_level_m = 5"), "{toml}");
+        assert!(toml.contains("min_height_m = 5\n"), "{toml}");
+        assert!(run(&args[..args.len() - 2]).is_err(), "all three sea flags");
         fs::remove_dir_all(&dir).unwrap();
     }
 

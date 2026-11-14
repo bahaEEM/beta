@@ -4,9 +4,10 @@
 //!
 //! Reads an Overpass `out geom` JSON of highway ways, projects WGS84 to UTM zone 36N
 //! (EPSG:32636) and then to sim metres (x = E - origin_x, y = origin_y - N, so sim sample
-//! (i, j) of `map.toml` is at (i * cell, j * cell)). Writes `roads.bin` (u8 class per sim
+//! (i, j) of `map.toml` is at (i * cell, j * cell)). Roads stop at the sea. Writes `roads.bin` (u8 class per sim
 //! cell), `roads_lines.json` (clipped, simplified polylines) and `roads.toml` (summary).
 
+use crate::cover::{load_sim_map, LatLon};
 use crate::Res;
 use serde::Deserialize;
 use std::fmt::Write as _;
@@ -36,21 +37,6 @@ struct Element {
     tags: std::collections::BTreeMap<String, String>,
     #[serde(default)]
     geometry: Vec<LatLon>,
-}
-
-#[derive(Deserialize)]
-struct LatLon {
-    lat: f64,
-    lon: f64,
-}
-
-#[derive(Deserialize)]
-struct MapToml {
-    width: usize,
-    height: usize,
-    cell_size_m: f64,
-    origin_x: f64,
-    origin_y: f64,
 }
 
 /// 0 = none, 1 = track/service, 2 = minor, 3 = major.
@@ -170,12 +156,9 @@ fn simplify(pts: &[[f64; 2]]) -> Vec<[f64; 2]> {
 }
 
 pub fn run(osm: &Path, map_dir: &Path) -> Res<String> {
-    let map: MapToml = toml::from_str(&fs::read_to_string(map_dir.join("map.toml"))?)?;
+    let map = load_sim_map(map_dir)?;
     let data: Overpass = serde_json::from_str(&fs::read_to_string(osm)?)?;
-    let (w, h, cell) = (map.width, map.height, map.cell_size_m);
-    if w == 0 || h == 0 || !(cell.is_finite() && cell > 0.0) {
-        return Err("map.toml: width, height and cell_size_m must be > 0".into());
-    }
+    let (w, h, cell) = (map.w, map.h, map.cell);
     let (xmax, ymax) = ((w - 1) as f64 * cell, (h - 1) as f64 * cell);
 
     let mut grid = vec![0u8; w * h];
@@ -186,15 +169,12 @@ pub fn run(osm: &Path, map_dir: &Path) -> Res<String> {
         if class == 0 {
             continue;
         }
-        let pts: Vec<[f64; 2]> = el
-            .geometry
-            .iter()
-            .map(|g| {
-                let (e, n) = utm_forward(g.lat, g.lon, 33.0);
-                [e - map.origin_x, map.origin_y - n]
-            })
+        let pts: Vec<[f64; 2]> = el.geometry.iter().map(|g| map.project(g)).collect();
+        // Roads end at the shore: no road cells or lines on water.
+        let pieces: Vec<Vec<[f64; 2]>> = clip_polyline(&pts, xmax, ymax)
+            .into_iter()
+            .flat_map(|piece| map.split_on_water(piece))
             .collect();
-        let pieces = clip_polyline(&pts, xmax, ymax);
         if !pieces.is_empty() {
             ways[usize::from(class)] += 1;
         }
@@ -209,8 +189,10 @@ pub fn run(osm: &Path, map_dir: &Path) -> Res<String> {
                     // Clipped to [0, xmax] so the rounded index is always in range.
                     let i = ((x / cell).round() as usize).min(w - 1);
                     let j = ((y / cell).round() as usize).min(h - 1);
-                    let c = &mut grid[j * w + i];
-                    *c = (*c).max(class);
+                    if !map.is_water(i, j) {
+                        let c = &mut grid[j * w + i];
+                        *c = (*c).max(class);
+                    }
                 }
             }
             let pts: Vec<[f64; 2]> = simplify(&piece)

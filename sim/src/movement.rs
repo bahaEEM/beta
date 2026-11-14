@@ -2,7 +2,7 @@
 //! G2: path finding and movement.
 
 use crate::data::{Rules, UnitCatalog};
-use crate::world::{HeightMap, UnitId, UnitState, Vec2, World};
+use crate::world::{HeightMap, Terrain, UnitId, UnitState, Vec2, World};
 use pathfinding::prelude::astar;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -167,7 +167,9 @@ fn successors(
                 (false, true) => c.diag,
                 (false, false) => c.straight,
             };
-            (slope <= max_slope_deg).then_some(((ni, nj), cost))
+            // K-024: ground units never enter water.
+            (slope <= max_slope_deg && map.terrain(ni, nj) != Terrain::Water)
+                .then_some(((ni, nj), cost))
         })
         .collect()
 }
@@ -348,6 +350,53 @@ mod tests {
         assert_eq!(
             plan_route(&blocked, &cat, &order),
             Err(MoveError::Unreachable { index: 0 })
+        );
+    }
+
+    #[test]
+    fn k024_ground_units_route_around_water_and_aircraft_fly_over() {
+        // 20x20 flat map; a lake across column 10 except for a ford at row 18.
+        let n = 20;
+        let mut terrain = vec![0u8; n * n];
+        for j in 0..n {
+            if j != 18 {
+                terrain[j * n + 10] = 3;
+            }
+        }
+        let map = flat(n, 50.0).with_terrain(terrain).unwrap();
+        let mut w = world(map, &[(1, Vec2::new(0.0, 0.0)), (2, Vec2::new(0.0, 0.0))]);
+        let goal = Vec2::new(950.0, 0.0);
+        let order = |unit| MoveOrder {
+            unit: UnitId(unit),
+            waypoints: vec![goal],
+        };
+        let route = plan_route(&w, &catalog(), &order(1)).unwrap();
+        assert!(route.contains(&Vec2::new(500.0, 900.0)), "through the ford");
+        assert!(route.iter().all(|&p| w.map.terrain_at(p) != Terrain::Water));
+        // A waypoint on the water is unreachable for ground units.
+        let wet = MoveOrder {
+            unit: UnitId(1),
+            waypoints: vec![Vec2::new(500.0, 0.0)],
+        };
+        assert_eq!(
+            plan_route(&w, &catalog(), &wet),
+            Err(MoveError::Unreachable { index: 0 })
+        );
+        // Aircraft ignore it.
+        if let Some(u) = w.unit_mut(UnitId(2)) {
+            u.type_id = "uav".into();
+        }
+        assert_eq!(plan_route(&w, &catalog(), &order(2)), Ok(vec![goal]));
+        assert_eq!(
+            plan_route(
+                &w,
+                &catalog(),
+                &MoveOrder {
+                    unit: UnitId(2),
+                    ..wet
+                }
+            ),
+            Ok(vec![Vec2::new(500.0, 0.0)])
         );
     }
 

@@ -126,9 +126,9 @@ func _ready() -> void:
 		_screenshot(args[shot_at + 1])
 	if "--demo" in args:
 		Demo.start(self, "--bench" in args)
-		var cam_at := args.find("--cam")
-		if cam_at >= 0 and cam_at + 1 < args.size():
-			cam_dist = float(args[cam_at + 1])
+	var cam_at := args.find("--cam")
+	if cam_at >= 0 and cam_at + 1 < args.size():
+		cam_dist = float(args[cam_at + 1])
 	if "--bench" in args:
 		_bench()
 
@@ -241,12 +241,13 @@ func _load_terrain() -> void:
 	add_child(terrain)
 	terrain.material.show_checkered = false
 	terrain.material.show_colormap = true
-	var colors := _height_colors(img, float(r["min_height_m"]), float(r["max_height_m"]))
+	var colors := _height_colors(img, float(r["min_height_m"]), float(r["max_height_m"]), float(meta.get("sea_level_m", -INF)))
 	terrain.data.import_images([img, null, colors], Vector3.ZERO, 0.0, 1.0)
 
 
 ## Colour map by altitude (display only): plain green -> brown slopes -> grey rock -> snow.
-func _height_colors(heights: Image, lo: float, hi: float) -> Image:
+## Everything at or below `sea` (map.toml sea_level_m) is drawn as water.
+func _height_colors(heights: Image, lo: float, hi: float, sea: float) -> Image:
 	var stops := [[0.0, Color(0.36, 0.48, 0.25)], [0.25, Color(0.55, 0.55, 0.32)], [0.5, Color(0.55, 0.42, 0.28)],
 		[0.75, Color(0.5, 0.47, 0.44)], [0.92, Color(0.85, 0.85, 0.85)], [1.0, Color(0.97, 0.97, 0.98)]]
 	var lut := PackedByteArray()
@@ -265,9 +266,16 @@ func _height_colors(heights: Image, lo: float, hi: float) -> Image:
 	var out := PackedByteArray()
 	out.resize(hs.size() * 4)
 	var scale := 255.0 / maxf(hi - lo, 1.0)
+	var water := Color(0.16, 0.35, 0.62)
 	for k: int in hs.size():
 		var i: int = clampi(int((hs[k] - lo) * scale), 0, 255) * 4
 		var o: int = k * 4
+		if hs[k] <= sea + 0.05:  # r16 quantisation is ~0.04 m
+			out[o] = water.r8
+			out[o + 1] = water.g8
+			out[o + 2] = water.b8
+			out[o + 3] = 255
+			continue
 		out[o] = lut[i]
 		out[o + 1] = lut[i + 1]
 		out[o + 2] = lut[i + 2]

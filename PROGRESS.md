@@ -58,7 +58,8 @@ M5 EH derinliği → M6 deniz/sonar → M7 ekonomi/takviye). Görsel giydirme en
 
 | Paket | Durum | Commit | Not |
 |---|---|---|---|
-| M1 harita/bölgeler/deniz | yapılıyor | | |
+| M1a deniz + arazi örtüsü | bitti | (bu commit) | doğu denize çevrildi (kıyı x≈24–31 km, %34 su); terrain.bin: açık/orman/yerleşim/su; kara birimi suya giremez (K-024/K-025); istemci denizi mavi boyar. Orman/yerleşim istemcide henüz çizilmiyor (M4'te) |
+| M1b adlı bölgeler | bekliyor | | kullanıcı kararı bekliyor: bölge sayısı/şekli, başlangıç sahipliği, puan–zafer dengesi |
 | M2 yapılar + sağlık | bekliyor | | |
 | M3 fiziksel ikmal | bekliyor | | |
 | M4 gizlenme/pusu/baskı | bekliyor | | |

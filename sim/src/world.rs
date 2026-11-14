@@ -119,6 +119,28 @@ impl Unit {
     }
 }
 
+/// Ground cover of a map sample (K-025). The byte values are the `terrain.bin` format.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Terrain {
+    #[default]
+    Open,
+    Forest,
+    Settlement,
+    Water,
+}
+
+impl Terrain {
+    fn from_byte(b: u8) -> Self {
+        match b {
+            1 => Terrain::Forest,
+            2 => Terrain::Settlement,
+            3 => Terrain::Water,
+            _ => Terrain::Open,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum WorldError {
     BadMapSize { expected: usize, got: usize },
@@ -151,6 +173,9 @@ pub struct HeightMap {
     /// Road class per sample (0 = none); empty = no road data.
     #[serde(default)]
     roads: Vec<u8>,
+    /// Ground cover per sample (`Terrain` bytes); empty = all open land.
+    #[serde(default)]
+    terrain: Vec<u8>,
 }
 
 /// A 1x1 flat placeholder, only used until the real map is attached after loading a save.
@@ -162,6 +187,7 @@ impl Default for HeightMap {
             cell_size_m: 1.0,
             heights: vec![0.0],
             roads: Vec::new(),
+            terrain: Vec::new(),
         }
     }
 }
@@ -189,6 +215,7 @@ impl HeightMap {
             cell_size_m,
             heights,
             roads: Vec::new(),
+            terrain: Vec::new(),
         })
     }
 
@@ -202,6 +229,51 @@ impl HeightMap {
         }
         self.roads = roads;
         Ok(self)
+    }
+
+    /// Attaches a ground cover grid (one `Terrain` byte per sample, same layout as the heights).
+    pub fn with_terrain(mut self, terrain: Vec<u8>) -> Result<Self, WorldError> {
+        if terrain.len() != self.heights.len() {
+            return Err(WorldError::BadMapSize {
+                expected: self.heights.len(),
+                got: terrain.len(),
+            });
+        }
+        self.terrain = terrain;
+        Ok(self)
+    }
+
+    /// Ground cover of sample (i, j); open land outside the map or without cover data.
+    pub fn terrain(&self, i: usize, j: usize) -> Terrain {
+        if i >= self.width || j >= self.height {
+            return Terrain::Open;
+        }
+        Terrain::from_byte(self.terrain.get(j * self.width + i).copied().unwrap_or(0))
+    }
+
+    /// Ground cover of the sample nearest to a world position.
+    pub fn terrain_at(&self, pos: Vec2) -> Terrain {
+        let (gx, gy) = (
+            (pos.x / self.cell_size_m).round(),
+            (pos.y / self.cell_size_m).round(),
+        );
+        if gx < 0.0 || gy < 0.0 {
+            return Terrain::Open;
+        }
+        self.terrain(gx as usize, gy as usize)
+    }
+
+    /// Coast: a land sample with water among its eight neighbours.
+    pub fn is_coast(&self, i: usize, j: usize) -> bool {
+        self.terrain(i, j) != Terrain::Water
+            && (-1isize..=1).any(|dj| {
+                (-1isize..=1).any(
+                    |di| match (i.checked_add_signed(di), j.checked_add_signed(dj)) {
+                        (Some(ni), Some(nj)) => self.terrain(ni, nj) == Terrain::Water,
+                        _ => false,
+                    },
+                )
+            })
     }
 
     /// Road class of sample (i, j); 0 outside the map or without road data.
@@ -357,6 +429,27 @@ mod tests {
         assert!(HeightMap::new(2, 2, 50.0, vec![0.0; 3]).is_err());
         assert!(HeightMap::new(0, 0, 50.0, vec![]).is_err());
         assert!(HeightMap::new(1, 1, 0.0, vec![0.0]).is_err());
+    }
+
+    #[test]
+    fn k025_terrain_cover_and_coast() {
+        // 3x2: open forest water / settlement open open
+        let m = HeightMap::new(3, 2, 50.0, vec![0.0; 6])
+            .unwrap()
+            .with_terrain(vec![0, 1, 3, 2, 0, 0])
+            .unwrap();
+        assert_eq!(m.terrain(0, 0), Terrain::Open);
+        assert_eq!(m.terrain(1, 0), Terrain::Forest);
+        assert_eq!(m.terrain(2, 0), Terrain::Water);
+        assert_eq!(m.terrain_at(Vec2::new(10.0, 60.0)), Terrain::Settlement);
+        assert_eq!(m.terrain(9, 9), Terrain::Open, "outside the map");
+        assert!(m.is_coast(1, 0) && m.is_coast(1, 1) && m.is_coast(2, 1));
+        assert!(!m.is_coast(0, 0), "two cells from the water");
+        assert!(!m.is_coast(2, 0), "water itself is not coast");
+        // No cover data: all open; wrong size rejected.
+        let bare = HeightMap::new(3, 2, 50.0, vec![0.0; 6]).unwrap();
+        assert_eq!(bare.terrain(2, 0), Terrain::Open);
+        assert!(bare.with_terrain(vec![0; 5]).is_err());
     }
 
     #[test]

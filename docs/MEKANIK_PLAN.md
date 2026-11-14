@@ -12,8 +12,8 @@ ZMA + piyade taşıma · bölge noktaları + puan + zafer · yakıt/mühimmat + 
 ## Paketler (sırayla)
 
 ### M1 — Harita: bölgeler, deniz, arazi örtüsü
-- Hasandağı haritasının doğu yarısı denize çevrilir (test amaçlı kıyı). Hücre tipi: kara / su / kıyı.
-- Arazi örtüsü (OSM): orman, yerleşim, açık alan. Orman ve yerleşim gizlenme ve koruma verir (M4'te kullanılır).
+- Hasandağı haritasının doğu yarısı denize çevrilir (test amaçlı kıyı). Hücre tipi: kara / su / kıyı. ✔ (2026-11-14)
+- Arazi örtüsü (OSM): orman, yerleşim, açık alan. Orman ve yerleşim gizlenme ve koruma verir (M4'te kullanılır). ✔ veri (2026-11-14)
 - Adlı bölgeler: gerçek yerleşim adlarıyla 25–35 bölge (OSM yer adları, elle seçilmiş). Bölge sahipliği, cephe hattı,
   bölge değeri (puan), bölgeler arası yol bağlantıları. Eski "bölge noktaları" bölgelere taşınır.
 

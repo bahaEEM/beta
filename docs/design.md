@@ -25,6 +25,10 @@ Yeni testlerin adı kural kimliğiyle başlar (`k043_...`). Eski testler aşağ�
 - **K-021 Yol ağı.** İki yol hücresi arasındaki kenar `speed_road_mps` ile, diğerleri `speed_offroad_mps` ile; A* hızlı yolu tercih eder.
 - **K-022 Hasarlı hız.** Hasarlı birim yarı hızla gider (`damaged_speed_factor`).
 - **K-023 Yakıt.** Araç km başına `fuel_l_per_km` yakar; yakıtı biten durur. Piyade yakıt kullanmaz. Çarpışma yok.
+- **K-024 Su.** Kara birimleri su hücresine giremez: yol bulma suyun çevresinden dolanır, sudaki hedef "ulaşılamaz" döner.
+  Hava birimleri suyun üstünden uçar. Senaryoda kara birimi suya konamaz. Yollar kıyıda biter.
+- **K-025 Arazi örtüsü.** Her 50 m hücre açık / orman / yerleşim / su tiplerinden biridir (`terrain.bin`, OSM + deniz seviyesi).
+  Kıyı = sekiz komşusundan biri su olan kara hücresi. Orman ve yerleşimin gizleme/koruma etkisi M4'te gelir; şimdilik sadece veri.
 
 ## Algılama
 - **K-030 Görüş hattı.** Yükseklik haritasında yarım hücre adımlarla ışın; göz/hedef yüksekliği birim tipinden.
@@ -114,6 +118,8 @@ Bütün sayılar yer tutucudur; görsel aşamadan önce oyun testiyle ayarlanaca
 | K-020 | g2_flat_map_straight_line_and_timing, g2_flat_map_diagonal_is_octile_shortest, g2_steep_ridge_routes_through_gap, g2_errors |
 | K-021 | f1_2_path_prefers_faster_road_detour, f1_2_road_speed_on_road |
 | K-022 / K-023 | f1_4_moving_uses_fuel_and_empty_tank_stops |
+| K-024 | k024_ground_units_route_around_water_and_aircraft_fly_over, k024_scenario_rejects_ground_unit_on_water |
+| K-025 | k025_terrain_cover_and_coast, k025_fill_is_even_odd_and_keeps_the_higher_class, k025_cover_run_marks_water_and_osm_polygons, k025_convert_floods_the_east |
 | K-030 / K-031 | g3_hill_blocks_line_of_sight, g3_optical_range_boundaries |
 | K-032 | f1_5_radar_sees_moving_targets_only_when_on |
 | K-033 | f1_5_one_bearing_reveals_direction_not_position, f1_5_two_crossing_bearings_triangulate |

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use sim::data::{Rules, UnitCatalog};
 use sim::logistics::Zone;
 use sim::turn::Game;
-use sim::world::{HeightMap, PlayerId, Unit, UnitId, Vec2, World};
+use sim::world::{HeightMap, PlayerId, Terrain, Unit, UnitId, Vec2, World};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -68,11 +68,15 @@ pub fn load_map(map_dir: &Path) -> Result<HeightMap, BoxError> {
         .iter()
         .map(|c| f32::from_le_bytes(*c))
         .collect();
-    let map = HeightMap::new(meta.width, meta.height, meta.cell_size_m, heights)?;
-    // Optional road grid written by `tools roads` (same layout, one class byte per sample).
+    let mut map = HeightMap::new(meta.width, meta.height, meta.cell_size_m, heights)?;
+    // Optional grids written by `tools roads` / `tools cover` (same layout, one byte per sample).
     let roads = map_dir.join("roads.bin");
     if roads.exists() {
-        return Ok(map.with_roads(fs::read(roads)?)?);
+        map = map.with_roads(fs::read(roads)?)?;
+    }
+    let terrain = map_dir.join("terrain.bin");
+    if terrain.exists() {
+        map = map.with_terrain(fs::read(terrain)?)?;
     }
     Ok(map)
 }
@@ -127,11 +131,15 @@ pub fn load_game(
         let t = catalog
             .get(&u.type_id)
             .ok_or_else(|| format!("unit {}: unknown type '{}'", u.id, u.type_id))?;
+        let pos = Vec2::new(u.x, u.y);
+        if !t.class.is_air() && world.map.terrain_at(pos) == Terrain::Water {
+            return Err(format!("unit {}: ground unit placed on water", u.id).into());
+        }
         world.add_unit(Unit::new(
             UnitId(u.id),
             PlayerId(u.owner),
             t,
-            Vec2::new(u.x, u.y),
+            pos,
             u.heading_deg.to_radians(),
         ))?;
     }

@@ -68,6 +68,21 @@ cargo run --release -p tools -- convert \
 
 Ekrana boyut ve en düşük/en yüksek yükseklik yazılır.
 
+**Deniz (2026-11-14'ten beri kullanılan komut).** Haritanın doğusu deneme amaçlı denize çevrilir. Üç ek ayar birlikte verilir:
+
+```sh
+cargo run --release -p tools -- convert \
+  --input ~/Masaüstü/calisma-alani/veri/dem-hasandag/hasandag_utm36.tif \
+  --out-dir maps/hasandag --cell 50 \
+  --sea-x0 21000 --sea-slope 100 --sea-level 950
+```
+
+- `--sea-x0 21000`: batı kenarından 21 km sonra arazi doğuya doğru alçaltılmaya başlar.
+- `--sea-slope 100`: her km'de 100 m alçalır (dağ yerinde kalır, doğu yaylası suyun altına iner).
+- `--sea-level 950`: 950 m'nin altında kalan her yer 950 m'de düz su olur. `map.toml`'a `sea_level_m` yazılır.
+
+Kıyıyı kaydırmak için `--sea-x0` değerini değiştirin; sonra aşağıdaki `roads` ve `cover` komutlarını yeniden çalıştırın.
+
 ## Çıkan dosyalar (`maps/hasandag/`)
 
 | Dosya | Ne |
@@ -135,3 +150,30 @@ başlangıcına göre simülasyon metresine çevirir (x doğu, y güney; (i, j) 
 | `roads.toml` | Sınıf başına yol ve hücre sayısı, kaynak, OSM tarihi, lisans. |
 
 Bu dosyalar **ODbL 1.0** lisansındadır (© OpenStreetMap contributors), CC BY-SA değil. Ayrıntı: `ASSETS.md`.
+
+Haritada deniz varsa yollar kıyıda kesilir (su hücresinde yol olmaz).
+
+## Arazi örtüsü ve yer adları (OpenStreetMap)
+
+Orman ve yerleşim alanları ile yer adları tek sorguyla indirilir:
+
+```sh
+cd ~/Masaüstü/calisma-alani/veri/osm
+curl -sS -A 'beta-game-tools/0.1' -H 'Accept: application/json' -o hasandag_cover.json \
+  --data-urlencode 'data=[out:json][timeout:120];(node["place"~"^(city|town|village|hamlet|suburb|neighbourhood)$"](37.93,33.90,38.32,34.43);way["landuse"~"^(forest|residential|industrial|commercial|farmland|orchard|meadow)$"](37.93,33.90,38.32,34.43);way["natural"~"^(wood|scrub|water)$"](37.93,33.90,38.32,34.43);relation["landuse"~"^(forest|residential)$"](37.93,33.90,38.32,34.43);relation["natural"~"^(wood|water)$"](37.93,33.90,38.32,34.43););out geom;' \
+  https://overpass-api.de/api/interpreter
+```
+
+Repo klasöründe (önce `convert`, çünkü su `sim_height.bin` ve `sea_level_m`'den okunur):
+
+```sh
+cargo run --release -p tools -- cover \
+  --osm ~/Masaüstü/calisma-alani/veri/osm/hasandag_cover.json --map-dir maps/hasandag
+```
+
+| Dosya | Ne |
+|---|---|
+| `terrain.bin` | Hücre başına 1 bayt, 800 x 800. 0 açık arazi, 1 orman (`landuse=forest`, `natural=wood`), 2 yerleşim (`landuse=residential/industrial/commercial`), 3 su (yükseklik ≤ `sea_level_m`). Yerleşim ormanı, su ikisini de ezer. |
+| `terrain.toml` | Tip başına hücre sayısı, kaynak, OSM tarihi, lisans. |
+
+2026-11-14 üretimi: açık 402 122, orman 8 372, yerleşim 12 436, su 217 070 hücre (haritanın %34'ü deniz). **ODbL 1.0.**
