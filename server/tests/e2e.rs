@@ -332,6 +332,11 @@ fn k024_scenario_rejects_ground_unit_on_water() {
     let err = load_game(&scenario("mbt"), sea(), &catalog, &rules).unwrap_err();
     assert!(err.to_string().contains("water"), "{err}");
     assert!(load_game(&scenario("uav"), sea(), &catalog, &rules).is_ok());
+    // K-160: ships belong on the water and nowhere else.
+    assert!(load_game(&scenario("patrol_boat"), sea(), &catalog, &rules).is_ok());
+    let land = HeightMap::new(120, 120, 50.0, vec![0.0; 14_400]).unwrap();
+    let err = load_game(&scenario("patrol_boat"), land, &catalog, &rules).unwrap_err();
+    assert!(err.to_string().contains("land"), "{err}");
 }
 
 /// The Hasandag scenario starts with every owned region in supply (K-130).

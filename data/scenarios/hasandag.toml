@@ -651,6 +651,120 @@ x = 19981.0
 y = 27897.0
 heading_deg = 270.0
 
+# ---- M6: navy (ships start off their port) and a coastal anti-ship battery
+
+[[unit]]
+id = 81
+owner = 0
+type = "supply_ship"
+x = 24750.0
+y = 9550.0
+heading_deg = 90.0
+
+[[unit]]
+id = 82
+owner = 0
+type = "landing_ship"
+x = 25500.0
+y = 9600.0
+heading_deg = 90.0
+
+[[unit]]
+id = 83
+owner = 0
+type = "patrol_boat"
+x = 25100.0
+y = 8900.0
+heading_deg = 90.0
+
+[[unit]]
+id = 84
+owner = 0
+type = "patrol_boat"
+x = 25500.0
+y = 10100.0
+heading_deg = 90.0
+
+[[unit]]
+id = 85
+owner = 0
+type = "corvette"
+x = 25600.0
+y = 9100.0
+heading_deg = 90.0
+
+[[unit]]
+id = 86
+owner = 0
+type = "submarine"
+x = 24700.0
+y = 8500.0
+heading_deg = 90.0
+
+[[unit]]
+id = 87
+owner = 0
+type = "coastal_battery"
+x = 24400.0
+y = 9600.0
+heading_deg = 90.0
+
+[[unit]]
+id = 88
+owner = 1
+type = "supply_ship"
+x = 25700.0
+y = 29400.0
+heading_deg = 90.0
+
+[[unit]]
+id = 89
+owner = 1
+type = "landing_ship"
+x = 25700.0
+y = 30150.0
+heading_deg = 90.0
+
+[[unit]]
+id = 90
+owner = 1
+type = "patrol_boat"
+x = 26200.0
+y = 29950.0
+heading_deg = 90.0
+
+[[unit]]
+id = 91
+owner = 1
+type = "patrol_boat"
+x = 26500.0
+y = 29550.0
+heading_deg = 90.0
+
+[[unit]]
+id = 92
+owner = 1
+type = "corvette"
+x = 26100.0
+y = 30450.0
+heading_deg = 90.0
+
+[[unit]]
+id = 93
+owner = 1
+type = "submarine"
+x = 26700.0
+y = 30050.0
+heading_deg = 90.0
+
+[[unit]]
+id = 94
+owner = 1
+type = "coastal_battery"
+x = 25350.0
+y = 29350.0
+heading_deg = 90.0
+
 [[zone]]
 id = 1
 name_tr = "Sağlık"

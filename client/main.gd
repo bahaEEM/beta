@@ -20,9 +20,9 @@ const SIDE_DATIVE := ["Mavi'ye", "Kırmızı'ya"]
 const STANCES := ["free", "return", "hold", "ambush"]
 const TEAM_COLORS := [Color(0.25, 0.55, 1.0), Color(1.0, 0.3, 0.25)]
 const DEAD_COLOR := Color(0.2, 0.2, 0.2)
-const EMITTER_TYPES := ["gsr", "jammer", "shorad", "radar_mobile", "radar_tower", "ad_site", "decoy_radar", "cb_radar"]
-const ARTILLERY_TYPES := ["spg", "rocket", "harpy"]
-const CARRIER_TYPES := ["ifv", "ambulance"]
+const EMITTER_TYPES := ["gsr", "jammer", "shorad", "radar_mobile", "radar_tower", "ad_site", "decoy_radar", "cb_radar", "patrol_boat", "corvette", "submarine", "coastal_battery"]
+const ARTILLERY_TYPES := ["spg", "rocket", "harpy", "corvette"]
+const CARRIER_TYPES := ["ifv", "ambulance", "landing_ship"]
 const MISSION_MARK_M := 150.0  # display only; the real blast radius comes with shell_impact
 const BEARING_LENGTH := 40000.0
 const DRAG_MIN_PX := 6.0
@@ -796,11 +796,11 @@ func _key(event: InputEventKey) -> void:
 			var carriers := ids.filter(func(id): return units[id].type in CARRIER_TYPES)
 			var riders := ids.filter(func(id): return not units[id].type in CARRIER_TYPES)
 			if carriers.size() != 1 or riders.is_empty():
-				_status("Binmek için piyadeyi ve tek bir taşıyıcıyı (ZMA ya da sağlık aracı) birlikte seçin.")
+				_status("Binmek için birimleri ve tek bir taşıyıcıyı (ZMA, sağlık aracı ya da çıkarma gemisi) birlikte seçin.")
 				return
 			orders.embark(riders, carriers[0])
 			_orders_changed()
-			_status("Binme emri: %d birim -> #%d (100 m içinde olmalı)" % [riders.size(), carriers[0]])
+			_status("Binme emri: %d birim -> #%d (araca 100 m, gemiye 300 m içinde olmalı)" % [riders.size(), carriers[0]])
 		KEY_N:  # get out: selected passengers and the passengers of selected carriers
 			var riders := []
 			for id in units:

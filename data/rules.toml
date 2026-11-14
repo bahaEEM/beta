@@ -15,6 +15,9 @@ triangulated_quality = 2  # two bearings crossing at >= min_cross_deg
 min_cross_deg = 20.0      # placeholder
 bearing_update_deg = 2.0  # re-report a bearing-only track when it moves this much
 
+[sensor.sonar]
+active_quality = 2        # an active sonar gives position + class of ships and submarines in range
+
 [combat]
 partial_pen_threshold = 0.7  # penetration >= 70% of effective armour -> partial damage
 partial_damage_factor = 0.25 # placeholder; fraction of damage on a partial penetration
@@ -56,6 +59,9 @@ counter_fire_window_s = 120.0  # placeholder; guns on 'return' fire at an enemy 
 [transport]
 embark_radius_m = 100.0  # placeholder
 bail_out_damage = 0.5    # passengers lose half their hp when the carrier is destroyed
+ship_embark_radius_m = 300.0   # placeholder; boarding a ship from the shore / landing onto it (K-164)
+landing_suppression = 1.0      # placeholder; a unit just put ashore starts fully suppressed
+naval_fire_quality = 2         # weapons fire at ships and submarines on a radar or sonar fix
 
 [medical]
 radius_m = 300.0         # placeholder; medical units treat infantry this close at the end of a turn

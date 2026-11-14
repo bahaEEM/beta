@@ -52,24 +52,26 @@ fn orders_for(player: u8, own: &[(u32, String, f64, f64)]) -> Vec<Plan> {
     let front = |t: &str| t == "infantry" || t == "mbt" || t == "atgm";
     let guns = |t: &str| t == "spg" || t == "rocket";
     let emits = |t: &str| ["gsr", "jammer", "radar_mobile", "radar_tower", "ad_site"].contains(&t);
-    let stays = |t: &str| {
-        emits(t)
-            || [
-                "esm",
-                "field_hospital",
-                "logistics_base",
-                "depot",
-                "airfield",
-                "port",
-                "hq_bunker",
-            ]
-            .contains(&t)
+    // The rear group that follows the front; everything else (structures, deployed
+    // electronic-warfare vehicles, ships, aircraft at their bases) stays where it is.
+    let rear = |t: &str| {
+        [
+            "supply",
+            "hq",
+            "shorad",
+            "ambulance",
+            "ifv",
+            "recon",
+            "mg_team",
+            "rocket_inf",
+        ]
+        .contains(&t)
     };
     let mut plans = Vec::new();
     for (is_front, dx) in [(true, 2000.0), (false, 800.0)] {
         let group: Vec<_> = own
             .iter()
-            .filter(|u| !guns(&u.1) && !stays(&u.1) && front(&u.1) == is_front)
+            .filter(|u| if is_front { front(&u.1) } else { rear(&u.1) })
             .collect();
         if group.is_empty() {
             continue;

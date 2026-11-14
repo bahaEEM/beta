@@ -77,6 +77,7 @@ pub fn plan_route(
     }
     let map = &world.map;
     let cell = map.cell_size_m();
+    let naval = ut.class.is_naval();
     let speed = ut.speed_offroad_mps;
     let road_speed = ut.speed_road_mps.max(speed);
     // Integer edge costs (ms) keep A* tie-breaking exact.
@@ -98,7 +99,7 @@ pub fn plan_route(
         }
         let (path, _) = astar(
             &start,
-            |&n| successors(map, n, ut.max_slope_deg, &costs),
+            |&n| successors(map, n, ut.max_slope_deg, naval, &costs),
             |&(i, j)| {
                 // Octile distance at road speed: admissible and consistent.
                 let (dx, dy) = (i.abs_diff(goal.0) as u64, j.abs_diff(goal.1) as u64);
@@ -136,11 +137,13 @@ struct EdgeCosts {
     road_diag: u64,
 }
 
-/// Edges between two road samples use road speed.
+/// Edges between two road samples use road speed. Ground units stay off the water
+/// (K-024); naval units stay on it and ignore slope and roads (K-160).
 fn successors(
     map: &HeightMap,
     (i, j): Node,
     max_slope_deg: f64,
+    naval: bool,
     c: &EdgeCosts,
 ) -> Vec<(Node, u64)> {
     let on_road = map.road(i, j) > 0;
@@ -160,6 +163,10 @@ fn successors(
             let slope = ((map.sample(ni, nj) - h0).abs() / horiz)
                 .atan()
                 .to_degrees();
+            let water = map.terrain(ni, nj) == Terrain::Water;
+            if naval {
+                return water.then_some(((ni, nj), if diag { c.diag } else { c.straight }));
+            }
             let road = on_road && map.road(ni, nj) > 0;
             let cost = match (road, diag) {
                 (true, true) => c.road_diag,
@@ -167,9 +174,7 @@ fn successors(
                 (false, true) => c.diag,
                 (false, false) => c.straight,
             };
-            // K-024: ground units never enter water.
-            (slope <= max_slope_deg && map.terrain(ni, nj) != Terrain::Water)
-                .then_some(((ni, nj), cost))
+            (slope <= max_slope_deg && !water).then_some(((ni, nj), cost))
         })
         .collect()
 }
@@ -210,6 +215,7 @@ pub fn step_movement(world: &mut World, catalog: &UnitCatalog, rules: &Rules, ro
             continue;
         };
         let on_road = !t.class.is_air()
+            && !t.class.is_naval()
             && map.road_at(unit.pos) > 0
             && route.first().is_some_and(|&p| map.road_at(p) > 0);
         let mut speed = if on_road {

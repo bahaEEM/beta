@@ -303,6 +303,18 @@ pub fn validate_orders(
                     None
                 }
                 Order::Embark { units, carrier } => {
+                    let carrier_type = game
+                        .world
+                        .unit(*carrier)
+                        .and_then(|c| catalog.get(&c.type_id));
+                    // K-164: ships take vehicles too and load from the shore.
+                    let (vehicles, reach) = match carrier_type {
+                        Some(t) if t.class.is_naval() => {
+                            (t.carry_vehicles, rules.transport.ship_embark_radius_m)
+                        }
+                        Some(t) => (t.carry_vehicles, rules.transport.embark_radius_m),
+                        None => (false, 0.0),
+                    };
                     let room = game
                         .world
                         .unit(*carrier)
@@ -326,10 +338,11 @@ pub fn validate_orders(
                             && units.iter().all(|id| {
                                 game.world.unit(*id).is_some_and(|u| {
                                     u.active()
-                                        && u.pos.distance(cpos) <= rules.transport.embark_radius_m
-                                        && catalog
-                                            .get(&u.type_id)
-                                            .is_some_and(|t| t.class == UnitClass::Infantry)
+                                        && u.pos.distance(cpos) <= reach
+                                        && catalog.get(&u.type_id).is_some_and(|t| {
+                                            t.class == UnitClass::Infantry
+                                                || (vehicles && t.class == UnitClass::Vehicle)
+                                        })
                                 })
                             })
                     });
@@ -342,10 +355,16 @@ pub fn validate_orders(
                     }
                 }
                 Order::Disembark { units } => {
-                    if units
-                        .iter()
-                        .all(|&id| game.world.unit(id).is_some_and(|u| u.carried_by.is_some()))
-                    {
+                    // K-164: from a ship only where there is shore in reach.
+                    let can_land = |id: UnitId| {
+                        game.world.unit(id).is_some_and(|u| {
+                            u.carried_by.is_some_and(|c| {
+                                !naval_carrier(&game.world, catalog, c)
+                                    || shore_near(&game.world, rules, u.pos).is_some()
+                            })
+                        })
+                    };
+                    if units.iter().all(|&id| can_land(id)) {
                         v.boarding.extend(units.iter().map(|&id| (id, None)));
                         None
                     } else {
@@ -441,10 +460,22 @@ pub fn plan_phase(
         for (id, carrier) in v.boarding {
             game.routes.remove(&id);
             let carrier_pos = carrier.and_then(|c| game.world.unit(c)).map(|c| c.pos);
+            // K-164: leaving a ship puts the unit on the nearest shore, disorganised.
+            let landing = game
+                .world
+                .unit(id)
+                .filter(|_| carrier.is_none())
+                .and_then(|u| u.carried_by.map(|c| (c, u.pos)))
+                .filter(|&(c, _)| naval_carrier(&game.world, catalog, c))
+                .and_then(|(_, pos)| shore_near(&game.world, rules, pos));
             if let Some(u) = game.world.unit_mut(id) {
                 u.carried_by = carrier;
                 if let Some(p) = carrier_pos {
                     u.pos = p;
+                }
+                if let Some(shore) = landing {
+                    u.pos = shore;
+                    u.suppression = rules.transport.landing_suppression;
                 }
             }
         }
@@ -455,6 +486,37 @@ pub fn plan_phase(
         all_rejected.insert(player, v.rejected);
     }
     all_rejected
+}
+
+fn naval_carrier(world: &World, catalog: &UnitCatalog, carrier: UnitId) -> bool {
+    world
+        .unit(carrier)
+        .and_then(|c| catalog.get(&c.type_id))
+        .is_some_and(|t| t.class.is_naval())
+}
+
+/// Nearest land sample within the ship boarding distance of `pos` (ties: north, then west).
+fn shore_near(world: &World, rules: &Rules, pos: Vec2) -> Option<Vec2> {
+    let map = &world.map;
+    let cell = map.cell_size_m();
+    let reach = rules.transport.ship_embark_radius_m;
+    let r = (reach / cell).ceil() as i64;
+    let (ci, cj) = ((pos.x / cell).round() as i64, (pos.y / cell).round() as i64);
+    let mut best: Option<(f64, Vec2)> = None;
+    for j in (cj - r)..=(cj + r) {
+        for i in (ci - r)..=(ci + r) {
+            if i < 0 || j < 0 || i as usize >= map.width() || j as usize >= map.height() {
+                continue;
+            }
+            let p = Vec2::new(i as f64 * cell, j as f64 * cell);
+            let d = p.distance(pos);
+            let land = map.terrain(i as usize, j as usize) != crate::world::Terrain::Water;
+            if land && d <= reach && best.is_none_or(|(bd, _)| d < bd) {
+                best = Some((d, p));
+            }
+        }
+    }
+    best.map(|(_, p)| p)
 }
 
 /// K-155: remote-piloted aircraft without a link to their HQ (jammed, out of range or
@@ -614,14 +676,25 @@ fn bail_out(world: &mut World, catalog: &UnitCatalog, rules: &Rules) -> Vec<Even
         .filter(|u| u.state == UnitState::Destroyed)
         .map(|u| u.id)
         .collect();
+    // K-164: who goes down with a ship is lost.
+    let sunk: BTreeSet<UnitId> = wrecks
+        .iter()
+        .copied()
+        .filter(|&c| naval_carrier(world, catalog, c))
+        .collect();
     let mut events = Vec::new();
     for u in world.units_mut() {
-        if !u.carried_by.is_some_and(|c| wrecks.contains(&c)) {
+        let Some(carrier) = u.carried_by.filter(|c| wrecks.contains(c)) else {
             continue;
-        }
+        };
         u.carried_by = None;
         let max_hp = catalog.get(&u.type_id).map_or(u.hp, |t| t.hp);
-        u.hp = (u.hp - max_hp * rules.transport.bail_out_damage).max(0.0);
+        let loss = if sunk.contains(&carrier) {
+            1.0
+        } else {
+            rules.transport.bail_out_damage
+        };
+        u.hp = (u.hp - max_hp * loss).max(0.0);
         if u.hp <= 0.0 {
             u.state = UnitState::Destroyed;
             events.push(Event::UnitDestroyed { unit: u.id });

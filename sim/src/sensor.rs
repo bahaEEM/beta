@@ -33,7 +33,7 @@ pub fn concealment(map: &HeightMap, rules: &Rules, target: &Unit, tt: &UnitType,
     let fired = target
         .last_fired_tick
         .is_some_and(|t| tick.saturating_sub(t) <= rules.ticks(c.fire_reveal_s, 0));
-    if fired || matches!(tt.class, UnitClass::Air | UnitClass::Structure) {
+    if fired || !matches!(tt.class, UnitClass::Infantry | UnitClass::Vehicle) {
         return 1.0;
     }
     let mut f = match map.terrain_at(target.pos) {
@@ -72,7 +72,10 @@ pub fn sensor_quality(
             target.1.height_m,
         )
     };
+    // K-161: nothing above the water sees a submarine.
+    let submerged = target.1.class == UnitClass::Sub;
     match *sensor {
+        SensorSpec::Optical { .. } | SensorSpec::Radar { .. } if submerged => 0,
         SensorSpec::Optical { range_m } => {
             let o = &rules.sensor.optical;
             let range_m = range_m * conceal;
@@ -103,8 +106,17 @@ pub fn sensor_quality(
                 r.quality
             }
         }
-        // ESM is combined across observers in `update_tracks`; jammers do not detect.
-        SensorSpec::Esm { .. } | SensorSpec::Jammer { .. } => 0,
+        // K-162: a pinging sonar locates everything afloat or submerged in range.
+        SensorSpec::SonarActive { range_m } => {
+            if observer.0.radiating() && target.1.class.is_naval() && d <= range_m {
+                rules.sensor.sonar.active_quality
+            } else {
+                0
+            }
+        }
+        // ESM and passive sonar are combined across observers in `update_tracks`;
+        // jammers do not detect.
+        SensorSpec::Esm { .. } | SensorSpec::Jammer { .. } | SensorSpec::SonarPassive { .. } => 0,
     }
 }
 
@@ -232,15 +244,34 @@ pub fn update_tracks(
                         })
                         .max()
                         .unwrap_or(0);
-                    let emitting =
-                        (target.radiating() && tt.is_emitter()) || target.transmitting(world.tick);
+                    // ESM hears radars, jammers and radios (never from a submerged boat);
+                    // passive sonar hears moving hulls and sonar pings (K-162).
+                    let on_air = tt.class != UnitClass::Sub
+                        && ((target.radiating() && tt.emits_rf())
+                            || target.transmitting(world.tick));
+                    let noisy = tt.class.is_naval()
+                        && (target.speed_mps > tt.quiet_speed_mps
+                            || (target.radiating() && tt.pings()));
                     let bearings: Vec<Bearing> = observers
                         .iter()
-                        .filter(|_| emitting)
                         .filter(|&&(o, ot, _)| {
-                            o.deployed() && ot.sensors.iter().any(|s| {
-                                matches!(s, SensorSpec::Esm { range_m } if o.pos.distance(target.pos) <= *range_m)
-                            }) && line_of_sight(&world.map, o.pos, target.pos, ot.height_m, tt.height_m)
+                            let d = o.pos.distance(target.pos);
+                            o.deployed()
+                                && ot.sensors.iter().any(|s| match *s {
+                                    SensorSpec::Esm { range_m } => {
+                                        on_air
+                                            && d <= range_m
+                                            && line_of_sight(
+                                                &world.map,
+                                                o.pos,
+                                                target.pos,
+                                                ot.height_m,
+                                                tt.height_m,
+                                            )
+                                    }
+                                    SensorSpec::SonarPassive { range_m } => noisy && d <= range_m,
+                                    _ => false,
+                                })
                         })
                         .map(|&(o, _, _)| Bearing {
                             origin: o.pos,

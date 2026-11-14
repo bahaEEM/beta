@@ -312,6 +312,7 @@ pub fn step_supply(game: &mut Game, catalog: &UnitCatalog, rules: &Rules) {
         let Some(t) = catalog.get(&u.type_id).filter(|t| {
             matches!(t.class, UnitClass::Infantry | UnitClass::Vehicle)
                 && u.state != UnitState::Destroyed
+                && u.carried_by.is_none() // passengers share their carrier's fate
         }) else {
             continue;
         };

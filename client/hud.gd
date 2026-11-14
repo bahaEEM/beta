@@ -40,6 +40,12 @@ const TYPE_NAMES := {
 	"decoy_radar": "Sahte Radar",
 	"harpy": "Kamikaze İHA Rampası",
 	"cb_radar": "Karşı-Batarya Radarı",
+	"patrol_boat": "Devriye Botu",
+	"corvette": "Korvet",
+	"submarine": "Denizaltı",
+	"landing_ship": "Çıkarma Gemisi",
+	"supply_ship": "İkmal Gemisi",
+	"coastal_battery": "Kıyı Gemisavar Bataryası",
 }
 # type -> [short label, "your ..." (log), "enemy's ..." (log)]
 const TYPE_WORDS := {
@@ -70,8 +76,14 @@ const TYPE_WORDS := {
 	"decoy_radar": ["Sahte Radar", "Sahte radarınız", "sahte radarı"],
 	"harpy": ["Kamikaze İHA", "Kamikaze İHA rampanız", "kamikaze İHA rampası"],
 	"cb_radar": ["KB Radarı", "Karşı-batarya radarınız", "karşı-batarya radarı"],
+	"patrol_boat": ["Devriye Botu", "Devriye botunuz", "devriye botu"],
+	"corvette": ["Korvet", "Korvetiniz", "korveti"],
+	"submarine": ["Denizaltı", "Denizaltınız", "denizaltısı"],
+	"landing_ship": ["Çıkarma Gemisi", "Çıkarma geminiz", "çıkarma gemisi"],
+	"supply_ship": ["İkmal Gemisi", "İkmal geminiz", "ikmal gemisi"],
+	"coastal_battery": ["Kıyı Bataryası", "Kıyı bataryanız", "kıyı bataryası"],
 }
-const STOCK_TYPES := ["supply", "cargo_plane", "logistics_base", "depot", "airfield", "port"]
+const STOCK_TYPES := ["supply", "cargo_plane", "logistics_base", "depot", "airfield", "port", "supply_ship"]
 const LOG_LINES := 8
 const STANCE_NAMES := {"free": "Serbest", "return": "Karşılık", "hold": "Ateş Yok", "ambush": "Pusu"}
 const STATE_NAMES := {"healthy": "Sağlam", "damaged": "Hasarlı", "destroyed": "Yok edildi"}

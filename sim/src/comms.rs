@@ -51,7 +51,7 @@ pub fn road_components(map: &HeightMap) -> Vec<u32> {
 /// Wire network a unit is plugged into: component of the nearest road sample within reach.
 /// Aircraft are never on the wire.
 fn wire_component(map: &HeightMap, comps: &[u32], u: &Unit, t: &UnitType, reach_m: f64) -> u32 {
-    if t.class.is_air() {
+    if t.class.is_air() || t.class.is_naval() {
         return 0;
     }
     let cell = map.cell_size_m();

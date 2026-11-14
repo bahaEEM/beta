@@ -194,7 +194,10 @@ pub fn step_impacts(
             .iter()
             .filter(|u| u.active())
             .filter_map(|u| {
-                let t = catalog.get(&u.type_id).filter(|t| !t.class.is_air())?; // shells do not hit aircraft
+                // Shells do not hit aircraft or submarines.
+                let t = catalog
+                    .get(&u.type_id)
+                    .filter(|t| !t.class.is_air() && t.class != crate::data::UnitClass::Sub)?;
                 let d = u.pos.distance(s.pos);
                 (d < s.radius_m).then(|| {
                     let near = 1.0 - d / s.radius_m;

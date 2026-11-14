@@ -14,11 +14,20 @@ pub enum UnitClass {
     Air,
     /// Building (K-121): never moves and changes hands with its region.
     Structure,
+    /// Surface vessel (K-160): moves on water only.
+    Ship,
+    /// Submarine (K-161): moves on water only, always submerged; only sonar finds it.
+    Sub,
 }
 
 impl UnitClass {
     pub fn is_air(self) -> bool {
         self == UnitClass::Air
+    }
+
+    /// Ships and submarines.
+    pub fn is_naval(self) -> bool {
+        matches!(self, UnitClass::Ship | UnitClass::Sub)
     }
 }
 
@@ -44,6 +53,12 @@ pub struct UnitType {
     pub weapon_vs_ground: bool,
     #[serde(default)]
     pub weapon_vs_air: bool,
+    /// The direct-fire weapon engages ships (K-163).
+    #[serde(default)]
+    pub weapon_vs_sea: bool,
+    /// The direct-fire weapon engages submarines (torpedoes, depth charges).
+    #[serde(default)]
+    pub weapon_vs_sub: bool,
     /// Expected hit share at point blank and at maximum range (linear in between).
     pub hit_close: f64,
     pub hit_far: f64,
@@ -62,9 +77,15 @@ pub struct UnitType {
     /// Indirect-fire weapon (artillery, rockets), fired by fire missions.
     #[serde(default)]
     pub indirect: Option<IndirectSpec>,
-    /// Infantry teams this unit can carry (IFV).
+    /// Units this type can carry: infantry teams (IFV, ambulance)...
     #[serde(default)]
     pub carry_capacity: u32,
+    /// ...and vehicles too (landing ship, K-164).
+    #[serde(default)]
+    pub carry_vehicles: bool,
+    /// Naval units moving no faster than this make no noise for passive sonar (K-162).
+    #[serde(default)]
+    pub quiet_speed_mps: f64,
     /// Command post: the root of its side's command network.
     #[serde(default)]
     pub hq: bool,
@@ -147,6 +168,15 @@ pub enum SensorSpec {
         range_m: f64,
         radio_range_m: f64,
     },
+    /// Active sonar (K-162): while the unit emits, locates ships and submarines in
+    /// range; enemy passive sonar hears the ping.
+    SonarActive {
+        range_m: f64,
+    },
+    /// Passive sonar: bearings to noisy ships and submarines.
+    SonarPassive {
+        range_m: f64,
+    },
 }
 
 impl SensorSpec {
@@ -155,12 +185,17 @@ impl SensorSpec {
             SensorSpec::Optical { range_m }
             | SensorSpec::Radar { range_m, .. }
             | SensorSpec::Esm { range_m }
+            | SensorSpec::SonarActive { range_m }
+            | SensorSpec::SonarPassive { range_m }
             | SensorSpec::Jammer { range_m, .. } => range_m,
         }
     }
 
     pub fn is_emitter(&self) -> bool {
-        matches!(self, SensorSpec::Radar { .. } | SensorSpec::Jammer { .. })
+        matches!(
+            self,
+            SensorSpec::Radar { .. } | SensorSpec::Jammer { .. } | SensorSpec::SonarActive { .. }
+        )
     }
 }
 
@@ -168,6 +203,20 @@ impl UnitType {
     /// True if the type has a radar or jammer that can be switched on.
     pub fn is_emitter(&self) -> bool {
         self.sensors.iter().any(SensorSpec::is_emitter)
+    }
+
+    /// Has a radar or jammer: on the air it can be heard by ESM.
+    pub fn emits_rf(&self) -> bool {
+        self.sensors
+            .iter()
+            .any(|s| matches!(s, SensorSpec::Radar { .. } | SensorSpec::Jammer { .. }))
+    }
+
+    /// Has an active sonar: pinging it can be heard by passive sonar.
+    pub fn pings(&self) -> bool {
+        self.sensors
+            .iter()
+            .any(|s| matches!(s, SensorSpec::SonarActive { .. }))
     }
 
     pub fn jammer_range_m(&self) -> Option<f64> {
@@ -271,6 +320,7 @@ fn validate(t: &UnitType) -> Result<(), DataError> {
         ("deploy_s", t.deploy_s),
         ("produce_fuel_l", t.produce_fuel_l),
         ("counter_battery_range_m", t.counter_battery_range_m),
+        ("quiet_speed_mps", t.quiet_speed_mps),
         ("heal_hp_per_turn", t.heal_hp_per_turn),
     ];
     for (field, v) in fields {
@@ -359,6 +409,12 @@ pub struct TransportRules {
     pub embark_radius_m: f64,
     /// Share of their hp passengers lose when the carrier is destroyed.
     pub bail_out_damage: f64,
+    /// Boarding a ship from the shore and landing from it works within this distance (K-164).
+    pub ship_embark_radius_m: f64,
+    /// Suppression of a unit that has just been put ashore (it sorts itself out on the beach).
+    pub landing_suppression: f64,
+    /// Track quality weapons need on a ship or submarine (a radar or sonar fix is enough).
+    pub naval_fire_quality: u8,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -524,6 +580,14 @@ pub struct SensorRules {
     pub optical: OpticalRules,
     pub radar: RadarRules,
     pub esm: EsmRules,
+    pub sonar: SonarRules,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SonarRules {
+    /// Track quality an active sonar gives (position + class).
+    pub active_quality: u8,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -592,6 +656,13 @@ pub fn load_rules(toml_text: &str) -> Result<Rules, DataError> {
     }
     if !(rules.comms.wire_reach_m.is_finite() && rules.comms.wire_reach_m >= 0.0) {
         return Err(DataError::InvalidRule("comms.wire_reach_m"));
+    }
+    let tr = &rules.transport;
+    let q = [rules.sensor.sonar.active_quality, tr.naval_fire_quality];
+    if q.iter().any(|&q| q == 0 || q > MAX_TRACK_QUALITY)
+        || !(tr.ship_embark_radius_m > 0.0 && (0.0..=1.0).contains(&tr.landing_suppression))
+    {
+        return Err(DataError::InvalidRule("sensor.sonar / transport"));
     }
     let (cn, cv, sp) = (&rules.conceal, &rules.cover, &rules.suppression);
     let shares = [

@@ -11,7 +11,10 @@ const METAL := Color(0.42, 0.44, 0.43)
 const KHAKI := Color(0.62, 0.56, 0.4)
 const SKIN := Color(0.25, 0.3, 0.2)
 # Types drawn with another type's model until they get their own.
-const LOOKS_LIKE := {"radar_mobile": "gsr", "ambulance": "supply", "mg_team": "atgm", "rocket_inf": "atgm", "ad_site": "shorad", "cargo_plane": "uav", "decoy_tank": "mbt", "decoy_radar": "gsr", "harpy": "rocket", "cb_radar": "gsr"}
+const LOOKS_LIKE := {"radar_mobile": "gsr", "ambulance": "supply", "mg_team": "atgm", "rocket_inf": "atgm", "ad_site": "shorad", "cargo_plane": "uav", "decoy_tank": "mbt", "decoy_radar": "gsr", "harpy": "rocket", "cb_radar": "gsr", "coastal_battery": "rocket"}
+# Placeholder hulls: type -> [length m, beam m, superstructure height m (0 = submarine)].
+const SHIPS := {"patrol_boat": [12.0, 4.0, 3.0], "corvette": [28.0, 6.0, 6.0], "submarine": [22.0, 4.0, 0.0],
+	"landing_ship": [26.0, 8.0, 4.0], "supply_ship": [26.0, 7.0, 5.0]}
 const STRUCTURES := ["radar_tower", "field_hospital", "logistics_base", "depot", "airfield", "port", "hq_bunker"]
 const DISH_PIVOT := Vector3(0, 7.2, 1.6) * SCALE  # gsr radar head / jammer glow centre (scaled)
 
@@ -48,6 +51,13 @@ static func extra(type: String, t: Color) -> ArrayMesh:
 
 static func _build(p: Array, type: String, t: Color) -> void:
 	var d := t.darkened(0.35)
+	if SHIPS.has(type):  # a grey hull, a team-coloured deck stripe and a bridge (a conning tower for the submarine)
+		var s: Array = SHIPS[type]
+		var sub: bool = s[2] == 0.0
+		_part(p, _box(s[1], 1.2 if sub else 2.4, s[0]), Vector3(0, 0.6 if sub else 1.2, 0), DARK if sub else METAL)
+		_part(p, _box(s[1] * 0.6, 0.3, s[0] * 0.9), Vector3(0, 1.35 if sub else 2.55, 0), t)
+		_part(p, _box(s[1] * 0.5, 2.0 if sub else s[2], s[0] * 0.25), Vector3(0, (1.2 if sub else 2.4) + (1.0 if sub else s[2] * 0.5), 0), d)
+		return
 	if type in STRUCTURES:  # placeholder building: a block with a team-coloured roof (and a mast for the radar tower)
 		_part(p, _box(14.0, 5.0, 10.0), Vector3(0, 2.5, 0), KHAKI.darkened(0.15))
 		_part(p, _box(14.4, 0.6, 10.4), Vector3(0, 5.3, 0), t)

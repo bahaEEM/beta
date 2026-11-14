@@ -138,8 +138,14 @@ pub fn load_game(
             .get(&u.type_id)
             .ok_or_else(|| format!("unit {}: unknown type '{}'", u.id, u.type_id))?;
         let pos = Vec2::new(u.x, u.y);
-        if !t.class.is_air() && world.map.terrain_at(pos) == Terrain::Water {
-            return Err(format!("unit {}: ground unit placed on water", u.id).into());
+        let wet = world.map.terrain_at(pos) == Terrain::Water;
+        if !t.class.is_air() && wet != t.class.is_naval() {
+            let what = if wet {
+                "ground unit placed on water"
+            } else {
+                "ship placed on land"
+            };
+            return Err(format!("unit {}: {what}", u.id).into());
         }
         world.add_unit(Unit::new(
             UnitId(u.id),

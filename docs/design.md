@@ -148,6 +148,22 @@ Hepsi tur sonunda, bu sırayla işler: üretim → taşıyıcılar → yakın ik
 - **K-155 İHA veri bağı.** `remote_piloted` hava birimi (İHA, SİHA) planlama başında karargâha bağlı değilse (karıştırıcı altında, menzil
   dışında ya da sessizde) emir almaz ve en yakın dost hava alanına, yoksa en yakın karargâha döner. Hava birimleri yol kablosuna bağlanamaz.
 
+## Deniz (M6)
+- **K-160 Deniz hareketi.** `ship` ve `sub` sınıfı birimler yalnız su hücrelerinde hareket eder (A*, eğim ve yol yok); karaya çıkamaz,
+  senaryoda karaya konamaz.
+- **K-161 Denizaltı.** Hep dalmıştır: optik ve radar onu görmez, top mermisi vurmaz. Yalnız aktif sonar bulur.
+- **K-162 Sonar.** Aktif sonar (`sonar_active`), birimin yayını açıkken menzilindeki gemi ve denizaltıları iz 2 ile bulur. Pasif sonar
+  (`sonar_passive`) ESM gibi kerteriz verir: hareket eden gemiyi (`quiet_speed_mps` üstü hız) ve sonar yayını yapanı duyar. Denizaltı
+  sessiz hızda yürür; ESM sonar yayınını duymaz.
+- **K-163 Deniz silahları.** Direkt silah hedef sınıfına göre ateş eder: gemiye `weapon_vs_sea`, denizaltıya `weapon_vs_sub`
+  (görüş hattı aranmaz). Gemi ve denizaltıya ateş için iz 2 yeter (`transport.naval_fire_quality`). Korvetin topu dolaylı silahtır:
+  atış göreviyle karayı döver. Kıyı gemisavar bataryası kurulur (K-120), kendi radarıyla gemilere ateş eder.
+- **K-164 Çıkarma.** Çıkarma gemisi (`carry_vehicles`) piyade ve araç taşır. Binme ve inme her kıyıda, gemiye 300 m
+  (`ship_embark_radius_m`) içinde olur; inen birim en yakın kara hücresine konur ve baskısı 1,0 ile başlar (K-143). Menzilde kara yoksa
+  inme reddedilir. Batan geminin yolcuları yok olur. Taşınan birim erimez (K-134).
+- **K-165 Deniz ikmali.** Liman depolama yapısıdır; ikmal gemisi taşıyıcıdır (K-132: üslü limanda dolar, kopuk limana boşaltır).
+  Gemiler yakıt ve mühimmatı limanın ya da ikmal gemisinin 300 m yakınında alır; denizde erimezler.
+
 ## Görünürlük
 - **K-050 Görünürlük filtresi.** Oyuncuya giden hiçbir mesaj, o an göremediği birimin kimliğini veya konumunu içermez.
   İz 1 = 500 m'lik hücrenin merkezi; kerterizle bilinen birim için sadece yön; iz ≥ 2 = kesin konum, iz ≥ 2'de tip.
@@ -249,6 +265,12 @@ Bütün sayılar yer tutucudur; görsel aşamadan önce oyun testiyle ayarlanaca
 | K-153 | k153_counter_battery_radar_locates_firing_guns |
 | K-154 | k154_guns_on_return_shoot_back_at_located_guns |
 | K-155 | k155_drones_without_a_data_link_fly_home |
+| K-160 | k160_ships_sail_on_water_only, k024_scenario_rejects_ground_unit_on_water |
+| K-161 | k161_submarines_are_found_only_by_active_sonar |
+| K-162 | k162_passive_sonar_hears_moving_hulls_and_pings |
+| K-163 | k163_naval_weapons_engage_their_own_kind_of_target |
+| K-164 | k164_landing_ships_carry_units_from_shore_to_shore |
+| K-165 | k165_ports_and_supply_ships_carry_the_supply_network_over_the_sea |
 | K-071 | g6_client_messages_round_trip, g6_server_messages_round_trip, g6_version_mismatch_rejected, g6_oversized_message_rejected, g6_protocol_md_up_to_date |
 | K-072 | g7_resume_after_shutdown, g7_reconnect_same_name, g7_planning_deadline_starts_resolution |
 

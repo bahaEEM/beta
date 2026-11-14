@@ -220,11 +220,11 @@ fn pick_target(
         .filter(|t| t.owner != shooter.owner && t.active())
         .filter(|t| {
             tracks.get(shooter.owner, t.id).is_some_and(|tr| {
-                let air = catalog.get(&t.type_id).is_some_and(|tt| tt.class.is_air());
-                let needed = if air {
-                    rules.combat.air_fire_quality
-                } else {
-                    rules.sensor.optical.fire_quality
+                let class = catalog.get(&t.type_id).map(|tt| tt.class);
+                let needed = match class {
+                    Some(UnitClass::Air) => rules.combat.air_fire_quality,
+                    Some(UnitClass::Ship | UnitClass::Sub) => rules.transport.naval_fire_quality,
+                    _ => rules.sensor.optical.fire_quality,
                 };
                 tr.quality >= needed && !(t.decoy_of.is_some() && tr.identified)
             })
@@ -232,14 +232,17 @@ fn pick_target(
         .filter_map(|t| {
             let d = shooter.pos.distance(t.pos);
             let tt = catalog.get(&t.type_id)?;
-            let engageable = if tt.class.is_air() {
-                st.weapon_vs_air
-            } else {
-                st.weapon_vs_ground
+            let engageable = match tt.class {
+                UnitClass::Air => st.weapon_vs_air,
+                UnitClass::Ship => st.weapon_vs_sea,
+                UnitClass::Sub => st.weapon_vs_sub,
+                _ => st.weapon_vs_ground,
             };
+            // Torpedoes and depth charges need no line of sight to a submarine.
             (engageable
                 && d <= st.weapon_range_m * range_share
-                && line_of_sight(&world.map, shooter.pos, t.pos, st.height_m, tt.height_m))
+                && (tt.class == UnitClass::Sub
+                    || line_of_sight(&world.map, shooter.pos, t.pos, st.height_m, tt.height_m)))
             .then_some((d, t.id))
         })
         .min_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)))
