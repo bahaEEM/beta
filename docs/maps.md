@@ -177,3 +177,28 @@ cargo run --release -p tools -- cover \
 | `terrain.toml` | Tip başına hücre sayısı, kaynak, OSM tarihi, lisans. |
 
 2026-11-14 üretimi: açık 402 122, orman 8 372, yerleşim 12 436, su 217 070 hücre (haritanın %34'ü deniz). **ODbL 1.0.**
+
+## Adlı bölgeler
+
+Aynı `hasandag_cover.json` dosyasındaki yer adlarından (en son, `roads` ve `cover`'dan sonra çalıştırın):
+
+```sh
+cargo run --release -p tools -- regions \
+  --osm ~/Masaüstü/calisma-alani/veri/osm/hasandag_cover.json --map-dir maps/hasandag \
+  --min-dist 2000 --extra "Hasandağı Zirvesi:19850:20100"
+```
+
+- Merkezler: karadaki adlı yerleşimler; önce kasaba, sonra köy, mahalle, mezra sırasıyla alınır, seçilmiş bir merkeze
+  `--min-dist` metreden yakın olan atlanır. `--extra ad:x:y` (sim metresi) ile elle merkez eklenir.
+- Her kara hücresi en yakın merkezin bölgesine girer. Kimlikler kuzeyden güneye 1'den başlar.
+- Aynı adlı ikinci yerleşim mahalleyse "… Mahallesi" olur (Gözlükuyu köyü ve Gözlükuyu Mahallesi).
+
+| Dosya | Ne |
+|---|---|
+| `regions.toml` | Bölge başına kimlik, ad, tür, merkez (x, y), hücre sayısı, sınır komşuları, yolla bağlı bölgeler. |
+| `regions.bin` | Hücre başına 1 bayt bölge kimliği, 800 x 800; 0 = su. |
+| `regions_lines.json` | `{"borders": [{"a": 1, "b": 3, "segments": [[x0, y0, x1, y1], ...]}]}`: bölge çiftleri arasındaki sınır parçaları, istemci çizimi için. |
+
+2026-11-14 üretimi: 30 bölge, 71 sınır, 48 yol bağlantısı. **ODbL 1.0.**
+
+**Dikkat:** bölgeler yeniden üretilirse `data/scenarios/hasandag.toml` içindeki `[[zone]]` kayıtları (kimlik, ad, merkez) elle eşitlenmelidir.

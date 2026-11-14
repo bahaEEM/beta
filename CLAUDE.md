@@ -14,7 +14,7 @@
 2. Rastgelelik yok. rand ve benzeri crate'ler sim/ ve server/ içinde yasak. Aynı girdi her zaman aynı çıktıyı verir.
 3. Oyun sayıları kodda yazılmaz; data/*.toml dosyalarından okunur.
 4. Çözüm fazı 200 adım; adım = 0,6 sn oyun zamanı (tur = 2 dk oyun, ekranda 20 sn). Adım sırası docs/design.md K-003:
-   hareket -> sensör/iz -> ateş (eşzamanlı) -> hasar -> ele geçirme; tur sonu: puan -> ikmal -> zafer.
+   hareket -> sensör/iz -> ateş (eşzamanlı) -> hasar -> ele geçirme; tur sonu: ikmal -> zafer.
 5. Belirleyicilik: birimler her zaman kimlik sırasıyla işlenir. Oyun durumunda HashMap yerine BTreeMap veya sıralı Vec. Simülasyon içinde saat okunmaz.
 6. Görünürlük: bir oyuncuya giden hiçbir mesaj, o oyuncunun sensörlerinin görmediği bir birimi içeremez.
 7. sim/ ve server/ içinde unwrap()/expect() ile panik yok; hatalar Result ile döner. Sunucu asla panikle çökmez.

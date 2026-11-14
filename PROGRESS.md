@@ -59,7 +59,7 @@ M5 EH derinliği → M6 deniz/sonar → M7 ekonomi/takviye). Görsel giydirme en
 | Paket | Durum | Commit | Not |
 |---|---|---|---|
 | M1a deniz + arazi örtüsü | bitti | (bu commit) | doğu denize çevrildi (kıyı x≈24–31 km, %34 su); terrain.bin: açık/orman/yerleşim/su; kara birimi suya giremez (K-024/K-025); istemci denizi mavi boyar. Orman/yerleşim istemcide henüz çizilmiyor (M4'te) |
-| M1b adlı bölgeler | bekliyor | | kullanıcı kararı bekliyor: bölge sayısı/şekli, başlangıç sahipliği, puan–zafer dengesi |
+| M1b adlı bölgeler | bitti (görsel test kullanıcıda) | (bu commit) | 30 bölge (regions.toml); üsler Helvadere (Mavi) / Karakapı (Kırmızı), 8+8 sahipli, 14 tarafsız; puan kalktı: düşman üssünü alan kazanır, 100. turda çok bölgesi olan (K-061, K-063); protokol v3; istemci sınır + cephe hattı çizer. Birimler yeni üslere kaydırıldı |
 | M2 yapılar + sağlık | bekliyor | | |
 | M3 fiziksel ikmal | bekliyor | | |
 | M4 gizlenme/pusu/baskı | bekliyor | | |

@@ -109,10 +109,11 @@ struct ScenarioZone {
     x: f64,
     y: f64,
     radius_m: f64,
-    points: u32,
     #[serde(default)]
     depot: bool,
     owner: Option<u8>,
+    /// Home base of this player (K-061).
+    base: Option<u8>,
 }
 
 /// New game from `data/scenarios/<map_id>.toml`: starting units and zones (map metres).
@@ -145,19 +146,22 @@ pub fn load_game(
     }
     let mut game = Game::new(world, catalog, rules);
     for z in scenario.zone {
-        if z.owner.is_some_and(|o| usize::from(o) >= PLAYERS)
+        if [z.owner, z.base]
+            .iter()
+            .flatten()
+            .any(|&o| usize::from(o) >= PLAYERS)
             || !(z.radius_m.is_finite() && z.radius_m > 0.0)
         {
-            return Err(format!("zone {}: bad owner or radius", z.id).into());
+            return Err(format!("zone {}: bad owner, base or radius", z.id).into());
         }
         game.zones.push(Zone {
             id: z.id,
             name_tr: z.name_tr,
             center: Vec2::new(z.x, z.y),
             radius_m: z.radius_m,
-            points: z.points,
             depot: z.depot,
             owner: z.owner.map(PlayerId),
+            base: z.base.map(PlayerId),
             progress: None,
         });
     }

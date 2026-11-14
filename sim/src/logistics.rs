@@ -1,26 +1,27 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-//! F1-3 / F1-4: objective zones (capture by infantry, points), supply and the end-of-turn
-//! economy step.
+//! Regions (capture by infantry, bases, victory), supply and the end-of-turn step.
 
 use crate::data::{Rules, UnitCatalog, UnitClass};
 use crate::event::Event;
 use crate::turn::Game;
 use crate::world::{PlayerId, UnitId, UnitState, Vec2};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
-/// A capturable area. Owner and captures are public (map flags); progress is not sent.
+/// A named region (K-063), captured by holding the settlement at its centre (K-060).
+/// Owner and captures are public (map flags); progress is not sent.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Zone {
     pub id: u32,
     pub name_tr: String,
     pub center: Vec2,
     pub radius_m: f64,
-    /// Points the owner scores at the end of every turn.
-    pub points: u32,
     /// Supply units of the owner refill here.
     pub depot: bool,
     pub owner: Option<PlayerId>,
+    /// Home base of this player: whoever else takes it wins the match (K-061).
+    #[serde(default)]
+    pub base: Option<PlayerId>,
     /// Player capturing and ticks spent so far.
     #[serde(default)]
     pub progress: Option<(PlayerId, u32)>,
@@ -78,15 +79,18 @@ pub fn step_capture(game: &mut Game, catalog: &UnitCatalog, rules: &Rules) -> Ve
     events
 }
 
-/// End-of-turn economy: score zones, refill supply units at depots, resupply nearby
-/// friendly units, then decide the match.
-pub fn end_of_turn(game: &mut Game, catalog: &UnitCatalog, rules: &Rules) {
-    for zone in &game.zones {
-        if let Some(p) = zone.owner {
-            *game.scores.entry(p).or_insert(0) += zone.points;
-        }
+/// Regions held per player (players without a region are absent).
+pub fn region_counts(zones: &[Zone]) -> BTreeMap<PlayerId, u32> {
+    let mut counts = BTreeMap::new();
+    for owner in zones.iter().filter_map(|z| z.owner) {
+        *counts.entry(owner).or_insert(0) += 1;
     }
+    counts
+}
 
+/// End of turn: refill supply units at depots, resupply nearby friendly units, then
+/// decide the match.
+pub fn end_of_turn(game: &mut Game, catalog: &UnitCatalog, rules: &Rules) {
     let suppliers: Vec<UnitId> = game
         .world
         .units()
@@ -146,18 +150,28 @@ pub fn end_of_turn(game: &mut Game, catalog: &UnitCatalog, rules: &Rules) {
         }
     }
 
-    let best = game.scores.iter().map(|(_, &s)| s).max().unwrap_or(0);
-    if best >= rules.zones.victory_points || game.turn >= rules.zones.max_turns {
-        let leaders: Vec<PlayerId> = game
-            .scores
-            .iter()
-            .filter(|(_, &s)| s == best)
-            .map(|(&p, _)| p)
-            .collect();
-        game.result = Some(MatchResult {
-            winner: (leaders.len() == 1).then(|| leaders[0]),
-        });
-    }
+    // K-061: holding an enemy base wins; after the last turn the side with more regions.
+    let takers: BTreeSet<PlayerId> = game
+        .zones
+        .iter()
+        .filter_map(|z| z.owner.filter(|&o| z.base.is_some_and(|b| b != o)))
+        .collect();
+    let leaders: Vec<PlayerId> = if !takers.is_empty() {
+        takers.into_iter().collect()
+    } else if game.turn >= rules.zones.max_turns {
+        let counts = region_counts(&game.zones);
+        let best = counts.values().copied().max().unwrap_or(0);
+        counts
+            .into_iter()
+            .filter(|&(_, n)| n == best)
+            .map(|(p, _)| p)
+            .collect()
+    } else {
+        return;
+    };
+    game.result = Some(MatchResult {
+        winner: (leaders.len() == 1).then(|| leaders[0]),
+    });
 }
 
 #[cfg(test)]
@@ -178,9 +192,9 @@ mod tests {
             name_tr: format!("Bölge {id}"),
             center: Vec2::new(x, 1000.0),
             radius_m: 300.0,
-            points: 5,
             depot,
             owner: owner.map(PlayerId),
+            base: None,
             progress: None,
         }
     }
@@ -237,18 +251,66 @@ mod tests {
     }
 
     #[test]
-    fn f1_3_owner_scores_each_turn_and_wins_at_victory_points() {
-        let mut g = game(flat(), vec![unit(1, 0, "infantry", 3000.0, 1000.0)]);
-        g.zones = vec![zone(1, 3000.0, Some(0), false)];
-        g.zones[0].points = rules().zones.victory_points;
+    fn k061_taking_the_enemy_base_wins_at_the_end_of_the_turn() {
+        // Blue infantry stands in the red base; red infantry is far from the blue base.
+        let mut g = game(
+            flat(),
+            vec![
+                unit(1, 0, "infantry", 6000.0, 1000.0),
+                unit(2, 1, "infantry", 9000.0, 9000.0),
+            ],
+        );
+        g.zones = vec![
+            zone(1, 3000.0, Some(0), true),
+            zone(2, 6000.0, Some(1), true),
+            zone(3, 8000.0, Some(1), false),
+        ];
+        g.zones[0].base = Some(PlayerId(0));
+        g.zones[1].base = Some(PlayerId(1));
         resolve_phase(&mut g, &catalog(), &rules());
-        assert_eq!(g.scores[&PlayerId(0)], rules().zones.victory_points);
+        assert_eq!(g.zones[1].owner, Some(PlayerId(0)));
+        // The base decides, at the end of the turn it fell in.
         assert_eq!(
             g.result,
             Some(MatchResult {
                 winner: Some(PlayerId(0))
             })
         );
+        // Both bases changing hands in the same turn is a draw.
+        g.zones[0].owner = Some(PlayerId(1));
+        g.result = None;
+        end_of_turn(&mut g, &catalog(), &rules());
+        assert_eq!(g.result, Some(MatchResult { winner: None }));
+    }
+
+    #[test]
+    fn k061_most_regions_wins_after_the_last_turn() {
+        let mut g = game(flat(), vec![unit(1, 0, "mbt", 9000.0, 9000.0)]);
+        g.zones = vec![
+            zone(1, 3000.0, Some(0), false),
+            zone(2, 6000.0, Some(1), false),
+            zone(3, 8000.0, Some(1), false),
+            zone(4, 9000.0, None, false),
+        ];
+        g.zones[0].base = Some(PlayerId(0));
+        assert_eq!(
+            region_counts(&g.zones),
+            BTreeMap::from([(PlayerId(0), 1), (PlayerId(1), 2)])
+        );
+        end_of_turn(&mut g, &catalog(), &rules());
+        assert_eq!(g.result, None, "nobody lost a base and turns remain");
+        g.turn = rules().zones.max_turns;
+        end_of_turn(&mut g, &catalog(), &rules());
+        assert_eq!(
+            g.result,
+            Some(MatchResult {
+                winner: Some(PlayerId(1))
+            })
+        );
+        // Equal counts: draw.
+        g.zones[3].owner = Some(PlayerId(0));
+        end_of_turn(&mut g, &catalog(), &rules());
+        assert_eq!(g.result, Some(MatchResult { winner: None }));
     }
 
     #[test]

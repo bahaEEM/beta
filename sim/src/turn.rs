@@ -25,8 +25,6 @@ pub struct Game {
     pub combat: CombatState,
     #[serde(default)]
     pub zones: Vec<Zone>,
-    #[serde(default)]
-    pub scores: BTreeMap<PlayerId, u32>,
     /// Set when the match is over.
     #[serde(default)]
     pub result: Option<MatchResult>,
@@ -58,7 +56,6 @@ impl Game {
             tracks,
             combat: CombatState::default(),
             zones: Vec::new(),
-            scores: BTreeMap::new(),
             result: None,
             hq_players,
             connected,

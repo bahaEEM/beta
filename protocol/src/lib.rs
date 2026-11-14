@@ -6,7 +6,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt;
 use std::io::Read;
 
-pub const PROTOCOL_VERSION: u32 = 2;
+pub const PROTOCOL_VERSION: u32 = 3;
 /// Maximum size of a message's JSON (uncompressed).
 pub const MAX_MESSAGE_BYTES: usize = 1024 * 1024;
 const ZSTD_LEVEL: i32 = 3;
@@ -116,16 +116,18 @@ pub struct Contact {
     pub last_seen_tick: u32,
 }
 
-/// Objective zone (public map feature). Capture progress is not sent.
+/// Named region (public map feature), captured by holding the circle at its centre.
+/// Capture progress is not sent.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ZoneView {
     pub id: u32,
     pub name_tr: String,
     pub center: Vec2,
     pub radius_m: f64,
-    pub points: u32,
     pub depot: bool,
     pub owner: Option<PlayerId>,
+    /// Home base of this player: an enemy who captures it wins the match.
+    pub base: Option<PlayerId>,
 }
 
 /// Everything one player is allowed to know at the start of a turn.
@@ -135,7 +137,7 @@ pub struct PlayerView {
     pub contacts: Vec<Contact>,
     pub kbg_budget: u32,
     pub zones: Vec<ZoneView>,
-    /// Score per player id.
+    /// Regions held per player id.
     pub scores: Vec<u32>,
 }
 
@@ -419,11 +421,11 @@ mod tests {
                         name_tr: "Helvadere".into(),
                         center: P,
                         radius_m: 400.0,
-                        points: 2,
                         depot: true,
                         owner: Some(0),
+                        base: Some(0),
                     }],
-                    scores: vec![14, 6],
+                    scores: vec![8, 8],
                 },
             },
             ServerMsg::Resolution {
@@ -507,7 +509,7 @@ mod tests {
             },
             ServerMsg::GameOver {
                 winner: Some(1),
-                scores: vec![88, 102],
+                scores: vec![9, 14],
             },
         ]
     }

@@ -319,7 +319,6 @@ pub struct CommsRules {
 pub struct ZoneRules {
     /// Game seconds of uncontested infantry presence needed to capture.
     pub capture_s: f64,
-    pub victory_points: u32,
     pub max_turns: u32,
 }
 

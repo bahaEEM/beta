@@ -74,6 +74,7 @@ func _ready() -> void:
 	_load_terrain()
 	add_child(overlays)
 	overlays.build_roads(ProjectSettings.globalize_path("res://").path_join(MAP_DIR).path_join("roads_lines.json"))
+	overlays.build_borders(ProjectSettings.globalize_path("res://").path_join(MAP_DIR).path_join("regions_lines.json"))
 	add_child(ui)
 	ui.connect_pressed.connect(func(addr):
 		if net.connect_to(addr) != OK:
@@ -337,7 +338,7 @@ func _on_message(m: Dictionary) -> void:
 	match m.get("type"):
 		"welcome":
 			player_id = int(m.player_id)
-			ui.banner("Oyuncu %d (%s).\nRakip bekleniyor..." % [player_id + 1, "Mavi, batı" if player_id == 0 else "Kırmızı, doğu"])
+			ui.banner("Oyuncu %d (%s).\nRakip bekleniyor..." % [player_id + 1, "Mavi, kuzey" if player_id == 0 else "Kırmızı, güney"])
 			_status("Oyuncu %d, harita %s" % [player_id + 1, m.map_id])
 		"turn_start":
 			if playing:

@@ -146,7 +146,7 @@ func show_game_over(winner, scores: Array, player_id: int) -> void:
 func score_text(scores: Array, player_id: int) -> String:
 	if scores.size() < 2 or player_id < 0:
 		return ""
-	return "Skor: biz %d - rakip %d" % [int(scores[player_id]), int(scores[1 - player_id])]
+	return "Bölge: biz %d - rakip %d" % [int(scores[player_id]), int(scores[1 - player_id])]
 
 
 # sel: Array of unit dicts (own units). orders: the pending orders (orders.gd).

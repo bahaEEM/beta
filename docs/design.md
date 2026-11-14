@@ -10,7 +10,7 @@ Yeni testlerin adı kural kimliğiyle başlar (`k043_...`). Eski testler aşağ�
   birimler kimlik sırasıyla işlenir, sıralı kaplar kullanılır.
 - **K-002 Tur.** Planlama (45 sn gerçek zaman; iki oyuncu "Hazır" derse erken biter) → çözüm 200 adım → tur sonu.
   Bir adım 0,6 sn oyun zamanıdır: bir tur = 2 dk oyun, ekranda 20 sn oynatılır.
-- **K-003 Adım sırası.** hareket → sensör/iz → direkt ateş (eşzamanlı) → dolaylı atış → çarpma/hasar → ele geçirme. Tur sonu: puan → ikmal → zafer kontrolü.
+- **K-003 Adım sırası.** hareket → sensör/iz → direkt ateş (eşzamanlı) → dolaylı atış → çarpma/hasar → ele geçirme. Tur sonu: ikmal → zafer kontrolü.
 
 ## Emirler ve KBG
 - **K-010 KBG bütçesi.** Oyuncu başına tur başı 8 puan. Her emir, içindeki her başlayan 12 birim için 1 puan
@@ -83,8 +83,16 @@ Yeni testlerin adı kural kimliğiyle başlar (`k043_...`). Eski testler aşağ�
   Kayıp temas son bilinen bölge (ya da son kerteriz) olarak gösterilir. Bölge sahiplikleri herkese açıktır.
 
 ## Bölgeler, ekonomi, ikmal
-- **K-060 Ele geçirme.** Bölgede tek bir tarafın canlı piyadesi 60 sn kalırsa bölge o tarafa geçer; çekişmede ilerleme donar, boşalınca sıfırlanır.
-- **K-061 Puan ve zafer.** Tur sonunda her bölge sahibine puan yazar. 100 puana ulaşan ya da 100. tur sonunda önde olan kazanır; eşitlik berabere.
+- **K-060 Ele geçirme.** Bölgenin merkezindeki dairede (yerleşim, `radius_m`) tek bir tarafın canlı piyadesi 60 sn kalırsa bütün bölge
+  o tarafa geçer; çekişmede ilerleme donar, boşalınca sıfırlanır.
+- **K-061 Zafer (2026-11-14, puan kaldırıldı).** Her tarafın bir üs bölgesi vardır (`base`). Tur sonunda rakibin üssü elinde olan taraf kazanır;
+  iki üs aynı turda el değiştirdiyse berabere. Kimse üs kaybetmediyse 100. tur sonunda daha çok bölgesi olan kazanır; eşitlik berabere.
+  İstemcideki "Bölge: biz N - rakip M" satırı elde tutulan bölge sayısıdır.
+- **K-063 Bölgeler.** Kara, gerçek yerleşim adlı bölgelere bölünür (`maps/<harita>/regions.toml`, `tools regions`): merkezler adlı OSM
+  yerleşimleri (aralarında en az 2 km) ve Hasandağı zirvesi; her kara hücresi en yakın merkezin bölgesindedir; su kimsenin değildir.
+  Dosyada her bölgenin sınır komşuları (`neighbours`) ve yolla doğrudan bağlı olduğu bölgeler (`road_links`, M3 ikmalinde kullanılacak) yazar.
+  Başlangıç sahipliği senaryodadır: her taraf üssüne en yakın 8 bölge, gerisi tarafsız. Cephe hattı = iki tarafın bölgeleri arasındaki sınır
+  (istemcide sarı çizgi).
 - **K-062 İkmal.** Tur sonunda ikmal kamyonu 300 m içindeki dost birimlerin yakıt ve mühimmatını stokundan doldurur;
   kendisi kendi depo bölgesinde tam dolar.
 
@@ -134,7 +142,8 @@ Bütün sayılar yer tutucudur; görsel aşamadan önce oyun testiyle ayarlanaca
 | K-046 | k046_stances_hold_and_return_fire |
 | K-050 | g5_filter_hides_unseen_and_blurs_contacts, g5_cheat_no_unseen_unit_in_filtered_stream_20_scenarios, g10_cheat_oracle_and_resolution_time, g7_end_to_end_turn |
 | K-060 | f1_3_infantry_captures_after_capture_time, f1_3_only_infantry_captures_and_contest_freezes |
-| K-061 | f1_3_owner_scores_each_turn_and_wins_at_victory_points |
+| K-061 | k061_taking_the_enemy_base_wins_at_the_end_of_the_turn, k061_most_regions_wins_after_the_last_turn |
+| K-063 | k063_regions_split_land_by_nearest_place, g10_cheat_oracle_and_resolution_time (30 bölgeli senaryo yüklenir) |
 | K-062 | f1_4_supply_refills_nearby_units_and_restocks_at_depot |
 | K-080 | k080_radio_links_relay_through_units, k082_no_hq_no_command |
 | K-081 / K-082 | k081_enemy_jammer_cuts_radio_but_not_wire |

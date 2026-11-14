@@ -46,7 +46,7 @@ impl SimMap {
     }
 
     /// Water at the sample nearest to a point in sim metres (inside the map).
-    fn is_water_at(&self, p: [f64; 2]) -> bool {
+    pub fn is_water_at(&self, p: [f64; 2]) -> bool {
         let i = ((p[0] / self.cell).round() as usize).min(self.w - 1);
         let j = ((p[1] / self.cell).round() as usize).min(self.h - 1);
         self.is_water(i, j)

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Static-ish map overlays draped on the terrain: roads (built once) and zones (rebuilt on change).
+# Static-ish map overlays draped on the terrain: roads (built once), region borders and zones (recoloured on change).
 extends Node3D
 
 # Road class -> [ribbon width m, colour]. 3 = main road, 1 = track.
@@ -12,10 +12,12 @@ const ROAD_LIFT := 4.0
 const ROAD_STEP := 60.0  # densify long segments so ribbons follow the ground
 const ZONE_LIFT := 12.0
 const NEUTRAL := Color(0.6, 0.6, 0.6)
+const FRONT := Color(1.0, 0.95, 0.3)  # border between regions of the two sides
 
 var main: Node3D  # provides ground(Vector2) -> float
 var zone_lines := MeshInstance3D.new()
 var zone_labels := {}  # zone id -> Label3D
+var borders: Array = []  # [{a, b, pts: PackedVector3Array of draped line pairs}]
 
 
 func _init(owner_main: Node3D) -> void:
@@ -60,6 +62,27 @@ func build_roads(path: String) -> void:
 	add_child(mi)
 
 
+# regions_lines.json: {"borders": [{"a": id, "b": id, "segments": [[x0, y0, x1, y1], ...]}]} in sim metres.
+# Draped once here; set_zones only picks the colours.
+func build_borders(path: String) -> void:
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		push_warning("no region borders at %s" % path)
+		return
+	var data = JSON.parse_string(f.get_as_text())
+	if not (data is Dictionary and data.has("borders")):
+		push_warning("bad region borders file %s" % path)
+		return
+	for b in data.borders:
+		var pts := PackedVector3Array()
+		for s in b.segments:
+			var line := _densify([[s[0], s[1]], [s[2], s[3]]])
+			for i in range(1, line.size()):
+				pts.append(_drape(line[i - 1], ZONE_LIFT))
+				pts.append(_drape(line[i], ZONE_LIFT))
+		borders.append({"a": int(b.a), "b": int(b.b), "pts": pts})
+
+
 func _densify(raw: Array) -> Array:
 	var out := []
 	for i in raw.size():
@@ -93,13 +116,30 @@ func _drape(p: Vector2, lift: float) -> Vector3:
 	return Vector3(p.x, main.ground(p) + lift, p.y)
 
 
-# zones: view.zones from turn_start (owner may be null). Rebuilds circles and labels.
+# zones: view.zones from turn_start (owner may be null). Rebuilds borders, circles and labels.
+# Border colours: front line between the two sides, team colour at the edge of held land, grey inside.
 func set_zones(zones: Array, player_id: int, team_colors: Array) -> void:
 	var im: ImmediateMesh = zone_lines.mesh
 	im.clear_surfaces()
 	if zones.is_empty():
 		return
 	im.surface_begin(Mesh.PRIMITIVE_LINES)
+	var owners := {}
+	for z in zones:
+		owners[int(z.id)] = z.owner
+	for b in borders:
+		var oa = owners.get(b.a)
+		var ob = owners.get(b.b)
+		var line_color: Color = NEUTRAL.darkened(0.3)
+		if oa != null and ob != null and int(oa) != int(ob):
+			line_color = FRONT
+		elif oa != null and ob != null:
+			line_color = team_colors[int(oa)].darkened(0.4)
+		elif oa != null or ob != null:
+			line_color = team_colors[int(oa if oa != null else ob)]
+		im.surface_set_color(line_color)
+		for v in b.pts:
+			im.surface_add_vertex(v)
 	for z in zones:
 		var c := Vector2(z.center.x, z.center.y)
 		var r := float(z.radius_m)
@@ -126,7 +166,8 @@ func set_zones(zones: Array, player_id: int, team_colors: Array) -> void:
 		label.position = _drape(c, 150.0)
 		label.modulate = color.lightened(0.3)
 		var who := "tarafsız" if z.owner == null else ("bizim" if int(z.owner) == player_id else "rakip")
-		label.text = "%s%s (%d puan, %s)" % ["[Depo] " if z.depot else "", z.name_tr, int(z.points), who]
+		var tag := "[Üs] " if z.get("base") != null else ("[Depo] " if z.depot else "")
+		label.text = "%s%s (%s)" % [tag, z.name_tr, who]
 	im.surface_end()
 
 

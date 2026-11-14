@@ -620,9 +620,11 @@ impl Match {
         }
     }
 
+    /// Regions held per player id.
     fn scores(&self) -> Vec<u32> {
+        let counts = sim::logistics::region_counts(&self.game.zones);
         (0..PLAYERS as u8)
-            .map(|p| self.game.scores.get(&PlayerId(p)).copied().unwrap_or(0))
+            .map(|p| counts.get(&PlayerId(p)).copied().unwrap_or(0))
             .collect()
     }
 

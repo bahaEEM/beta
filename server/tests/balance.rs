@@ -53,9 +53,9 @@ fn balance_report_hasandag_advance() {
                     .collect()
             };
             let enemy_base = if p == 0 {
-                Vec2::new(19500.0, 27000.0)
+                Vec2::new(19381.0, 27897.0)
             } else {
-                Vec2::new(21500.0, 13000.0)
+                Vec2::new(23160.0, 12713.0)
             };
             if turn == 1 {
                 list.push(Order::SetEmitter {

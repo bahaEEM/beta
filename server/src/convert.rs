@@ -96,9 +96,9 @@ pub fn zone(z: &Zone) -> p::ZoneView {
         name_tr: z.name_tr.clone(),
         center: vec2(z.center),
         radius_m: z.radius_m,
-        points: z.points,
         depot: z.depot,
         owner: z.owner.map(|o| o.0),
+        base: z.base.map(|o| o.0),
     }
 }
 

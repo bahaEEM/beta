@@ -10,6 +10,8 @@ DEM ve OSM kaynaklı harita dosyaları (maps/hasandag/) bu CC BY-SA lisansının
 | maps/hasandag/roads.bin, roads_lines.json, roads.toml | OpenStreetMap yolları (highway = motorway…service), Overpass API ayna sunucusu overpass.kumi.systems, veri tabanı anı 2026-07-24T11:04:51Z (adımlar: docs/maps.md) | `tools roads` | **CC BY-SA DEĞİL.** © OpenStreetMap contributors, ODbL 1.0 (https://www.openstreetmap.org/copyright). Bu dosyalar ODbL altındadır (türetilmiş veri tabanı); oyunun CC BY-SA varlık lisansı bunlara uygulanmaz. | 2026-10-07 |
 | maps/hasandag/terrain.bin, terrain.toml | OpenStreetMap arazi kullanımı (landuse = forest/residential/industrial/commercial, natural = wood), Overpass API overpass-api.de, veri tabanı anı 2026-11-14T09:23:04Z; su = `sim_height.bin` içinde deniz seviyesi altı (adımlar: docs/maps.md) | `tools cover` | **CC BY-SA DEĞİL.** © OpenStreetMap contributors, ODbL 1.0 (https://www.openstreetmap.org/copyright). | 2026-11-14 |
 
+| maps/hasandag/regions.toml, regions.bin, regions_lines.json | OpenStreetMap yer adları (place = town/village/suburb/hamlet/neighbourhood), aynı Overpass sorgusu, veri tabanı anı 2026-11-14T09:23:04Z (adımlar: docs/maps.md) | `tools regions` | **CC BY-SA DEĞİL.** © OpenStreetMap contributors, ODbL 1.0 (https://www.openstreetmap.org/copyright). | 2026-11-14 |
+
 2026-11-14: `sim_height.bin`, `terrain_r16.raw` ve `map.toml` denizli olarak yeniden üretildi (`tools convert --sea-x0 21000 --sea-slope 100 --sea-level 950`):
 Copernicus yükseklikleri 21. km'den doğuya doğru km başına 100 m alçaltıldı, 950 m altı düz su yapıldı. Yani bu dosyalar artık Copernicus DEM'in
 **değiştirilmiş** bir türevidir. Yollar (`roads.*`) aynı OSM verisinden, kıyıda kesilerek yeniden üretildi.

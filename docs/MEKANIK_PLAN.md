@@ -15,7 +15,10 @@ ZMA + piyade taşıma · bölge noktaları + puan + zafer · yakıt/mühimmat + 
 - Hasandağı haritasının doğu yarısı denize çevrilir (test amaçlı kıyı). Hücre tipi: kara / su / kıyı. ✔ (2026-11-14)
 - Arazi örtüsü (OSM): orman, yerleşim, açık alan. Orman ve yerleşim gizlenme ve koruma verir (M4'te kullanılır). ✔ veri (2026-11-14)
 - Adlı bölgeler: gerçek yerleşim adlarıyla 25–35 bölge (OSM yer adları, elle seçilmiş). Bölge sahipliği, cephe hattı,
-  bölge değeri (puan), bölgeler arası yol bağlantıları. Eski "bölge noktaları" bölgelere taşınır.
+  bölge değeri (puan), bölgeler arası yol bağlantıları. Eski "bölge noktaları" bölgelere taşınır. ✔ (2026-11-14)
+- Kullanıcı kararları (2026-11-14): kıyı ve 30 bölge onaylandı · bölge, merkezindeki yerleşim tutulunca el değiştirir (K-060 aynen) ·
+  başlangıç: kuzey Mavi, güney Kırmızı, orta tarafsız · **puan yok**: düşman üssünü alan kazanır, 100. turda çok bölgesi olan (K-061).
+  Yani "bölge değeri (puan)" maddesi düştü; bölgelerin değeri M3 (ikmal) ve M7 (gelir) ile gelecek.
 
 ### M2 — Yapılar ve kurulabilir sistemler
 - Sabit yapılar (hareket etmeyen birimler): radar kulesi (uzun menzil hava+kara), sahra hastanesi, lojistik üs, depo,

@@ -1,410 +1,586 @@
-# Hasandağı: Mavi (0) kuzey eteğinde, Kırmızı (1) güney eteğinde; dağ aralarında.
-# Hedefler: batı ovasında iki köy, zirve gözetleme noktası, doğu geçidi. placeholder konumlar.
+# Hasandağı: Mavi (0) kuzey eteğinde Helvadere'de, Kırmızı (1) güney eteğinde Karakapı'da; dağ aralarında, doğusu deniz.
+# Bölgeler maps/hasandag/regions.toml'dan (kimlik, ad, merkez); burada sahiplik, depo ve üs eklenir.
+# Her taraf üssüne en yakın 8 bölgeyle başlar (zirve ve iki üsse de yakın olan Dikmen hariç); kalan 14 bölge tarafsız.
+# Düşman üssünü alan kazanır (K-061).
 
 [[unit]]
 id = 1
 owner = 0
 type = "infantry"
-x = 20900.0
-y = 12000.0
+x = 22060.0
+y = 14213.0
 heading_deg = 90.0
 
 [[unit]]
 id = 2
 owner = 0
 type = "infantry"
-x = 21300.0
-y = 12000.0
+x = 22460.0
+y = 14213.0
 heading_deg = 90.0
 
 [[unit]]
 id = 3
 owner = 0
 type = "infantry"
-x = 21700.0
-y = 12000.0
+x = 22860.0
+y = 14213.0
 heading_deg = 90.0
 
 [[unit]]
 id = 4
 owner = 0
 type = "infantry"
-x = 22100.0
-y = 12000.0
+x = 23260.0
+y = 14213.0
 heading_deg = 90.0
 
 [[unit]]
 id = 5
 owner = 0
 type = "atgm"
-x = 20500.0
-y = 11900.0
+x = 21660.0
+y = 14113.0
 heading_deg = 90.0
 
 [[unit]]
 id = 6
 owner = 0
 type = "atgm"
-x = 22500.0
-y = 11900.0
+x = 23660.0
+y = 14113.0
 heading_deg = 90.0
 
 [[unit]]
 id = 7
 owner = 0
 type = "mbt"
-x = 21200.0
-y = 11700.0
+x = 22360.0
+y = 13913.0
 heading_deg = 90.0
 
 [[unit]]
 id = 8
 owner = 0
 type = "mbt"
-x = 21800.0
-y = 11700.0
+x = 22960.0
+y = 13913.0
 heading_deg = 90.0
 
 [[unit]]
 id = 9
 owner = 0
 type = "gsr"
-x = 20700.0
-y = 11100.0
+x = 21860.0
+y = 13313.0
 heading_deg = 90.0
 
 [[unit]]
 id = 10
 owner = 0
 type = "esm"
-x = 22300.0
-y = 11100.0
+x = 23460.0
+y = 13313.0
 heading_deg = 90.0
 
 [[unit]]
 id = 11
 owner = 0
 type = "jammer"
-x = 21500.0
-y = 10900.0
+x = 22660.0
+y = 13113.0
 heading_deg = 90.0
 
 [[unit]]
 id = 12
 owner = 0
 type = "supply"
-x = 21100.0
-y = 10700.0
+x = 22260.0
+y = 12913.0
 heading_deg = 90.0
 
 [[unit]]
 id = 13
 owner = 0
 type = "hq"
-x = 21500.0
-y = 10500.0
+x = 22660.0
+y = 12713.0
 heading_deg = 90.0
 
 [[unit]]
 id = 14
 owner = 0
 type = "spg"
-x = 22100.0
-y = 10500.0
+x = 23260.0
+y = 12713.0
 heading_deg = 90.0
 
 [[unit]]
 id = 15
 owner = 0
 type = "rocket"
-x = 20600.0
-y = 10300.0
+x = 21760.0
+y = 12513.0
 heading_deg = 90.0
 
 [[unit]]
 id = 16
 owner = 1
 type = "infantry"
-x = 18900.0
-y = 28000.0
+x = 18781.0
+y = 26397.0
 heading_deg = 270.0
 
 [[unit]]
 id = 17
 owner = 1
 type = "infantry"
-x = 19300.0
-y = 28000.0
+x = 19181.0
+y = 26397.0
 heading_deg = 270.0
 
 [[unit]]
 id = 18
 owner = 1
 type = "infantry"
-x = 19700.0
-y = 28000.0
+x = 19581.0
+y = 26397.0
 heading_deg = 270.0
 
 [[unit]]
 id = 19
 owner = 1
 type = "infantry"
-x = 20100.0
-y = 28000.0
+x = 19981.0
+y = 26397.0
 heading_deg = 270.0
 
 [[unit]]
 id = 20
 owner = 1
 type = "atgm"
-x = 18500.0
-y = 28100.0
+x = 18381.0
+y = 26497.0
 heading_deg = 270.0
 
 [[unit]]
 id = 21
 owner = 1
 type = "atgm"
-x = 20500.0
-y = 28100.0
+x = 20381.0
+y = 26497.0
 heading_deg = 270.0
 
 [[unit]]
 id = 22
 owner = 1
 type = "mbt"
-x = 19200.0
-y = 28300.0
+x = 19081.0
+y = 26697.0
 heading_deg = 270.0
 
 [[unit]]
 id = 23
 owner = 1
 type = "mbt"
-x = 19800.0
-y = 28300.0
+x = 19681.0
+y = 26697.0
 heading_deg = 270.0
 
 [[unit]]
 id = 24
 owner = 1
 type = "gsr"
-x = 18700.0
-y = 28900.0
+x = 18581.0
+y = 27297.0
 heading_deg = 270.0
 
 [[unit]]
 id = 25
 owner = 1
 type = "esm"
-x = 20300.0
-y = 28900.0
+x = 20181.0
+y = 27297.0
 heading_deg = 270.0
 
 [[unit]]
 id = 26
 owner = 1
 type = "jammer"
-x = 19500.0
-y = 29100.0
+x = 19381.0
+y = 27497.0
 heading_deg = 270.0
 
 [[unit]]
 id = 27
 owner = 1
 type = "supply"
-x = 19100.0
-y = 29300.0
+x = 18981.0
+y = 27697.0
 heading_deg = 270.0
 
 [[unit]]
 id = 28
 owner = 1
 type = "hq"
-x = 19500.0
-y = 29500.0
+x = 19381.0
+y = 27897.0
 heading_deg = 270.0
 
 [[unit]]
 id = 29
 owner = 1
 type = "spg"
-x = 20100.0
-y = 29500.0
+x = 19981.0
+y = 27897.0
 heading_deg = 270.0
 
 [[unit]]
 id = 30
 owner = 1
 type = "rocket"
-x = 18600.0
-y = 29700.0
+x = 18481.0
+y = 28097.0
 heading_deg = 270.0
 
 [[unit]]
 id = 31
 owner = 0
 type = "ifv"
-x = 21050.0
-y = 11800.0
+x = 22210.0
+y = 14013.0
 heading_deg = 90.0
 
 [[unit]]
 id = 32
 owner = 0
 type = "ifv"
-x = 21950.0
-y = 11800.0
+x = 23110.0
+y = 14013.0
 heading_deg = 90.0
 
 [[unit]]
 id = 33
 owner = 0
 type = "recon"
-x = 21500.0
-y = 12400.0
+x = 22660.0
+y = 14613.0
 heading_deg = 90.0
 
 [[unit]]
 id = 34
 owner = 0
 type = "uav"
-x = 21200.0
-y = 10600.0
+x = 22360.0
+y = 12813.0
 heading_deg = 90.0
 
 [[unit]]
 id = 35
 owner = 0
 type = "suav"
-x = 21800.0
-y = 10600.0
+x = 22960.0
+y = 12813.0
 heading_deg = 90.0
 
 [[unit]]
 id = 36
 owner = 0
 type = "shorad"
-x = 21500.0
-y = 10700.0
+x = 22660.0
+y = 12913.0
 heading_deg = 90.0
 
 [[unit]]
 id = 37
 owner = 1
 type = "ifv"
-x = 19050.0
-y = 28200.0
+x = 18931.0
+y = 26597.0
 heading_deg = 270.0
 
 [[unit]]
 id = 38
 owner = 1
 type = "ifv"
-x = 19950.0
-y = 28200.0
+x = 19831.0
+y = 26597.0
 heading_deg = 270.0
 
 [[unit]]
 id = 39
 owner = 1
 type = "recon"
-x = 19500.0
-y = 27600.0
+x = 19381.0
+y = 25997.0
 heading_deg = 270.0
 
 [[unit]]
 id = 40
 owner = 1
 type = "uav"
-x = 19200.0
-y = 29400.0
+x = 19081.0
+y = 27797.0
 heading_deg = 270.0
 
 [[unit]]
 id = 41
 owner = 1
 type = "suav"
-x = 19800.0
-y = 29400.0
+x = 19681.0
+y = 27797.0
 heading_deg = 270.0
 
 [[unit]]
 id = 42
 owner = 1
 type = "shorad"
-x = 19500.0
-y = 29300.0
+x = 19381.0
+y = 27697.0
 heading_deg = 270.0
 
 [[unit]]
 id = 43
 owner = 0
 type = "helo"
-x = 22200.0
-y = 10300.0
+x = 23360.0
+y = 12513.0
 heading_deg = 90.0
 
 [[unit]]
 id = 44
 owner = 1
 type = "helo"
-x = 18800.0
-y = 29700.0
+x = 18681.0
+y = 28097.0
 heading_deg = 270.0
 
 [[zone]]
 id = 1
-name_tr = "Kuzey Kasaba (Mavi depo)"
-x = 22000.0
-y = 10500.0
-radius_m = 600.0
-points = 1
-depot = true
-owner = 0
+name_tr = "Sağlık"
+x = 11196.0
+y = 531.0
+radius_m = 500.0
 
 [[zone]]
 id = 2
-name_tr = "Güney Köy (Kırmızı depo)"
-x = 19500.0
-y = 29500.0
-radius_m = 600.0
-points = 1
-depot = true
-owner = 1
+name_tr = "Uzunkaya"
+x = 24057.0
+y = 1728.0
+radius_m = 500.0
+owner = 0
 
 [[zone]]
 id = 3
-name_tr = "Batı Köyü"
-x = 7500.0
-y = 14500.0
+name_tr = "Akhisar"
+x = 13631.0
+y = 1896.0
 radius_m = 500.0
-points = 3
-depot = false
 
 [[zone]]
 id = 4
-name_tr = "Batı Ova"
-x = 7500.0
-y = 24500.0
+name_tr = "Bahçesaray"
+x = 3618.0
+y = 2058.0
 radius_m = 500.0
-points = 3
-depot = false
 
 [[zone]]
 id = 5
-name_tr = "Zirve Gözetleme"
-x = 19850.0
-y = 20100.0
-radius_m = 400.0
-points = 2
-depot = false
+name_tr = "Bağlı"
+x = 11381.0
+y = 4829.0
+radius_m = 500.0
 
 [[zone]]
 id = 6
-name_tr = "Doğu Geçit"
-x = 30000.0
-y = 20000.0
+name_tr = "Karataş"
+x = 13487.0
+y = 5979.0
 radius_m = 500.0
-points = 2
-depot = false
+owner = 0
+
+[[zone]]
+id = 7
+name_tr = "Başkillik"
+x = 6282.0
+y = 6682.0
+radius_m = 500.0
+
+[[zone]]
+id = 8
+name_tr = "Karaören"
+x = 16871.0
+y = 7316.0
+radius_m = 500.0
+owner = 0
+
+[[zone]]
+id = 9
+name_tr = "Başkillik Yaylası"
+x = 1315.0
+y = 7578.0
+radius_m = 500.0
+
+[[zone]]
+id = 10
+name_tr = "Elmacık"
+x = 21320.0
+y = 9451.0
+radius_m = 500.0
+owner = 0
+
+[[zone]]
+id = 11
+name_tr = "Gözlükuyu Mahallesi"
+x = 10523.0
+y = 10349.0
+radius_m = 500.0
+
+[[zone]]
+id = 12
+name_tr = "Mandıra"
+x = 23434.0
+y = 10686.0
+radius_m = 500.0
+owner = 0
+
+[[zone]]
+id = 13
+name_tr = "Karkın"
+x = 20167.0
+y = 11484.0
+radius_m = 500.0
+owner = 0
+
+[[zone]]
+id = 14
+name_tr = "Helvadere"
+x = 23160.0
+y = 12713.0
+radius_m = 500.0
+depot = true
+base = 0
+owner = 0
+
+[[zone]]
+id = 15
+name_tr = "Gözlükuyu"
+x = 14162.0
+y = 14390.0
+radius_m = 500.0
+owner = 0
+
+[[zone]]
+id = 16
+name_tr = "Taşpınar"
+x = 7489.0
+y = 14530.0
+radius_m = 500.0
+
+[[zone]]
+id = 17
+name_tr = "Bağbaşı"
+x = 10966.0
+y = 14534.0
+radius_m = 500.0
+
+[[zone]]
+id = 18
+name_tr = "Dikmen"
+x = 13879.0
+y = 16956.0
+radius_m = 500.0
+
+[[zone]]
+id = 19
+name_tr = "Karacaören"
+x = 11146.0
+y = 19888.0
+radius_m = 500.0
+owner = 1
+
+[[zone]]
+id = 20
+name_tr = "Gidiriş Yaylası"
+x = 5549.0
+y = 19996.0
+radius_m = 500.0
+
+[[zone]]
+id = 21
+name_tr = "Hasandağı Zirvesi"
+x = 19850.0
+y = 20100.0
+radius_m = 500.0
+
+[[zone]]
+id = 22
+name_tr = "Aşağı Mahalle"
+x = 8246.0
+y = 22449.0
+radius_m = 500.0
+owner = 1
+
+[[zone]]
+id = 23
+name_tr = "Yenikent"
+x = 7737.0
+y = 24659.0
+radius_m = 500.0
+owner = 1
+
+[[zone]]
+id = 24
+name_tr = "Akçakent"
+x = 13250.0
+y = 24848.0
+radius_m = 500.0
+owner = 1
+
+[[zone]]
+id = 25
+name_tr = "Uluören"
+x = 22064.0
+y = 26056.0
+radius_m = 500.0
+owner = 1
+
+[[zone]]
+id = 26
+name_tr = "Keçikalesi"
+x = 15985.0
+y = 27533.0
+radius_m = 500.0
+owner = 1
+
+[[zone]]
+id = 27
+name_tr = "Karakapı"
+x = 19381.0
+y = 27897.0
+radius_m = 500.0
+depot = true
+base = 1
+owner = 1
+
+[[zone]]
+id = 28
+name_tr = "Keçikıran Yaylası"
+x = 7478.0
+y = 31116.0
+radius_m = 500.0
+owner = 1
+
+[[zone]]
+id = 29
+name_tr = "Obruk"
+x = 6853.0
+y = 33986.0
+radius_m = 500.0
+
+[[zone]]
+id = 30
+name_tr = "Karacalar"
+x = 733.0
+y = 39526.0
+radius_m = 500.0

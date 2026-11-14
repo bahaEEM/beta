@@ -6,6 +6,8 @@
 //!                [--sea-x0 <m> --sea-slope <m per km> --sea-level <m>]`
 //! `tools roads --osm <overpass.json> --map-dir <dir>` (see `roads.rs`)
 //! `tools cover --osm <overpass.json> --map-dir <dir>` (see `cover.rs`)
+//! `tools regions --osm <overpass.json> --map-dir <dir> [--min-dist 2000] [--extra name:x:y]...`
+//! (see `regions.rs`)
 //!
 //! Reads a single-band GeoTIFF of heights (metres) in a projected metre CRS and writes
 //! `sim_height.bin` (bilinear, `cell` metres, f32 LE, row 0 = north), `terrain_r16.raw`
@@ -24,11 +26,12 @@ use tiff::decoder::{Decoder, DecodingResult};
 use tiff::tags::Tag;
 
 mod cover;
+mod regions;
 mod roads;
 
 type Res<T> = Result<T, Box<dyn Error>>;
 
-const USAGE: &str = "usage: tools convert --input <metric GeoTIFF> --out-dir <dir> [--cell <m>] [--sea-x0 <m> --sea-slope <m/km> --sea-level <m>]\n       tools roads --osm <overpass.json> --map-dir <dir>\n       tools cover --osm <overpass.json> --map-dir <dir>";
+const USAGE: &str = "usage: tools convert --input <metric GeoTIFF> --out-dir <dir> [--cell <m>] [--sea-x0 <m> --sea-slope <m/km> --sea-level <m>]\n       tools roads --osm <overpass.json> --map-dir <dir>\n       tools cover --osm <overpass.json> --map-dir <dir>\n       tools regions --osm <overpass.json> --map-dir <dir> [--min-dist <m>] [--extra name:x:y]...";
 
 /// GeoKey ids (GeoTIFF spec 1.0).
 const GT_RASTER_TYPE_KEY: u16 = 1025;
@@ -61,21 +64,23 @@ fn main() {
 
 fn run(args: &[String]) -> Res<()> {
     let (cmd, rest) = args.split_first().ok_or("missing command")?;
-    if cmd == "roads" || cmd == "cover" {
-        let (mut osm, mut map_dir) = (None, None);
+    if ["roads", "cover", "regions"].contains(&cmd.as_str()) {
+        let (mut osm, mut map_dir, mut min_dist, mut extras) = (None, None, 2000.0, Vec::new());
         for pair in rest.chunks(2) {
             match pair {
                 [f, v] if f == "--osm" => osm = Some(PathBuf::from(v)),
                 [f, v] if f == "--map-dir" => map_dir = Some(PathBuf::from(v)),
+                [f, v] if f == "--min-dist" && cmd == "regions" => min_dist = v.parse()?,
+                [f, v] if f == "--extra" && cmd == "regions" => extras.push(v.clone()),
                 _ => return Err(format!("bad arguments {pair:?}").into()),
             }
         }
         let osm = osm.ok_or("--osm is required")?;
         let map_dir = map_dir.ok_or("--map-dir is required")?;
-        let msg = if cmd == "roads" {
-            roads::run(&osm, &map_dir)?
-        } else {
-            cover::run(&osm, &map_dir)?
+        let msg = match cmd.as_str() {
+            "roads" => roads::run(&osm, &map_dir)?,
+            "cover" => cover::run(&osm, &map_dir)?,
+            _ => regions::run(&osm, &map_dir, min_dist, &extras)?,
         };
         println!("{msg}");
         return Ok(());
