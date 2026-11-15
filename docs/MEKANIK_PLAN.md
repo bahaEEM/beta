@@ -77,8 +77,20 @@ ZMA + piyade taşıma · bölge noktaları + puan + zafer · yakıt/mühimmat + 
 - İnşaat da istihkâm birimiyle ve **ek ücretle**; uzun sürer (2–3 tur). Yalnız gerçekte 2–3 günde kurulabilecek şeyler:
   **onarım çadırı**, **iyileştirme çadırı** (yalnız piyade), **baz istasyonu kulesi**, **kazılmış sığınak** (obüse dayanıklı, kara birimlerine
   karşı iyi savunma), hava savunma mevzisi. Hava alanı gibi büyük yapılar **inşa edilemez**; beton tankeri gibi yeni araç istenmiyor.
-- Açık sorular (başlamadan sorulacak): istihkâm neyi, ne hızla onarır (araç / yapı / gemi)? Onarım para ister mi? Sığınağa kaç birim girer?
-  Baz istasyonu telsiz rölesi mi (K-081)? İnşaat sırasında istihkâm savunmasız mı? Mayın / köprü / engel gibi işler de olacak mı?
+- Kullanıcı kararları (2026-11-15):
+  - **Onarım:** istihkâm, yanındaki (300 m) hasarlı **kara araçlarını ve yapıları** onarır; tur başı azami canın **%20**'si, **paralı**
+    (birim fiyatıyla orantılı; para yoksa durur). Piyade sağlık aracında/hastanede kalır. Gemi ve hava birimi onarımı bu pakette yok.
+  - **Sığınak = mevzi:** yanındaki piyade (en fazla 2 tim) siperde sayılır — topçu hasarı çok düşer, direkt ateşte iyi korunur, zor baskılanır,
+    **ateş etmeye devam eder**. Araç giremez.
+  - **Baz istasyonu kulesi:** sabit, uzun menzilli **telsiz rölesi** (K-081); bölgeyle el değiştirir, karıştırılabilir, vurulabilir.
+  - **İnşaat:** istihkâm yapıyı durduğu yere, yalnız kendi bölgesinde kurar; para **peşin**; 2–3 tur **başında bekler**. Ayrılırsa inşaat
+    **durur** (yanmaz), dönünce ya da başka istihkâm gelince sürer; istihkâm ölürse yarım yapı kalır. İnşaat sırasında onarım yapamaz; silahsızdır.
+  - **Mayın tarlası (tanksavar):** giren **düşman aracı** hasar alır ve o tur durur; piyade ve dost birimler zarar görmez; tarla patladıkça tükenir.
+    Gizlidir: düşman piyadesi / keşif aracı / istihkâmı çok yaklaşınca (≈200 m) ya da bir araç basınca görünür. **İstihkâm** üstünde 1 tur durarak temizler.
+  - **Tanksavar hendeği:** istihkâm 2 turda kısa bir hat (≈300 m) kazar; **hiçbir kara aracı geçemez** (dost dahil), rota dolanır; piyade geçer.
+    Gizli değildir. Herhangi bir istihkâm 1 turda doldurur.
+  - Köprü yok (haritada nehir yok).
+- Uygulama sırası önerisi: **M8a** istihkâm birimi + onarım + inşaat (çadırlar, kule, sığınak, hava savunma mevzisi) → **M8b** mayın + hendek.
 
 ### Her paketten sonra
 Testler (K-kimlikli) + denge raporu + gerektiğinde istemci gösterimi (alt ajan) + commit + PROGRESS.md.
