@@ -112,6 +112,9 @@ pub struct Unit {
     /// Building site (K-181): what this will become and the engineer turns still needed.
     #[serde(default)]
     pub building: Option<Building>,
+    /// Engineers: ordered to clear the nearest obstacle at the end of this turn (K-188).
+    #[serde(default)]
+    pub clearing: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -415,6 +418,10 @@ impl HeightMap {
 pub struct World {
     pub tick: u32,
     units: Vec<Unit>,
+    /// Map samples closed to ground vehicles by finished ditches (K-187); kept up to
+    /// date by `obstacles::step_works`.
+    #[serde(default)]
+    pub blocked: std::collections::BTreeSet<(usize, usize)>,
     #[serde(skip)]
     pub map: HeightMap,
 }
@@ -424,6 +431,7 @@ impl World {
         Self {
             tick: 0,
             units: Vec::new(),
+            blocked: Default::default(),
             map,
         }
     }

@@ -10,7 +10,7 @@ Yeni testlerin adı kural kimliğiyle başlar (`k043_...`). Eski testler aşağ�
   birimler kimlik sırasıyla işlenir, sıralı kaplar kullanılır.
 - **K-002 Tur.** Planlama (45 sn gerçek zaman; iki oyuncu "Hazır" derse erken biter) → çözüm 200 adım → tur sonu.
   Bir adım 0,6 sn oyun zamanıdır: bir tur = 2 dk oyun, ekranda 20 sn oynatılır.
-- **K-003 Adım sırası.** hareket → sensör/iz → direkt ateş (eşzamanlı) → dolaylı atış → çarpma/hasar → ele geçirme. Tur sonu: ikmal (K-130…K-134) → gelir ve üretim (K-170…K-173) → inşaat ve onarım (K-180, K-181) → sağlık → zafer kontrolü.
+- **K-003 Adım sırası.** hareket → sensör/iz → direkt ateş (eşzamanlı) → dolaylı atış → mayın (K-185) → çarpma/hasar → ele geçirme. Tur sonu: ikmal (K-130…K-134) → gelir ve üretim (K-170…K-173) → inşaat ve onarım (K-180, K-181) → sağlık → zafer kontrolü.
 
 ## Emirler ve KBG
 - **K-010 KBG bütçesi.** Oyuncu başına tur başı 8 puan. Her emir, içindeki her başlayan 12 birim için 1 puan
@@ -195,6 +195,25 @@ Hepsi tur sonunda, bu sırayla işler: üretim → taşıyıcılar → yakın ik
   hasarı `shelter_shell_factor` (0,2), baskı artışı `shelter_suppression_factor` (0,3) ile çarpılır (K-141 ve K-143 çarpanlarının üstüne).
   Birim ateş etmeye devam eder. Araçlar yararlanamaz.
 
+## Mayın ve hendek (M8b)
+- **K-185 Mayın tarlası.** `lay` emri (`works: mines`, tek istihkâm — `sapper` tipi): istihkâmın durduğu yere `mine_radius_m` (150 m)
+  yarıçaplı tanksavar tarla işaretlenir; `mine_cost` (100) peşin düşer. Tarla, sahibinin boşta bir istihkâmı tur sonunda 100 m
+  (`engineer.build_radius_m`) içinde durdukça ilerler ve `mine_turns` (1) tur sonra çalışır. Çalışan tarlanın içinde **rotası olan
+  (hareket eden) düşman araç sınıfı** birim, o adımda `mine_damage_hp` (30) hasar alır ve rotası silinir (durur); tarlanın bir patlaması
+  eksilir (`mine_charges` = 4), bitince tarla yok olur. Piyade, hava birimleri ve sahibinin birimleri etkilenmez. Patlama herkese
+  `shell_impact` olarak görünür. Her yere (karada) döşenebilir, kendi bölgen olması gerekmez.
+- **K-186 Mayın gizliliği.** Tarla yalnız sahibine bildirilir. Düşmanın piyade sınıfı ya da `mine_spotter` tipi (keşif aracı, istihkâm)
+  birimi tarlanın kenarına `mine_spot_range_m` (200 m) yaklaşınca, ya da bir aracı mayına basınca, tarla o oyuncuya kalıcı olarak
+  bildirilir. Mayınlar rota hesabını etkilemez (rota önizlemesi bilgi sızdırmaz).
+- **K-187 Tanksavar hendeği.** `lay` emri (`works: ditch`, `towards`): istihkâmın durduğu yerden o yöne `ditch_length_m` (300 m) uzunlukta
+  hendek işaretlenir; `ditch_cost` (50) peşin, `ditch_turns` (2) istihkâm turu sürer (K-185'teki gibi ilerler). Biten hendeğin çizgisine
+  0,75 hücre içindeki harita örnekleri **araç sınıfına** kapanır (dost dahil): rota hesabı dolanır, yoldaki araç hendeğin önünde durur
+  (rotası silinir). Kapalı örnekte duran araç dışarı çıkabilir. Piyade, hava ve deniz birimleri etkilenmez. Hendekler (bitmemişler
+  dahil) herkese bildirilir.
+- **K-188 Temizlik.** `clear` emri (istihkâmlar): emir alan istihkâm rotasını bırakır ve tur sonunda, o tur başka işte çalışmadıysa,
+  100 m içindeki **bildiği** en yakın engeli (mayın tarlasının kenarına ya da hendek çizgisine uzaklık; eşitlikte küçük kimlik) kaldırır.
+  Kimin engeli olduğu fark etmez. Emir o tur için geçerlidir.
+
 ## Görünürlük
 - **K-050 Görünürlük filtresi.** Oyuncuya giden hiçbir mesaj, o an göremediği birimin kimliğini veya konumunu içermez.
   İz 1 = 500 m'lik hücrenin merkezi; kerterizle bilinen birim için sadece yön; iz ≥ 2 = kesin konum, iz ≥ 2'de tip.
@@ -309,6 +328,10 @@ Bütün sayılar yer tutucudur; görsel aşamadan önce oyun testiyle ayarlanaca
 | K-180 | k180_engineers_and_repair_tents_mend_vehicles_and_structures_for_money |
 | K-181 | k181_engineers_build_structures_in_own_regions_and_must_stay |
 | K-182 | k182_dug_in_infantry_is_hard_to_hurt_and_to_suppress |
+| K-185 | k185_mines_hurt_and_stop_enemy_vehicles_only_and_run_out |
+| K-186 | k186_minefields_are_hidden_until_scouted_or_struck (+ client/tests/smoke.gd: rakibin tarlası görünümde yok) |
+| K-187 | k187_no_vehicle_crosses_a_finished_ditch |
+| K-188 | k188_engineers_clear_known_minefields_and_fill_ditches |
 | K-071 | g6_client_messages_round_trip, g6_server_messages_round_trip, g6_version_mismatch_rejected, g6_oversized_message_rejected, g6_protocol_md_up_to_date |
 | K-072 | g7_resume_after_shutdown, g7_reconnect_same_name, g7_planning_deadline_starts_resolution |
 

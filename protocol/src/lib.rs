@@ -6,7 +6,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt;
 use std::io::Read;
 
-pub const PROTOCOL_VERSION: u32 = 9;
+pub const PROTOCOL_VERSION: u32 = 10;
 /// Maximum size of a message's JSON (uncompressed).
 pub const MAX_MESSAGE_BYTES: usize = 1024 * 1024;
 const ZSTD_LEVEL: i32 = 3;
@@ -72,6 +72,13 @@ pub enum Order {
     /// Radio silence on or off. A silent unit never transmits (enemy ESM cannot hear its
     /// radio) but takes no other new order unless it is on the HQ's road wire.
     SetSilence { units: Vec<UnitId>, on: bool },
+    /// One engineer lays a minefield around itself or digs an anti-tank ditch from where
+    /// it stands towards a point (fixed length). Paid at once (`mine_cost`, `ditch_cost`
+    /// of the view); the engineer has to stay until the work is done.
+    Lay { units: Vec<UnitId>, works: Works },
+    /// Engineers remove the nearest known obstacle within reach (100 m of a minefield's
+    /// edge or of a ditch) at the end of this turn.
+    Clear { units: Vec<UnitId> },
     /// One engineer starts building a structure from the `shop` list (entries with
     /// `build`) where it stands: only in an own region, paid at once. It has to stay
     /// next to the site until the work is done.
@@ -79,6 +86,28 @@ pub enum Order {
     /// Buy a unit from the `shop` list of the view. The price is paid at once; the unit
     /// appears at the structure `site` after its build time. Costs no KBG.
     Buy { type_id: String, site: UnitId },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum Works {
+    Mines,
+    Ditch { towards: Vec2 },
+}
+
+/// A minefield (circle around `pos`) or a ditch (line from `pos` to `to`). Ditches are
+/// always sent; an enemy minefield only once it was scouted or struck.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ObstacleView {
+    pub id: u32,
+    pub owner: PlayerId,
+    /// "mines" or "ditch".
+    pub kind: String,
+    pub pos: Vec2,
+    pub radius_m: Option<f64>,
+    pub to: Option<Vec2>,
+    /// Engineer turns still needed; it only works at 0.
+    pub work_left: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -185,6 +214,10 @@ pub struct PlayerView {
     pub production: Vec<ProductionView>,
     /// What can be bought and where.
     pub shop: Vec<ShopItem>,
+    pub obstacles: Vec<ObstacleView>,
+    /// Prices of the `lay` order.
+    pub mine_cost: u32,
+    pub ditch_cost: u32,
 }
 
 /// A unit that was bought and has not appeared yet. It is lost if the structure is
@@ -436,6 +469,15 @@ mod tests {
                         units: vec![95],
                         type_id: "bunker".into(),
                     },
+                    Order::Lay {
+                        units: vec![95],
+                        works: Works::Ditch { towards: P },
+                    },
+                    Order::Lay {
+                        units: vec![96],
+                        works: Works::Mines,
+                    },
+                    Order::Clear { units: vec![97] },
                 ],
             },
             ClientMsg::RequestPreview {
@@ -528,6 +570,28 @@ mod tests {
                         build: false,
                         sites: vec![40],
                     }],
+                    obstacles: vec![
+                        ObstacleView {
+                            id: 1,
+                            owner: 0,
+                            kind: "mines".into(),
+                            pos: P,
+                            radius_m: Some(150.0),
+                            to: None,
+                            work_left: 0,
+                        },
+                        ObstacleView {
+                            id: 2,
+                            owner: 1,
+                            kind: "ditch".into(),
+                            pos: P,
+                            radius_m: None,
+                            to: Some(P),
+                            work_left: 1,
+                        },
+                    ],
+                    mine_cost: 100,
+                    ditch_cost: 50,
                 },
             },
             ServerMsg::Resolution {

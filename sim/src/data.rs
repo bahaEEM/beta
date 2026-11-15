@@ -140,6 +140,12 @@ pub struct UnitType {
     /// Dug-in position (K-182): this many infantry units next to it fight from cover.
     #[serde(default)]
     pub shelter: u32,
+    /// Engineers: lays mines, digs ditches and clears both (K-185…K-188).
+    #[serde(default)]
+    pub sapper: bool,
+    /// Spots minefields from close by like infantry does (K-186).
+    #[serde(default)]
+    pub mine_spotter: bool,
 }
 
 fn yes() -> bool {
@@ -436,6 +442,28 @@ pub struct Rules {
     pub indirect: IndirectRules,
     pub economy: EconomyRules,
     pub engineer: EngineerRules,
+    pub obstacles: ObstacleRules,
+}
+
+/// K-185…K-188.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ObstacleRules {
+    pub mine_cost: u32,
+    /// Engineer turns to lay a minefield.
+    pub mine_turns: u32,
+    pub mine_radius_m: f64,
+    /// Blasts before the field is used up.
+    pub mine_charges: u32,
+    pub mine_damage_hp: f64,
+    /// Radius of the explosion shown to the players (display only).
+    pub mine_blast_m: f64,
+    /// Infantry and scouts this close to the edge of a field find it.
+    pub mine_spot_range_m: f64,
+    pub ditch_cost: u32,
+    /// Engineer turns to dig a ditch.
+    pub ditch_turns: u32,
+    pub ditch_length_m: f64,
 }
 
 /// K-180…K-182.

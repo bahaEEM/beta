@@ -80,6 +80,16 @@ pub fn order(o: &p::Order) -> Order {
             carrier: UnitId(*carrier),
         },
         p::Order::Disembark { units: ids } => Order::Disembark { units: units(ids) },
+        p::Order::Lay { units: ids, works } => Order::Lay {
+            units: units(ids),
+            works: match *works {
+                p::Works::Mines => sim::obstacles::Works::Mines,
+                p::Works::Ditch { towards } => sim::obstacles::Works::Ditch {
+                    towards: from_vec2(towards),
+                },
+            },
+        },
+        p::Order::Clear { units: ids } => Order::Clear { units: units(ids) },
         p::Order::Build {
             units: ids,
             type_id,

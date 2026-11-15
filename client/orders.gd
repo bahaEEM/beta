@@ -8,7 +8,11 @@
 #             | {"type": "set_silence", "units": [ids], "on": bool}
 #             | {"type": "buy", "type_id": String, "site": id}   (no units)
 #             | {"type": "build", "units": [engineer id], "type_id": String}
+#             | {"type": "lay", "units": [engineer id], "works": {"kind": "mines"} | {"kind": "ditch", "towards": Vector2}}
+#             | {"type": "clear", "units": [engineer ids]}
 extends RefCounted
+
+const ENGINEER_SLOT := ["move", "stop", "build", "lay", "clear", "embark", "disembark"]
 
 var list: Array = []
 
@@ -24,12 +28,12 @@ func add_waypoint(sel: Array, p: Vector2) -> void:
 		if o.type == "move" and _same(o.units, sel):
 			o.waypoints.append(p)
 			return
-	_remove_units(sel, ["move", "stop", "build"])
+	_remove_units(sel, ["move", "stop", "build", "lay", "clear"])
 	list.append({"type": "move", "units": sel.duplicate(), "waypoints": [p]})
 
 
 func stop(sel: Array) -> void:
-	_remove_units(sel, ["move", "stop", "build"])
+	_remove_units(sel, ["move", "stop", "build", "lay", "clear"])
 	list.append({"type": "stop", "units": sel.duplicate()})
 
 
@@ -82,8 +86,24 @@ func buy(type_id: String, site: int) -> void:
 
 # The engineer builds a structure where it stands instead of moving.
 func build(engineer: int, type_id: String) -> void:
-	_remove_units([engineer], ["move", "stop", "build", "embark", "disembark"])
+	_remove_units([engineer], ENGINEER_SLOT)
 	list.append({"type": "build", "units": [engineer], "type_id": type_id})
+
+
+# The engineer lays mines or digs a ditch where it stands instead of moving.
+func lay(engineer: int, works: Dictionary) -> void:
+	_remove_units([engineer], ENGINEER_SLOT)
+	list.append({"type": "lay", "units": [engineer], "works": works})
+
+
+func lays() -> Array:
+	return list.filter(func(o): return o.type == "lay")
+
+
+# Engineers remove the nearest obstacle in reach at the end of the turn.
+func clear_obstacles(sel: Array) -> void:
+	_remove_units(sel, ENGINEER_SLOT)
+	list.append({"type": "clear", "units": sel.duplicate()})
 
 
 func builds() -> Array:
@@ -100,7 +120,7 @@ func cancel_buys(site: int) -> void:
 
 
 func remove(sel: Array) -> void:
-	_remove_units(sel, ["move", "stop", "set_emitter", "set_stance", "fire_mission", "embark", "disembark", "set_silence", "build"])
+	_remove_units(sel, ["move", "stop", "set_emitter", "set_stance", "fire_mission", "embark", "disembark", "set_silence", "build", "lay", "clear"])
 
 
 # Pending stance for a unit, or null.
@@ -147,6 +167,8 @@ func to_wire() -> Array:
 			w.waypoints = o.waypoints.map(func(p): return {"x": p.x, "y": p.y})
 		elif o.type == "fire_mission" and o.target.kind == "point":
 			w.target = {"kind": "point", "pos": {"x": o.target.pos.x, "y": o.target.pos.y}}
+		elif o.type == "lay" and o.works.kind == "ditch":
+			w.works = {"kind": "ditch", "towards": {"x": o.works.towards.x, "y": o.works.towards.y}}
 		out.append(w)
 	return out
 

@@ -326,6 +326,7 @@ sensors = [{ kind = "optical", range_m = 3000.0 }]  # placeholder; thermal sight
 
 [[unit]]
 id = "recon"
+mine_spotter = true              # K-186: finds minefields from close by
 cost = 200                       # placeholder (K-171)
 build_turns = 2                 # placeholder (K-172)
 name_tr = "Keşif Aracı"
@@ -1200,6 +1201,8 @@ cost = 250                       # placeholder
 build_turns = 3                  # placeholder
 repair_share = 0.2               # K-180: mends vehicles and structures nearby
 builds = ["repair_tent", "aid_tent", "relay_tower", "bunker", "ad_site"]   # K-181
+sapper = true                    # K-185…K-188: mines, ditches, clearing
+mine_spotter = true              # K-186
 class = "vehicle"
 speed_offroad_mps = 8.0          # placeholder
 speed_road_mps = 18.0            # placeholder

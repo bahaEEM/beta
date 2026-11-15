@@ -5,7 +5,7 @@ Bu dosya `protocol/src/lib.rs` testlerinden üretilir; elle düzenleme. Güncell
 - Taşıma: WebSocket ikili (binary) mesaj. İçerik: JSON, sonra zstd (seviye 3).
 - Godot'ta açma: `bytes.decompress(1048576, FileAccess.COMPRESSION_ZSTD)` (`decompress_dynamic` zstd desteklemez) sonra `JSON.parse_string(...)`.
 - JSON en fazla 1 MB (1048576 bayt); büyüğü hata.
-- Her mesajın `type` alanı vardır. Bağlantıdaki ilk mesaj `hello` olmalı; `protocol_version` sunucununkiyle (şu an 9) aynı değilse bağlantı `error` ile kapatılır.
+- Her mesajın `type` alanı vardır. Bağlantıdaki ilk mesaj `hello` olmalı; `protocol_version` sunucununkiyle (şu an 10) aynı değilse bağlantı `error` ile kapatılır.
 - Konumlar metre cinsinden; x doğuya, y güneye artar. `position.kind`: `exact` (kesin), `area` (iz kalitesi 1: merkez + yarıçap) veya `bearing` (tek ESM kerterizi: `origin` noktasından `angle_rad` yönünde bir ışın; konum bilinmez). Açılar radyan, x eksenine göre, y güneye.
 - Görmediğiniz birimin kimliği hiçbir mesajda yer almaz (`shot_fired` içinde `null` olur).
 
@@ -14,7 +14,7 @@ Bu dosya `protocol/src/lib.rs` testlerinden üretilir; elle düzenleme. Güncell
 ```json
 {
   "type": "hello",
-  "protocol_version": 9,
+  "protocol_version": 10,
   "player_name": "baha"
 }
 ```
@@ -93,6 +93,34 @@ Bu dosya `protocol/src/lib.rs` testlerinden üretilir; elle düzenleme. Güncell
         95
       ],
       "type_id": "bunker"
+    },
+    {
+      "type": "lay",
+      "units": [
+        95
+      ],
+      "works": {
+        "kind": "ditch",
+        "towards": {
+          "x": 1200.0,
+          "y": 850.5
+        }
+      }
+    },
+    {
+      "type": "lay",
+      "units": [
+        96
+      ],
+      "works": {
+        "kind": "mines"
+      }
+    },
+    {
+      "type": "clear",
+      "units": [
+        97
+      ]
     }
   ]
 }
@@ -232,7 +260,38 @@ Bu dosya `protocol/src/lib.rs` testlerinden üretilir; elle düzenleme. Güncell
           40
         ]
       }
-    ]
+    ],
+    "obstacles": [
+      {
+        "id": 1,
+        "owner": 0,
+        "kind": "mines",
+        "pos": {
+          "x": 1200.0,
+          "y": 850.5
+        },
+        "radius_m": 150.0,
+        "to": null,
+        "work_left": 0
+      },
+      {
+        "id": 2,
+        "owner": 1,
+        "kind": "ditch",
+        "pos": {
+          "x": 1200.0,
+          "y": 850.5
+        },
+        "radius_m": null,
+        "to": {
+          "x": 1200.0,
+          "y": 850.5
+        },
+        "work_left": 1
+      }
+    ],
+    "mine_cost": 100,
+    "ditch_cost": 50
   }
 }
 ```

@@ -44,6 +44,9 @@ pub struct Game {
     /// Enemy guns located by counter-battery radars (K-153).
     #[serde(default)]
     pub gun_fixes: Vec<GunFix>,
+    /// Minefields and ditches (K-185…K-188).
+    #[serde(default)]
+    pub obstacles: Vec<crate::obstacles::Obstacle>,
     /// Money per player (K-170).
     #[serde(default)]
     pub money: BTreeMap<PlayerId, u32>,
@@ -67,6 +70,7 @@ impl Game {
         Self {
             money,
             production: Vec::new(),
+            obstacles: Vec::new(),
             turn: 1,
             world,
             routes: Routes::new(),
@@ -107,6 +111,13 @@ pub enum Order {
     Disembark { units: Vec<UnitId> },
     /// Radio silence on or off (K-151).
     SetSilence { units: Vec<UnitId>, on: bool },
+    /// One engineer lays mines or digs a ditch where it stands (K-185, K-187).
+    Lay {
+        units: Vec<UnitId>,
+        works: crate::obstacles::Works,
+    },
+    /// Engineers remove the nearest obstacle in reach at the end of the turn (K-188).
+    Clear { units: Vec<UnitId> },
     /// One engineer starts building a structure where it stands (K-181).
     Build { units: Vec<UnitId>, type_id: String },
     /// Buys a unit; it appears at the structure `site` some turns later (K-171).
@@ -124,6 +135,8 @@ impl Order {
             | Order::Embark { units, .. }
             | Order::SetSilence { units, .. }
             | Order::Build { units, .. }
+            | Order::Lay { units, .. }
+            | Order::Clear { units }
             | Order::Disembark { units } => units,
             Order::Buy { .. } => &[],
         }
@@ -201,6 +214,10 @@ pub struct Validated {
     pub purchases: Vec<(String, UnitId)>,
     /// Accepted building orders (engineer, structure type), paid from the same purse.
     pub builds: Vec<(UnitId, String)>,
+    /// Accepted mine and ditch orders, paid from the same purse.
+    pub works: Vec<(UnitId, crate::obstacles::Works)>,
+    /// Engineers told to clear obstacles.
+    pub clearing: Vec<UnitId>,
     pub money_spent: u32,
 }
 
@@ -283,6 +300,8 @@ pub fn validate_orders(
             | Order::Stop { .. }
             | Order::Embark { .. }
             | Order::Build { .. }
+            | Order::Lay { .. }
+            | Order::Clear { .. }
             | Order::Disembark { .. } => 0,
             Order::SetEmitter { .. } => 1,
             Order::SetStance { .. } => 2,
@@ -428,6 +447,37 @@ pub fn validate_orders(
                     None
                 }
                 Order::Buy { .. } => None, // handled above
+                Order::Lay { units, works } => {
+                    let cost = crate::obstacles::works_cost(rules, *works);
+                    match units.first().filter(|_| units.len() == 1) {
+                        Some(&id)
+                            if crate::obstacles::can_lay(game, catalog, player, id, *works) =>
+                        {
+                            if cost > money.saturating_sub(v.money_spent) {
+                                Some(RejectReason::Buy(BuyError::NoMoney))
+                            } else {
+                                v.works.push((id, *works));
+                                v.money_spent += cost;
+                                None
+                            }
+                        }
+                        _ => Some(RejectReason::CannotBuild),
+                    }
+                }
+                Order::Clear { units } => {
+                    let sapper = |id: &UnitId| {
+                        game.world
+                            .unit(*id)
+                            .and_then(|u| catalog.get(&u.type_id))
+                            .is_some_and(|t| t.sapper)
+                    };
+                    if units.iter().all(sapper) {
+                        v.clearing.extend(units.iter().copied());
+                        None
+                    } else {
+                        Some(RejectReason::CannotBuild)
+                    }
+                }
                 Order::Build { units, type_id } => {
                     let target = catalog.get(type_id).filter(|_| units.len() == 1);
                     match (target, units.first()) {
@@ -498,6 +548,15 @@ pub fn plan_phase(
                 site,
                 turns_left,
             });
+        }
+        for (engineer, works) in v.works {
+            crate::obstacles::lay(game, rules, engineer, works);
+        }
+        for id in v.clearing {
+            game.routes.remove(&id);
+            if let Some(u) = game.world.unit_mut(id) {
+                u.clearing = true;
+            }
         }
         for (engineer, type_id) in v.builds {
             crate::engineer::start_building(game, catalog, rules, engineer, &type_id);
@@ -708,6 +767,7 @@ pub fn step_tick(game: &mut Game, catalog: &UnitCatalog, rules: &Rules) -> Vec<E
             track.position_known = true;
         }
     }
+    events.extend(crate::obstacles::step_mines(game, catalog, rules));
     events.extend(step_impacts(
         &mut game.world,
         catalog,

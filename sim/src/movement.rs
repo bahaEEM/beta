@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //! G2: path finding and movement.
 
-use crate::data::{Rules, UnitCatalog};
+use crate::data::{Rules, UnitCatalog, UnitClass};
 use crate::world::{HeightMap, Terrain, UnitId, UnitState, Vec2, World};
 use pathfinding::prelude::astar;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -78,6 +78,13 @@ pub fn plan_route(
     let map = &world.map;
     let cell = map.cell_size_m();
     let naval = ut.class.is_naval();
+    // K-187: ditches stop ground vehicles only.
+    let none = BTreeSet::new();
+    let blocked = if ut.class == UnitClass::Vehicle {
+        &world.blocked
+    } else {
+        &none
+    };
     let speed = ut.speed_offroad_mps;
     let road_speed = ut.speed_road_mps.max(speed);
     // Integer edge costs (ms) keep A* tie-breaking exact.
@@ -99,7 +106,7 @@ pub fn plan_route(
         }
         let (path, _) = astar(
             &start,
-            |&n| successors(map, n, ut.max_slope_deg, naval, &costs),
+            |&n| successors(map, n, ut.max_slope_deg, naval, &costs, blocked),
             |&(i, j)| {
                 // Octile distance at road speed: admissible and consistent.
                 let (dx, dy) = (i.abs_diff(goal.0) as u64, j.abs_diff(goal.1) as u64);
@@ -145,6 +152,7 @@ fn successors(
     max_slope_deg: f64,
     naval: bool,
     c: &EdgeCosts,
+    blocked: &BTreeSet<Node>,
 ) -> Vec<(Node, u64)> {
     let on_road = map.road(i, j) > 0;
     let cell = map.cell_size_m();
@@ -174,7 +182,8 @@ fn successors(
                 (false, true) => c.diag,
                 (false, false) => c.straight,
             };
-            (slope <= max_slope_deg && !water).then_some(((ni, nj), cost))
+            (slope <= max_slope_deg && !water && !blocked.contains(&(ni, nj)))
+                .then_some(((ni, nj), cost))
         })
         .collect()
 }
@@ -182,6 +191,7 @@ fn successors(
 /// Advances every routed unit one tick along its route (id order). Finished routes and
 /// routes of destroyed, missing or untyped units are removed.
 pub fn step_movement(world: &mut World, catalog: &UnitCatalog, rules: &Rules, routes: &mut Routes) {
+    let blocked = world.blocked.clone();
     let (units, map) = world.units_and_map_mut();
     let dt = rules.turn.game_seconds_per_tick;
     for unit in units.iter_mut() {
@@ -214,6 +224,14 @@ pub fn step_movement(world: &mut World, catalog: &UnitCatalog, rules: &Rules, ro
             route.clear();
             continue;
         };
+        // K-187: a vehicle halts in front of a ditch dug across its route.
+        if t.class == UnitClass::Vehicle && !blocked.is_empty() {
+            let closed = |p: Vec2| snap(map, p).is_some_and(|n| blocked.contains(&n));
+            if route.first().is_some_and(|&p| closed(p)) && !closed(unit.pos) {
+                route.clear();
+                continue;
+            }
+        }
         let on_road = !t.class.is_air()
             && !t.class.is_naval()
             && map.road_at(unit.pos) > 0

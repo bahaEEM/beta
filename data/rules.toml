@@ -105,5 +105,17 @@ shelter_direct_factor = 0.4       # placeholder; damage multiplier against direc
 shelter_shell_factor = 0.2        # placeholder; ...against shells
 shelter_suppression_factor = 0.3  # placeholder; ...on suppression taken
 
+[obstacles]               # K-185…K-188
+mine_cost = 100           # placeholder
+mine_turns = 1            # placeholder; engineer turns to lay a field
+mine_radius_m = 150.0     # placeholder
+mine_charges = 4          # placeholder; blasts before the field is used up
+mine_damage_hp = 30.0     # placeholder; per blast, to the vehicle that set it off
+mine_blast_m = 20.0       # display only
+mine_spot_range_m = 200.0 # placeholder; infantry and scouts this close to the edge find the field
+ditch_cost = 50           # placeholder
+ditch_turns = 2           # placeholder; engineer turns to dig
+ditch_length_m = 300.0    # placeholder
+
 [decoy]                   # K-144
 reveal_range_m = 800.0    # placeholder; eyes this close recognise a decoy for good

@@ -138,6 +138,8 @@ pub fn step_engineers(game: &mut Game, catalog: &UnitCatalog, rules: &Rules) {
         }
     }
 
+    crate::obstacles::step_works(game, catalog, rules, &mut busy);
+
     // K-180: (id, owner, position, share) of everything that repairs this turn.
     let menders: Vec<(UnitId, PlayerId, Vec2, f64)> = game
         .world

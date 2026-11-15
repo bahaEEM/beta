@@ -55,6 +55,10 @@ var income := 0
 var production: Array = []  # own purchases under way: {type_id, site, turns_left}
 var shop: Array = []  # what is on sale: {type_id, cost, build_turns, sites}
 var shop_items: Array = []  # the shop entries listed in the open menu
+var obstacles: Array = []  # minefields and ditches this player knows of
+var mine_cost := 0
+var ditch_cost := 0
+var ditching := -1  # engineer id waiting for the click that gives its ditch a direction (H key)
 # id -> {id, owner, type, pos: Vector2, heading, state, quality, kind: exact|area|bearing, radius, angle,
 #        and for own units: hp, fuel, ammo, emitting, supply_fuel, supply_ammo, stance, connected}
 var units := {}
@@ -410,6 +414,10 @@ func _apply_turn_start(m: Dictionary) -> void:
 	income = int(m.view.get("income", 0))
 	production = m.view.get("production", [])
 	shop = m.view.get("shop", [])
+	obstacles = m.view.get("obstacles", [])
+	mine_cost = int(m.view.get("mine_cost", 0))
+	ditch_cost = int(m.view.get("ditch_cost", 0))
+	ditching = -1
 	units.clear()
 	orders.clear()
 	previews.clear()
@@ -652,6 +660,20 @@ func _draw_lines() -> void:
 			# ESM bearing: the enemy is somewhere along this ray; its position is unknown.
 			var dir := Vector2(cos(u.angle), sin(u.angle))
 			_polyline(segs, [u.pos, u.pos + dir * BEARING_LENGTH], Color(enemy, 0.45 if u.quality > 0 else 0.15))
+	# Obstacles: own in yellow, the enemy's in his colour; unfinished ones dashed.
+	for ob in obstacles:
+		var c: Color = Color(1.0, 0.85, 0.2) if int(ob.owner) == player_id else enemy
+		var p := Vector2(ob.pos.x, ob.pos.y)
+		var step := 2 if int(ob.work_left) > 0 else 1
+		if ob.kind == "mines":
+			_circle(segs, p, float(ob.radius_m), c, 32, step)
+			_circle(segs, p, float(ob.radius_m) * 0.5, c, 6, step)
+		elif step == 1:
+			_polyline(segs, [p, Vector2(ob.to.x, ob.to.y)], c)
+		else:
+			var q := Vector2(ob.to.x, ob.to.y)
+			for k in [0, 2, 4]:
+				_polyline(segs, [p.lerp(q, k / 5.0), p.lerp(q, (k + 1) / 5.0)], c)
 	var im: ImmediateMesh = lines.mesh
 	im.clear_surfaces()
 	if segs.is_empty():
@@ -711,7 +733,12 @@ func _mouse_button(event: InputEventMouseButton) -> void:
 			if event.pressed:
 				cam_dist = min(40000.0, cam_dist / 0.85)
 		MOUSE_BUTTON_LEFT:
-			if event.pressed and not targeting.is_empty():
+			if event.pressed and ditching >= 0:
+				var p = _ground_point(event.position)
+				if p != null and _is_own_alive(ditching):
+					add_ditch(ditching, p)
+				ditching = -1
+			elif event.pressed and not targeting.is_empty():
 				_fire_at(event.position)
 			elif event.pressed:
 				drag_start = event.position
@@ -767,6 +794,10 @@ func _key(event: InputEventKey) -> void:
 		targeting.clear()
 		_status("Atış görevi iptal.")
 		return
+	if event.keycode == KEY_ESCAPE and ditching >= 0:
+		ditching = -1
+		_status("Hendek iptal.")
+		return
 	if not _can_order() or selection.is_empty():
 		return
 	if event.keycode in [KEY_DELETE, KEY_BACKSPACE]:
@@ -785,7 +816,7 @@ func _key(event: InputEventKey) -> void:
 		_status("Telsiz sessizliği %s: %d birim%s" % ["AÇIK" if on else "kapalı", selection.size(),
 			" (yol kablosunda değilse başka emir almaz)" if on else ""])
 		return
-	if not event.keycode in [KEY_S, KEY_F, KEY_T, KEY_R, KEY_B, KEY_N]:
+	if not event.keycode in [KEY_S, KEY_F, KEY_T, KEY_R, KEY_B, KEY_N, KEY_M, KEY_H, KEY_K]:
 		return
 	var ids := _orderable(selection)
 	if ids.is_empty():
@@ -829,6 +860,23 @@ func _key(event: InputEventKey) -> void:
 			orders.disembark(riders)
 			_orders_changed()
 			_status("İnme emri: %d birim" % riders.size())
+		KEY_M, KEY_H, KEY_K:  # engineer works: mines, ditch, clearing
+			var eng := ids.filter(func(id): return units[id].type == "engineer")
+			if eng.is_empty() or (event.keycode != KEY_K and eng.size() != 1):
+				_status("Mayın (M) ve hendek (H) için tek bir istihkâm aracı, temizlik (K) için istihkâm araçları seçin.")
+			elif event.keycode == KEY_K:
+				orders.clear_obstacles(eng)
+				_orders_changed()
+				_status("Temizlik emri: %d istihkâm, tur sonunda 100 m içindeki en yakın bilinen mayın tarlasını ya da hendeği kaldırır." % eng.size())
+			elif (mine_cost if event.keycode == KEY_M else ditch_cost) > _money_left():
+				_status("Para yetmiyor (mayın %d, hendek %d, elde %d)." % [mine_cost, ditch_cost, _money_left()])
+			elif event.keycode == KEY_M:
+				orders.lay(eng[0], {"kind": "mines"})
+				_orders_changed()
+				_status("Mayın emri (%d para): istihkâm durduğu yere tarla döşer; iş bitene kadar yanında durmalı." % mine_cost)
+			else:
+				ditching = eng[0]
+				_status("Hendek (%d para): yönü göstermek için araziye sol tık, Esc iptal." % ditch_cost)
 		KEY_R:
 			var emitting := {}
 			for id in ids:
@@ -839,6 +887,13 @@ func _key(event: InputEventKey) -> void:
 				return
 			orders.toggle_emitter(emitting)
 			_orders_changed()
+
+
+# The engineer digs from where it stands towards p (the server fixes the length).
+func add_ditch(engineer: int, p: Vector2) -> void:
+	orders.lay(engineer, {"kind": "ditch", "towards": p})
+	_orders_changed()
+	_status("Hendek emri: istihkâm durduğu yerden o yöne kazar; iş bitene kadar yanında durmalı.")
 
 
 # U key: lists what the one selected structure can raise (the server says which, in `shop`).
@@ -882,6 +937,8 @@ func _money_left() -> int:
 		for s in shop:
 			if s.type_id == o.type_id:
 				left -= int(s.cost)
+	for o in orders.lays():
+		left -= mine_cost if o.works.kind == "mines" else ditch_cost
 	return left
 
 
@@ -996,6 +1053,11 @@ func _update_hud() -> void:
 				extra.append("İnşaat emri: %s (bu tur)" % Hud.TYPE_NAMES.get(o.type_id, o.type_id))
 		if shop.any(func(s): return s.sites.map(func(x): return int(x)).has(site)):
 			extra.append("U: inşa et" if sel[0].type == "engineer" else "U: birim satın al")
+		if sel[0].type == "engineer":
+			for o in orders.lays():
+				if site in o.units:
+					extra.append("Emir: %s (bu tur)" % ("mayın tarlası" if o.works.kind == "mines" else "hendek"))
+			extra.append("M: mayın  H: hendek  K: engel temizle")
 		if not extra.is_empty():
 			ui.info.text += "\n" + "\n".join(extra)
 

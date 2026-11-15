@@ -480,6 +480,33 @@ impl Match {
                         .collect()
                 },
                 scores: self.scores(),
+                obstacles: self
+                    .game
+                    .obstacles
+                    .iter()
+                    .filter(|o| o.visible_to(player)) // K-186
+                    .map(|o| {
+                        let (kind, radius_m, to) = match o.kind {
+                            sim::obstacles::ObstacleKind::Mines { radius_m, .. } => {
+                                ("mines", Some(radius_m), None)
+                            }
+                            sim::obstacles::ObstacleKind::Ditch { to } => {
+                                ("ditch", None, Some(convert::vec2(to)))
+                            }
+                        };
+                        p::ObstacleView {
+                            id: o.id,
+                            owner: o.owner.0,
+                            kind: kind.into(),
+                            pos: convert::vec2(o.pos),
+                            radius_m,
+                            to,
+                            work_left: o.work_left,
+                        }
+                    })
+                    .collect(),
+                mine_cost: self.rules.obstacles.mine_cost,
+                ditch_cost: self.rules.obstacles.ditch_cost,
                 money: self.game.money.get(&player).copied().unwrap_or(0),
                 income: sim::economy::income(&self.game, &self.catalog, player),
                 production: self

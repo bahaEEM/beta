@@ -10,6 +10,7 @@ pub mod event;
 pub mod indirect;
 pub mod logistics;
 pub mod movement;
+pub mod obstacles;
 pub mod sensor;
 pub mod supply;
 pub mod turn;

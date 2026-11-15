@@ -36,6 +36,9 @@ func _on_message(i: int, m: Dictionary) -> void:
 			if int(m.turn) == 1:
 				_plan(i, m.view.own_units, m.view)
 			elif int(m.turn) == 2:
+				var mines: Array = m.view.obstacles.filter(func(o): return o.kind == "mines")
+				if mines.size() != 1 or int(mines[0].owner) != i or int(mines[0].work_left) != 0:
+					errors.append("client %d: expected only our own finished minefield, got %s" % [i, m.view.obstacles])
 				if m.view.production.size() != 1 or int(m.view.money) != paid[i]:
 					errors.append("client %d: purchase not under way: %s, money %s (expected %d)" % [
 						i, m.view.production, m.view.money, paid[i]])
@@ -71,8 +74,13 @@ func _plan(i: int, own: Array, view: Dictionary) -> void:
 	# Buy infantry at the first structure that sells it; it must be under way next turn.
 	var item: Dictionary = view.shop.filter(func(s): return s.type_id == "infantry")[0]
 	orders.buy("infantry", int(item.sites[0]))
-	paid[i] = int(view.money) - int(item.cost) + int(view.income)
-	assert(orders.list.size() == 5 and orders.moves()[0].waypoints.size() == 2)
+	# The engineer lays mines where it stands: a finished field of our own next turn.
+	var eng: Dictionary = own.filter(func(u): return u.type_id == "engineer")[0]
+	orders.lay(int(eng.id), {"kind": "ditch", "towards": Vector2(eng.pos.x, eng.pos.y + 500.0)})
+	assert(orders.to_wire()[-1].works.towards is Dictionary)
+	orders.lay(int(eng.id), {"kind": "mines"})  # replaces the ditch order
+	paid[i] = int(view.money) - int(item.cost) - int(view.mine_cost) + int(view.income)
+	assert(orders.list.size() == 6 and orders.moves()[0].waypoints.size() == 2)
 	assert(orders.pending_stance(int(spg.id)) == "hold" and orders.missions().size() == 1)
 	var mv: Dictionary = orders.to_wire()[0]
 	clients[i].send({"type": "request_preview", "units": mv.units, "waypoints": mv.waypoints})
