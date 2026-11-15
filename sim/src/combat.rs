@@ -247,6 +247,7 @@ fn pick_target(
                 UnitClass::Air => st.weapon_vs_air,
                 UnitClass::Ship => st.weapon_vs_sea,
                 UnitClass::Sub => st.weapon_vs_sub,
+                UnitClass::Infantry => st.weapon_vs_ground && st.weapon_vs_infantry,
                 _ => st.weapon_vs_ground,
             };
             // Torpedoes and depth charges need no line of sight to a submarine.
@@ -465,7 +466,7 @@ mod tests {
         assert!(fight(&mut w, 50, 2).is_empty());
         let mut w = world(vec![
             unit(1, 0, "mbt", 0.0, 0.0),
-            unit(2, 1, "mbt", 2100.0, PI),
+            unit(2, 1, "mbt", 2600.0, PI),
         ]);
         assert!(fight(&mut w, 50, 3).is_empty());
     }

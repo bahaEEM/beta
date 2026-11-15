@@ -337,3 +337,34 @@ fn k144_decoys_look_real_until_seen_from_close_up() {
     // Real units are never renamed.
     assert_eq!(unit(9, 0, "mbt", 0.0, 0.0).decoy_of, None);
 }
+
+#[test]
+fn k047_anti_tank_missiles_are_not_fired_at_infantry() {
+    let (cat, r) = (catalog(), rules());
+    assert!(!cat.get("atgm").unwrap().weapon_vs_infantry);
+    // An ATGM team with enemy infantry and, further off, an enemy IFV in plain sight.
+    let fired_at = |targets: Vec<Unit>| {
+        let mut units = vec![unit(1, 0, "atgm", 1000.0, 5000.0)];
+        units.extend(targets);
+        let mut g = game(map(), units);
+        let mut out = std::collections::BTreeSet::new();
+        for _ in 0..200 {
+            for e in step_tick(&mut g, &cat, &r) {
+                if let Event::ShotFired {
+                    shooter: UnitId(1),
+                    target,
+                } = e
+                {
+                    out.insert(target.0);
+                }
+            }
+        }
+        out.into_iter().collect::<Vec<_>>()
+    };
+    let inf = || unit(2, 1, "infantry", 1300.0, 5000.0);
+    assert!(fired_at(vec![inf()]).is_empty());
+    assert_eq!(
+        fired_at(vec![inf(), unit(3, 1, "ifv", 1800.0, 5000.0)]),
+        [3]
+    );
+}

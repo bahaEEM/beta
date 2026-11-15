@@ -241,12 +241,14 @@ mod tests {
                 unit(5, 0, "mbt", 1000.0, 1200.0),
             ],
         );
-        g.money.insert(PlayerId(0), 700);
+        let price = |id: &str| catalog().get(id).unwrap().cost;
+        g.money
+            .insert(PlayerId(0), price("mbt") + 2 * price("infantry"));
         let orders = vec![
-            buy("mbt", 1),            // 500: fine
-            buy("infantry", 1),       // 100: fine
-            buy("infantry", 1),       // 100: fine, 0 left
-            buy("decoy_tank", 1),     // no money left
+            buy("mbt", 1),
+            buy("infantry", 1),
+            buy("infantry", 1),       // nothing left after this one
+            buy("decoy_tank", 1),     // no money
             buy("mbt", 2),            // a port raises no tanks
             buy("patrol_boat", 3),    // no water in reach
             buy("infantry", 4),       // not ours
@@ -266,7 +268,7 @@ mod tests {
         assert_eq!(g.money[&PlayerId(0)], 0, "paid up front");
         assert_eq!(g.production.len(), 3);
         // A port by the sea does build boats.
-        g.money.insert(PlayerId(0), 300);
+        g.money.insert(PlayerId(0), price("patrol_boat"));
         assert!(plan(&mut g, 0, vec![buy("patrol_boat", 2)]).is_empty());
     }
 
@@ -316,7 +318,8 @@ mod tests {
                 unit(7, 1, "infantry", 9000.0, 9000.0),
             ],
         );
-        g.money.insert(PlayerId(0), 200);
+        g.money
+            .insert(PlayerId(0), 2 * catalog().get("infantry").unwrap().cost);
         assert!(plan(&mut g, 0, vec![buy("infantry", 1), buy("infantry", 2)]).is_empty());
         // One base falls into enemy hands, the other is destroyed.
         g.world.unit_mut(UnitId(1)).unwrap().owner = PlayerId(1);

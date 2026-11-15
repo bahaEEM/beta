@@ -98,3 +98,19 @@ ZMA + piyade taşıma · bölge noktaları + puan + zafer · yakıt/mühimmat + 
 
 ### Her paketten sonra
 Testler (K-kimlikli) + denge raporu + gerektiğinde istemci gösterimi (alt ajan) + commit + PROGRESS.md.
+
+## Mekanikten sonra kalanlar (2026-11-15)
+
+### Haritalar (kullanıcı isteği; şu an yalnız Hasandağı var, o da test haritası)
+- **İstanbul** — asıl 1v1 haritası.
+- **Adalar** — yalnız adalardan oluşan, deniz odaklı harita.
+- **Yağmur ormanı** — orman ve pusu temalı, nehirli; gemiler ve ağır bombardıman var, **hava alanı yok**, piyade odaklı.
+  Not: nehir için hendek/su hücreleri yetiyor, ama köprü (M8'de bilerek yapılmadı) bu haritada gerekebilir.
+
+### Görsel giydirme
+- Command & Conquer Generals tarzı modeller ve efektler (çoğu yapı, gemi ve yeni birim geçici kutu).
+- Ana menü, yükleme ekranı, maç sonu ekranı; düzgün HUD (satın alma / inşaat paneli, mini harita, birim simgeleri).
+
+### Diğer
+- Tek kişilik oyun için rakip yapay zekâsı · ses ve müzik · oyun içi öğretici · lobi (harita / taraf seçimi, kayıt yükleme) ·
+  ayarlar ekranı · paketleme (Linux / Windows) · hava birimi yakıtı, gemi ve hava birimi onarımı, çevre (hava durumu, gece).

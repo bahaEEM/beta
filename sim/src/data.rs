@@ -51,6 +51,9 @@ pub struct UnitType {
     /// What the direct-fire weapon can engage.
     #[serde(default = "yes")]
     pub weapon_vs_ground: bool,
+    /// False: the direct weapon is not used on infantry (anti-tank missiles, K-047).
+    #[serde(default = "yes")]
+    pub weapon_vs_infantry: bool,
     #[serde(default)]
     pub weapon_vs_air: bool,
     /// The direct-fire weapon engages ships (K-163).
@@ -861,7 +864,7 @@ mod tests {
         assert!(cat.get("gsr").unwrap().is_emitter());
         assert!(!cat.get("esm").unwrap().is_emitter());
         assert_eq!(cat.get("infantry").unwrap().weapon_range_m, 400.0);
-        assert_eq!(cat.get("mbt").unwrap().weapon_range_m, 2000.0);
+        assert_eq!(cat.get("mbt").unwrap().weapon_range_m, 2500.0);
         assert_eq!(cat.get("mbt").unwrap().class, UnitClass::Vehicle);
     }
 

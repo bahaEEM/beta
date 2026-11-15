@@ -50,6 +50,8 @@ Yeni testlerin adı kural kimliğiyle başlar (`k043_...`). Eski testler aşağ�
 - **K-044 Hasar durumu.** Can ≤ %50 → hasarlı; 0 → imha.
 - **K-045 Eşzamanlılık.** Aynı adımdaki bütün atışlar önceki durumdan seçilir, sonra birlikte uygulanır.
 - **K-046 Ateş kuralları.** `free` serbest; `return` sadece son 60 sn içinde ateş altında kaldıysa; `hold` ateş yok.
+- **K-047 Piyadeye atılmayan silah.** `weapon_vs_infantry = false` olan tipin direkt silahı piyade sınıfı hedefe ateş etmez
+  (tanksavar timi füzesini araçlara saklar). Varsayılan `true`.
 
 ## Dolaylı ateş (topçu, füze)
 - **K-090 Atış görevi.** `fire_mission {units, target}` — hedef bir nokta ya da düşman birim; görev o turun sonuna kadar sürer.
@@ -276,6 +278,7 @@ Bütün sayılar yer tutucudur; görsel aşamadan önce oyun testiyle ayarlanaca
 | K-044 | k044_damage_states_by_hp |
 | K-045 | k045_simultaneous_fire_both_take_damage_same_tick |
 | K-046 | k046_stances_hold_and_return_fire |
+| K-047 | k047_anti_tank_missiles_are_not_fired_at_infantry |
 | K-050 | g5_filter_hides_unseen_and_blurs_contacts, g5_cheat_no_unseen_unit_in_filtered_stream_20_scenarios, g10_cheat_oracle_and_resolution_time, g7_end_to_end_turn |
 | K-060 | f1_3_infantry_captures_after_capture_time, f1_3_only_infantry_captures_and_contest_freezes |
 | K-061 | k061_taking_the_enemy_base_wins_at_the_end_of_the_turn, k061_most_regions_wins_after_the_last_turn |
