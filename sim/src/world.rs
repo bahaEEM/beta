@@ -109,6 +109,15 @@ pub struct Unit {
     /// Decoys: the type the enemy takes this unit for (K-144), copied from the unit type.
     #[serde(default)]
     pub decoy_of: Option<String>,
+    /// Building site (K-181): what this will become and the engineer turns still needed.
+    #[serde(default)]
+    pub building: Option<Building>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Building {
+    pub type_id: String,
+    pub turns_left: u32,
 }
 
 impl Unit {

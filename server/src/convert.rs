@@ -80,6 +80,13 @@ pub fn order(o: &p::Order) -> Order {
             carrier: UnitId(*carrier),
         },
         p::Order::Disembark { units: ids } => Order::Disembark { units: units(ids) },
+        p::Order::Build {
+            units: ids,
+            type_id,
+        } => Order::Build {
+            units: units(ids),
+            type_id: type_id.clone(),
+        },
         p::Order::Buy { type_id, site } => Order::Buy {
             type_id: type_id.clone(),
             site: UnitId(*site),

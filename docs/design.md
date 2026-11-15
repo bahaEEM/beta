@@ -10,7 +10,7 @@ Yeni testlerin adı kural kimliğiyle başlar (`k043_...`). Eski testler aşağ�
   birimler kimlik sırasıyla işlenir, sıralı kaplar kullanılır.
 - **K-002 Tur.** Planlama (45 sn gerçek zaman; iki oyuncu "Hazır" derse erken biter) → çözüm 200 adım → tur sonu.
   Bir adım 0,6 sn oyun zamanıdır: bir tur = 2 dk oyun, ekranda 20 sn oynatılır.
-- **K-003 Adım sırası.** hareket → sensör/iz → direkt ateş (eşzamanlı) → dolaylı atış → çarpma/hasar → ele geçirme. Tur sonu: ikmal (K-130…K-134) → gelir ve üretim (K-170…K-173) → sağlık → zafer kontrolü.
+- **K-003 Adım sırası.** hareket → sensör/iz → direkt ateş (eşzamanlı) → dolaylı atış → çarpma/hasar → ele geçirme. Tur sonu: ikmal (K-130…K-134) → gelir ve üretim (K-170…K-173) → inşaat ve onarım (K-180, K-181) → sağlık → zafer kontrolü.
 
 ## Emirler ve KBG
 - **K-010 KBG bütçesi.** Oyuncu başına tur başı 8 puan. Her emir, içindeki her başlayan 12 birim için 1 puan
@@ -176,7 +176,24 @@ Hepsi tur sonunda, bu sırayla işler: üretim → taşıyıcılar → yakın ik
   limana en yakın su hücresinde, tam can / yakıt / mühimmatla belirir. Yeni birimin kimliği o ana kadarki en büyük kimlik + 1'dir;
   siparişler veriliş sırasıyla işlenir.
 - **K-173 Sipariş kaybı.** Teslimden önce yapı yok edilir ya da el değiştirirse (K-122) sipariş yanar; para geri gelmez.
-- Onarım ve yapı inşası bu pakette yok; istihkâm birimiyle M8'de gelecek (docs/MEKANIK_PLAN.md).
+
+## İstihkâm: onarım ve inşaat (M8a)
+- **K-180 Onarım.** `repair_share` değeri olan birim (istihkâm aracı, onarım çadırı; ikisi de 0,2) tur sonunda, `engineer.repair_radius_m`
+  (300 m) içindeki hasarlı dost **kara araçlarını ve yapıları** onarır: her biri azami canının o payı kadar can alır (birden çok onarıcı
+  toplanmaz, en iyisi geçerli; kimse kendini onaramaz). Bedeli, onarılan can payı × birim fiyatı × `repair_cost_share` (0,5), yukarı
+  yuvarlanır; fiyatı olmayan yapı ücretsiz onarılır. Para yetmiyorsa o birim onarılmaz. Piyade onarılmaz (K-123), gemi ve hava birimi de.
+  O tur inşaatta çalışan istihkâm onarım yapmaz. İnşaat alanı onarılmaz.
+- **K-181 İnşaat.** `build` emri (tek istihkâm, `type_id`): istihkâmın `builds` listesindeki bir yapı (onarım çadırı, iyileştirme çadırı,
+  baz istasyonu kulesi, sığınak, hava savunma mevzisi), istihkâmın durduğu yerde başlar. Şartlar: istihkâm karada ve oyuncunun kendi
+  bölgesinde; para (yapının `cost` değeri) peşin düşer. Emir planlamada bir **inşaat alanı** birimi (`engineer.site_type`) koyar ve
+  istihkâmın rotasını siler. Tur sonunda alanın `build_radius_m` (100 m) yakınında aynı tarafın boşta bir istihkâmı varsa kalan iş bir
+  tur azalır (alan başına bir istihkâm, istihkâm başına bir alan; kimlik sırasıyla). İstihkâm yoksa iş bekler; başka istihkâm sürdürebilir.
+  İş bitince alan, tam canlı gerçek yapıya dönüşür. İnşaat alanı yapı sınıfındadır: vurulabilir, bölgeyle el değiştirir (K-122).
+  İyileştirme çadırı piyadeyi iyileştirir (K-123), baz istasyonu kulesi uzun menzilli telsiz düğümüdür (K-080).
+- **K-182 Sığınak (mevzi).** `shelter` değeri olan ayakta yapı (sığınak: 2), `shelter_radius_m` (50 m) içindeki aynı tarafın en küçük
+  kimlikli o kadar piyade birimini siperde sayar. Siperdeki piyadenin aldığı direkt ateş hasarı `shelter_direct_factor` (0,4), mermi
+  hasarı `shelter_shell_factor` (0,2), baskı artışı `shelter_suppression_factor` (0,3) ile çarpılır (K-141 ve K-143 çarpanlarının üstüne).
+  Birim ateş etmeye devam eder. Araçlar yararlanamaz.
 
 ## Görünürlük
 - **K-050 Görünürlük filtresi.** Oyuncuya giden hiçbir mesaj, o an göremediği birimin kimliğini veya konumunu içermez.
@@ -289,6 +306,9 @@ Bütün sayılar yer tutucudur; görsel aşamadan önce oyun testiyle ayarlanaca
 | K-171 | k171_buying_needs_money_and_the_right_structure, k171_hasandag_both_sides_can_buy_every_class |
 | K-172 | k172_bought_units_appear_at_their_structure_after_the_build_time |
 | K-173 | k173_orders_are_lost_with_their_structure |
+| K-180 | k180_engineers_and_repair_tents_mend_vehicles_and_structures_for_money |
+| K-181 | k181_engineers_build_structures_in_own_regions_and_must_stay |
+| K-182 | k182_dug_in_infantry_is_hard_to_hurt_and_to_suppress |
 | K-071 | g6_client_messages_round_trip, g6_server_messages_round_trip, g6_version_mismatch_rejected, g6_oversized_message_rejected, g6_protocol_md_up_to_date |
 | K-072 | g7_resume_after_shutdown, g7_reconnect_same_name, g7_planning_deadline_starts_resolution |
 

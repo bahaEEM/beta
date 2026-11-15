@@ -90,7 +90,8 @@ ZMA + piyade taşıma · bölge noktaları + puan + zafer · yakıt/mühimmat + 
   - **Tanksavar hendeği:** istihkâm 2 turda kısa bir hat (≈300 m) kazar; **hiçbir kara aracı geçemez** (dost dahil), rota dolanır; piyade geçer.
     Gizli değildir. Herhangi bir istihkâm 1 turda doldurur.
   - Köprü yok (haritada nehir yok).
-- Uygulama sırası önerisi: **M8a** istihkâm birimi + onarım + inşaat (çadırlar, kule, sığınak, hava savunma mevzisi) → **M8b** mayın + hendek.
+- ✔ M8a (2026-11-15) K-180…K-182: istihkâm aracı, onarım, inşaat, sığınak. Sayılar tahmini. M8b (mayın + hendek) bekliyor.
+- Uygulama sırası: **M8a** istihkâm birimi + onarım + inşaat (çadırlar, kule, sığınak, hava savunma mevzisi) → **M8b** mayın + hendek.
 
 ### Her paketten sonra
 Testler (K-kimlikli) + denge raporu + gerektiğinde istemci gösterimi (alt ajan) + commit + PROGRESS.md.

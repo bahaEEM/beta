@@ -95,5 +95,15 @@ start_money = 300         # placeholder
 region_income = 20        # placeholder; per turn for every own region that is in supply
 launch_radius_m = 1000.0  # placeholder; ships bought at a port appear on the nearest water this close
 
+[engineer]                # K-180…K-182
+repair_radius_m = 300.0   # placeholder; engineers and repair tents mend vehicles and structures this close
+repair_cost_share = 0.5   # placeholder; a full repair costs half the unit's price
+build_radius_m = 100.0    # placeholder; an engineer this close to a building site works on it
+site_type = "construction_site"
+shelter_radius_m = 50.0   # placeholder; infantry this close to a dug-in position fights from it
+shelter_direct_factor = 0.4       # placeholder; damage multiplier against direct fire
+shelter_shell_factor = 0.2        # placeholder; ...against shells
+shelter_suppression_factor = 0.3  # placeholder; ...on suppression taken
+
 [decoy]                   # K-144
 reveal_range_m = 800.0    # placeholder; eyes this close recognise a decoy for good

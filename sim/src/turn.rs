@@ -107,6 +107,8 @@ pub enum Order {
     Disembark { units: Vec<UnitId> },
     /// Radio silence on or off (K-151).
     SetSilence { units: Vec<UnitId>, on: bool },
+    /// One engineer starts building a structure where it stands (K-181).
+    Build { units: Vec<UnitId>, type_id: String },
     /// Buys a unit; it appears at the structure `site` some turns later (K-171).
     Buy { type_id: String, site: UnitId },
 }
@@ -121,6 +123,7 @@ impl Order {
             | Order::FireMission { units, .. }
             | Order::Embark { units, .. }
             | Order::SetSilence { units, .. }
+            | Order::Build { units, .. }
             | Order::Disembark { units } => units,
             Order::Buy { .. } => &[],
         }
@@ -141,6 +144,8 @@ pub enum RejectReason {
     Embarked,
     /// Embark: not infantry, carrier unsuitable, too far or full.
     CannotEmbark,
+    /// Build: not one engineer that builds this, or not on land in an own region.
+    CannotBuild,
     Move(MoveError),
     Buy(BuyError),
 }
@@ -157,6 +162,7 @@ impl fmt::Display for RejectReason {
             RejectReason::NoIndirectWeapon => write!(f, "unit has no artillery or rockets"),
             RejectReason::Embarked => write!(f, "unit is inside a carrier"),
             RejectReason::CannotEmbark => write!(f, "cannot board that carrier"),
+            RejectReason::CannotBuild => write!(f, "cannot build that here"),
             RejectReason::Move(e) => write!(f, "{e}"),
             RejectReason::Buy(BuyError::NotForSale) => write!(f, "that unit is not for sale"),
             RejectReason::Buy(BuyError::BadSite) => {
@@ -193,6 +199,8 @@ pub struct Validated {
     pub kbg_spent: u32,
     /// Accepted purchases (type, site) and their total price (K-171).
     pub purchases: Vec<(String, UnitId)>,
+    /// Accepted building orders (engineer, structure type), paid from the same purse.
+    pub builds: Vec<(UnitId, String)>,
     pub money_spent: u32,
 }
 
@@ -274,6 +282,7 @@ pub fn validate_orders(
             Order::Move { .. }
             | Order::Stop { .. }
             | Order::Embark { .. }
+            | Order::Build { .. }
             | Order::Disembark { .. } => 0,
             Order::SetEmitter { .. } => 1,
             Order::SetStance { .. } => 2,
@@ -419,6 +428,23 @@ pub fn validate_orders(
                     None
                 }
                 Order::Buy { .. } => None, // handled above
+                Order::Build { units, type_id } => {
+                    let target = catalog.get(type_id).filter(|_| units.len() == 1);
+                    match (target, units.first()) {
+                        (Some(t), Some(&id))
+                            if crate::engineer::can_build(game, catalog, player, id, t) =>
+                        {
+                            if t.cost > money.saturating_sub(v.money_spent) {
+                                Some(RejectReason::Buy(BuyError::NoMoney))
+                            } else {
+                                v.builds.push((id, type_id.clone()));
+                                v.money_spent += t.cost;
+                                None
+                            }
+                        }
+                        _ => Some(RejectReason::CannotBuild),
+                    }
+                }
                 Order::FireMission { units, target } => {
                     let armed = |id: &UnitId| {
                         game.world
@@ -472,6 +498,9 @@ pub fn plan_phase(
                 site,
                 turns_left,
             });
+        }
+        for (engineer, type_id) in v.builds {
+            crate::engineer::start_building(game, catalog, rules, engineer, &type_id);
         }
         for (id, change) in v.changes {
             match change {

@@ -846,7 +846,7 @@ func _open_shop() -> void:
 	var site: int = selection[0]
 	shop_items = shop.filter(func(s): return selection.size() == 1 and s.sites.map(func(x): return int(x)).has(site))
 	if shop_items.is_empty():
-		_status("Birim satın almak için tek bir lojistik üs (kara), hava alanı (hava) ya da liman (deniz) seçin.")
+		_status("Satın almak için tek bir lojistik üs / hava alanı / liman, inşaat için kendi bölgendeki tek bir istihkâm aracı seç.")
 		return
 	ui.shop_menu.clear()
 	for s in shop_items:
@@ -863,6 +863,12 @@ func _buy(index: int) -> void:
 	if int(s.cost) > _money_left():
 		_status("Para yetmiyor: %s %d para, elde %d." % [Hud.TYPE_NAMES.get(s.type_id, s.type_id), int(s.cost), _money_left()])
 		return
+	if s.get("build", false):
+		orders.build(selection[0], s.type_id)
+		_orders_changed()
+		_status("İnşaat emri: %s (%d para, %d tur). İstihkâm bitene kadar yanında durmalı; vazgeçmek için Delete." % [
+			Hud.TYPE_NAMES.get(s.type_id, s.type_id), int(s.cost), int(s.build_turns)])
+		return
 	orders.buy(s.type_id, selection[0])
 	_orders_changed()
 	_status("Sipariş: %s (%d para, %d tur sonra #%d yanında). Vazgeçmek için yapıyı seçip Delete." % [
@@ -872,7 +878,7 @@ func _buy(index: int) -> void:
 # Money minus the purchases queued this turn (display; the server does the real check).
 func _money_left() -> int:
 	var left := money
-	for o in orders.buys():
+	for o in orders.buys() + orders.builds():
 		for s in shop:
 			if s.type_id == o.type_id:
 				left -= int(s.cost)
@@ -985,8 +991,11 @@ func _update_hud() -> void:
 				extra.append("Üretimde: %s (%d tur kaldı)" % [Hud.TYPE_NAMES.get(p.type_id, p.type_id), int(p.turns_left)])
 		for o in orders.buys(site):
 			extra.append("Sipariş: %s (bu tur)" % Hud.TYPE_NAMES.get(o.type_id, o.type_id))
+		for o in orders.builds():
+			if site in o.units:
+				extra.append("İnşaat emri: %s (bu tur)" % Hud.TYPE_NAMES.get(o.type_id, o.type_id))
 		if shop.any(func(s): return s.sites.map(func(x): return int(x)).has(site)):
-			extra.append("U: birim satın al")
+			extra.append("U: inşa et" if sel[0].type == "engineer" else "U: birim satın al")
 		if not extra.is_empty():
 			ui.info.text += "\n" + "\n".join(extra)
 

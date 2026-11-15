@@ -804,6 +804,8 @@ sensors = [
 
 [[unit]]
 id = "ad_site"
+cost = 400                       # placeholder (K-181)
+build_turns = 3                  # placeholder
 name_tr = "Hava Savunma Mevzisi"
 class = "structure"
 weapon_vs_ground = false
@@ -1187,4 +1189,183 @@ ammo = 8                         # placeholder
 sensors = [
   { kind = "optical", range_m = 3000.0 },
   { kind = "radar", range_m = 45000.0, min_target_speed_mps = 1.0 },
+]
+
+# ---- M8: engineers, what they build, building sites
+
+[[unit]]
+id = "engineer"
+name_tr = "İstihkâm Aracı"
+cost = 250                       # placeholder
+build_turns = 3                  # placeholder
+repair_share = 0.2               # K-180: mends vehicles and structures nearby
+builds = ["repair_tent", "aid_tent", "relay_tower", "bunker", "ad_site"]   # K-181
+class = "vehicle"
+speed_offroad_mps = 8.0          # placeholder
+speed_road_mps = 18.0            # placeholder
+max_slope_deg = 22.0             # placeholder
+armor_front_mm = 10.0            # placeholder
+armor_side_mm = 10.0             # placeholder
+armor_rear_mm = 10.0             # placeholder
+weapon_range_m = 0.0             # placeholder
+penetration_mm = 0.0             # placeholder
+damage_hp = 0.0                  # placeholder
+reload_s = 1.0                   # placeholder
+hit_close = 0.0                  # placeholder
+hit_far = 0.0                    # placeholder
+aim_s = 1.0                      # placeholder
+height_m = 2.5                   # placeholder
+radio_range_m = 10000.0          # placeholder
+hp = 80.0                        # placeholder
+fuel_l = 300.0                   # placeholder
+fuel_l_per_km = 0.5              # placeholder
+ammo = 0                         # placeholder
+sensors = [
+  { kind = "optical", range_m = 1500.0 },
+]
+
+[[unit]]
+id = "repair_tent"
+name_tr = "Onarım Çadırı"
+cost = 150                       # placeholder
+build_turns = 2                  # placeholder
+repair_share = 0.2               # K-180
+class = "structure"
+speed_offroad_mps = 0.0          # placeholder
+speed_road_mps = 0.0             # placeholder
+max_slope_deg = 0.0              # placeholder
+armor_front_mm = 10.0            # placeholder
+armor_side_mm = 10.0             # placeholder
+armor_rear_mm = 10.0             # placeholder
+weapon_range_m = 0.0             # placeholder
+penetration_mm = 0.0             # placeholder
+damage_hp = 0.0                  # placeholder
+reload_s = 1.0                   # placeholder
+hit_close = 0.0                  # placeholder
+hit_far = 0.0                    # placeholder
+aim_s = 1.0                      # placeholder
+height_m = 6.0                   # placeholder
+radio_range_m = 15000.0          # placeholder
+hp = 80.0  # placeholder
+fuel_l = 0.0                     # placeholder
+fuel_l_per_km = 0.0              # placeholder
+ammo = 0                         # placeholder
+sensors = [
+  { kind = "optical", range_m = 1000.0 },
+]
+
+[[unit]]
+id = "aid_tent"
+name_tr = "İyileştirme Çadırı"
+cost = 120                       # placeholder
+build_turns = 2                  # placeholder
+heal_hp_per_turn = 30.0          # K-123: infantry only
+class = "structure"
+speed_offroad_mps = 0.0          # placeholder
+speed_road_mps = 0.0             # placeholder
+max_slope_deg = 0.0              # placeholder
+armor_front_mm = 10.0            # placeholder
+armor_side_mm = 10.0             # placeholder
+armor_rear_mm = 10.0             # placeholder
+weapon_range_m = 0.0             # placeholder
+penetration_mm = 0.0             # placeholder
+damage_hp = 0.0                  # placeholder
+reload_s = 1.0                   # placeholder
+hit_close = 0.0                  # placeholder
+hit_far = 0.0                    # placeholder
+aim_s = 1.0                      # placeholder
+height_m = 6.0                   # placeholder
+radio_range_m = 15000.0          # placeholder
+hp = 80.0  # placeholder
+fuel_l = 0.0                     # placeholder
+fuel_l_per_km = 0.0              # placeholder
+ammo = 0                         # placeholder
+sensors = [
+  { kind = "optical", range_m = 1000.0 },
+]
+
+[[unit]]
+id = "relay_tower"
+name_tr = "Baz İstasyonu Kulesi"
+cost = 200                       # placeholder
+build_turns = 2                  # placeholder
+class = "structure"
+speed_offroad_mps = 0.0          # placeholder
+speed_road_mps = 0.0             # placeholder
+max_slope_deg = 0.0              # placeholder
+armor_front_mm = 10.0            # placeholder
+armor_side_mm = 10.0             # placeholder
+armor_rear_mm = 10.0             # placeholder
+weapon_range_m = 0.0             # placeholder
+penetration_mm = 0.0             # placeholder
+damage_hp = 0.0                  # placeholder
+reload_s = 1.0                   # placeholder
+hit_close = 0.0                  # placeholder
+hit_far = 0.0                    # placeholder
+aim_s = 1.0                      # placeholder
+height_m = 25.0  # placeholder
+radio_range_m = 40000.0  # placeholder
+hp = 80.0  # placeholder
+fuel_l = 0.0                     # placeholder
+fuel_l_per_km = 0.0              # placeholder
+ammo = 0                         # placeholder
+sensors = [
+  { kind = "optical", range_m = 1000.0 },
+]
+
+[[unit]]
+id = "bunker"
+name_tr = "Sığınak"
+cost = 150                       # placeholder
+build_turns = 3                  # placeholder
+shelter = 2                      # K-182: infantry units that fight from it
+class = "structure"
+speed_offroad_mps = 0.0          # placeholder
+speed_road_mps = 0.0             # placeholder
+max_slope_deg = 0.0              # placeholder
+armor_front_mm = 200.0  # placeholder
+armor_side_mm = 200.0  # placeholder
+armor_rear_mm = 200.0  # placeholder
+weapon_range_m = 0.0             # placeholder
+penetration_mm = 0.0             # placeholder
+damage_hp = 0.0                  # placeholder
+reload_s = 1.0                   # placeholder
+hit_close = 0.0                  # placeholder
+hit_far = 0.0                    # placeholder
+aim_s = 1.0                      # placeholder
+height_m = 1.0  # placeholder
+radio_range_m = 15000.0          # placeholder
+hp = 300.0  # placeholder
+fuel_l = 0.0                     # placeholder
+fuel_l_per_km = 0.0              # placeholder
+ammo = 0                         # placeholder
+sensors = [
+  { kind = "optical", range_m = 1000.0 },
+]
+
+[[unit]]
+id = "construction_site"
+name_tr = "İnşaat"
+class = "structure"
+speed_offroad_mps = 0.0          # placeholder
+speed_road_mps = 0.0             # placeholder
+max_slope_deg = 0.0              # placeholder
+armor_front_mm = 10.0            # placeholder
+armor_side_mm = 10.0             # placeholder
+armor_rear_mm = 10.0             # placeholder
+weapon_range_m = 0.0             # placeholder
+penetration_mm = 0.0             # placeholder
+damage_hp = 0.0                  # placeholder
+reload_s = 1.0                   # placeholder
+hit_close = 0.0                  # placeholder
+hit_far = 0.0                    # placeholder
+aim_s = 1.0                      # placeholder
+height_m = 2.0  # placeholder
+radio_range_m = 15000.0          # placeholder
+hp = 50.0  # placeholder
+fuel_l = 0.0                     # placeholder
+fuel_l_per_km = 0.0              # placeholder
+ammo = 0                         # placeholder
+sensors = [
+  { kind = "optical", range_m = 1000.0 },
 ]

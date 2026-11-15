@@ -7,6 +7,7 @@
 #             | {"type": "embark", "units": [ids], "carrier": id} | {"type": "disembark", "units": [ids]}
 #             | {"type": "set_silence", "units": [ids], "on": bool}
 #             | {"type": "buy", "type_id": String, "site": id}   (no units)
+#             | {"type": "build", "units": [engineer id], "type_id": String}
 extends RefCounted
 
 var list: Array = []
@@ -23,12 +24,12 @@ func add_waypoint(sel: Array, p: Vector2) -> void:
 		if o.type == "move" and _same(o.units, sel):
 			o.waypoints.append(p)
 			return
-	_remove_units(sel, ["move", "stop"])
+	_remove_units(sel, ["move", "stop", "build"])
 	list.append({"type": "move", "units": sel.duplicate(), "waypoints": [p]})
 
 
 func stop(sel: Array) -> void:
-	_remove_units(sel, ["move", "stop"])
+	_remove_units(sel, ["move", "stop", "build"])
 	list.append({"type": "stop", "units": sel.duplicate()})
 
 
@@ -79,6 +80,16 @@ func buy(type_id: String, site: int) -> void:
 	list.append({"type": "buy", "type_id": type_id, "site": site})
 
 
+# The engineer builds a structure where it stands instead of moving.
+func build(engineer: int, type_id: String) -> void:
+	_remove_units([engineer], ["move", "stop", "build", "embark", "disembark"])
+	list.append({"type": "build", "units": [engineer], "type_id": type_id})
+
+
+func builds() -> Array:
+	return list.filter(func(o): return o.type == "build")
+
+
 # Pending purchases, of one structure or (site < 0) of all.
 func buys(site := -1) -> Array:
 	return list.filter(func(o): return o.type == "buy" and (site < 0 or o.site == site))
@@ -89,7 +100,7 @@ func cancel_buys(site: int) -> void:
 
 
 func remove(sel: Array) -> void:
-	_remove_units(sel, ["move", "stop", "set_emitter", "set_stance", "fire_mission", "embark", "disembark", "set_silence"])
+	_remove_units(sel, ["move", "stop", "set_emitter", "set_stance", "fire_mission", "embark", "disembark", "set_silence", "build"])
 
 
 # Pending stance for a unit, or null.

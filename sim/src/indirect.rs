@@ -176,6 +176,11 @@ pub fn step_impacts(
         shells.drain(..).partition(|s| s.impact_tick <= tick);
     *shells = flying;
     let mut events = Vec::new();
+    let dug = if landing.is_empty() {
+        Default::default()
+    } else {
+        crate::engineer::dug_in(world, catalog, rules) // K-182
+    };
     for mut s in landing {
         // K-152: an anti-radiation munition ends on its target if that is still radiating.
         if let Some(t) = s
@@ -204,6 +209,11 @@ pub fn step_impacts(
                     let dmg = s.damage_hp
                         * near
                         * protection(&world.map, rules, u, t)
+                        * if dug.contains(&u.id) {
+                            rules.engineer.shelter_shell_factor
+                        } else {
+                            1.0
+                        }
                         * penetration_factor(rules, s.penetration_mm, t.armor_rear_mm);
                     (u.id, dmg, t.hp * rules.combat.damaged_hp_fraction, near)
                 })
@@ -216,7 +226,12 @@ pub fn step_impacts(
             };
             u.under_fire_tick = Some(tick);
             if let Some(t) = t {
-                suppress(u, t, rules.suppression.per_shell * near);
+                let sheltered = if dug.contains(&id) {
+                    rules.engineer.shelter_suppression_factor
+                } else {
+                    1.0
+                };
+                suppress(u, t, rules.suppression.per_shell * near * sheltered);
             }
             if dmg <= 0.0 || u.state == UnitState::Destroyed {
                 continue;

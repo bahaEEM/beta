@@ -130,6 +130,16 @@ pub struct UnitType {
     /// Structures: the unit classes bought here appear at this structure (K-171).
     #[serde(default)]
     pub produces: Vec<UnitClass>,
+    /// Engineers and repair tents (K-180): share of its maximum hp given back per turn
+    /// to each damaged friendly vehicle and structure in reach. 0 = none.
+    #[serde(default)]
+    pub repair_share: f64,
+    /// Engineers (K-181): ids of the structure types this unit can build.
+    #[serde(default)]
+    pub builds: Vec<String>,
+    /// Dug-in position (K-182): this many infantry units next to it fight from cover.
+    #[serde(default)]
+    pub shelter: u32,
 }
 
 fn yes() -> bool {
@@ -295,6 +305,18 @@ pub fn load_units(toml_text: &str) -> Result<UnitCatalog, DataError> {
         }
         types.insert(t.id.clone(), t);
     }
+    // K-181: engineers build structures that have a price.
+    let buildable = |id: &String| {
+        types
+            .get(id)
+            .is_some_and(|s: &UnitType| s.class == UnitClass::Structure && s.cost > 0)
+    };
+    if let Some(t) = types.values().find(|t| !t.builds.iter().all(buildable)) {
+        return Err(DataError::Invalid {
+            unit: t.id.clone(),
+            field: "builds",
+        });
+    }
     if let Some(t) = types
         .values()
         .find(|t| t.decoy_of.as_ref().is_some_and(|d| !types.contains_key(d)))
@@ -378,7 +400,13 @@ fn validate(t: &UnitType) -> Result<(), DataError> {
             });
         }
     }
-    if t.cost > 0 && (t.build_turns == 0 || t.class == UnitClass::Structure) {
+    if !(0.0..=1.0).contains(&t.repair_share) {
+        return Err(DataError::Invalid {
+            unit: t.id.clone(),
+            field: "repair_share",
+        });
+    }
+    if t.cost > 0 && t.build_turns == 0 {
         return Err(DataError::Invalid {
             unit: t.id.clone(),
             field: "build_turns",
@@ -407,6 +435,28 @@ pub struct Rules {
     pub decoy: DecoyRules,
     pub indirect: IndirectRules,
     pub economy: EconomyRules,
+    pub engineer: EngineerRules,
+}
+
+/// K-180…K-182.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EngineerRules {
+    /// Repair reach of engineers and repair tents at the end of a turn.
+    pub repair_radius_m: f64,
+    /// A full repair costs this share of the unit's price (pro rata for less).
+    pub repair_cost_share: f64,
+    /// An engineer this close to a building site works on it.
+    pub build_radius_m: f64,
+    /// Unit type of a structure under construction.
+    pub site_type: String,
+    /// Infantry this close to a dug-in position can use it.
+    pub shelter_radius_m: f64,
+    /// Damage multipliers for the infantry in a position: direct fire, shells.
+    pub shelter_direct_factor: f64,
+    pub shelter_shell_factor: f64,
+    /// Multiplier on the suppression it takes.
+    pub shelter_suppression_factor: f64,
 }
 
 /// K-170…K-173.

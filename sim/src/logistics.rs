@@ -127,6 +127,7 @@ pub fn region_counts(zones: &[Zone]) -> BTreeMap<PlayerId, u32> {
 pub fn end_of_turn(game: &mut Game, catalog: &UnitCatalog, rules: &Rules) {
     crate::supply::step_supply(game, catalog, rules);
     crate::economy::step_economy(game, catalog, rules);
+    crate::engineer::step_engineers(game, catalog, rules);
 
     // K-123: medical units treat friendly infantry in reach (the best one counts).
     let medics: Vec<(PlayerId, Vec2, f64)> = game

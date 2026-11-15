@@ -67,6 +67,16 @@ func _process(delta: float) -> bool:
 		if main.orders.buys(main.selection[0]).size() != 1 or not "Sipariş: Piyade" in main.ui.info.text:
 			printerr("MAIN CHECK FAILED: purchase not queued: ", main.orders.list, main.ui.info.text)
 			quit(1)
+		# Engineer: U lists what it can build here; picking the tent queues a build order.
+		main.selection = main.units.keys().filter(func(id): return main.units[id].owner == main.player_id \
+			and main.units[id].type == "engineer")
+		main._key(key)
+		pick = main.shop_items.map(func(s): return s.type_id).find("repair_tent")
+		main.ui.shop_menu.id_pressed.emit(pick)
+		main._update_hud()
+		if main.orders.builds().size() != 1 or not "İnşaat emri: Onarım Çadırı" in main.ui.info.text:
+			printerr("MAIN CHECK FAILED: build not queued: ", main.orders.list, main.ui.info.text)
+			quit(1)
 		step = 1
 	elif step == 1 and main.previews.size() == 2 and main.kbg_spent > 0:
 		print("previews ", main.previews.keys(), " kbg ", main.kbg_spent, "/", main.kbg_budget,
@@ -79,8 +89,10 @@ func _process(delta: float) -> bool:
 		var spg: Array = main.units.values().filter(func(u): return u.owner == main.player_id and u.type == "spg")
 		print("MAIN OK, emitting units: ", on.map(func(u): return u.id), " impacts: ", impacts,
 			" spg stance: ", spg[0].stance, " status: ", main.ui.status.text)
-		print("money ", main.money, " +", main.income, " production ", main.production)
-		quit(0 if on.size() == 1 and impacts > 0 and spg[0].stance == "hold" and main.production.size() == 1 else 1)
+		var sites: Array = main.units.values().filter(func(u): return u.owner == main.player_id and u.type == "construction_site")
+		print("money ", main.money, " +", main.income, " production ", main.production, " sites ", sites.map(func(u): return u.building))
+		quit(0 if on.size() == 1 and impacts > 0 and spg[0].stance == "hold" and main.production.size() == 1 \
+			and sites.size() == 1 and int(sites[0].building.turns_left) == 1 else 1)
 	elif elapsed > 60.0:
 		printerr("MAIN CHECK FAILED at step %d, status: %s" % [step, main.ui.status.text])
 		quit(1)

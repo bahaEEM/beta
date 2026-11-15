@@ -103,6 +103,7 @@ pub fn step_combat(
         *left = left.saturating_sub(1);
     }
     state.reloads.retain(|_, left| *left > 0);
+    let dug = crate::engineer::dug_in(world, catalog, rules); // K-182
 
     // (shooter, target, damage factor from the shooter's own state before this tick's fire)
     let mut shots: Vec<(UnitId, UnitId, f64)> = Vec::new();
@@ -159,6 +160,11 @@ pub fn step_combat(
         let damage = st.damage_hp
             * factor
             * protection(&world.map, rules, target, tt)
+            * if dug.contains(&target_id) {
+                rules.engineer.shelter_direct_factor
+            } else {
+                1.0
+            }
             * hit_share(st, d)
             * penetration_factor(
                 rules,
@@ -177,7 +183,12 @@ pub fn step_combat(
             continue;
         };
         target.under_fire_tick = Some(tick);
-        suppress(target, tt, rules.suppression.per_shot);
+        let sheltered = if dug.contains(&target_id) {
+            rules.engineer.shelter_suppression_factor
+        } else {
+            1.0
+        };
+        suppress(target, tt, rules.suppression.per_shot * sheltered);
         if damage <= 0.0 {
             continue;
         }

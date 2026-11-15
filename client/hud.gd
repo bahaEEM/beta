@@ -35,6 +35,12 @@ const TYPE_NAMES := {
 	"port": "Liman",
 	"hq_bunker": "Karargâh Sığınağı",
 	"ad_site": "Hava Savunma Mevzisi",
+	"engineer": "İstihkâm Aracı",
+	"repair_tent": "Onarım Çadırı",
+	"aid_tent": "İyileştirme Çadırı",
+	"relay_tower": "Baz İstasyonu Kulesi",
+	"bunker": "Sığınak",
+	"construction_site": "İnşaat",
 	"cargo_plane": "Kargo Uçağı",
 	"decoy_tank": "Sahte Tank",
 	"decoy_radar": "Sahte Radar",
@@ -71,6 +77,12 @@ const TYPE_WORDS := {
 	"port": ["Liman", "Limanınız", "limanı"],
 	"hq_bunker": ["Sığınak", "Karargâh sığınağınız", "karargâh sığınağı"],
 	"ad_site": ["HS Mevzisi", "Hava savunma mevziniz", "hava savunma mevzisi"],
+	"engineer": ["İstihkâm", "İstihkâm aracınız", "istihkâm aracı"],
+	"repair_tent": ["Onarım Çadırı", "Onarım çadırınız", "onarım çadırı"],
+	"aid_tent": ["İyileştirme Çadırı", "İyileştirme çadırınız", "iyileştirme çadırı"],
+	"relay_tower": ["Baz İstasyonu", "Baz istasyonunuz", "baz istasyonu"],
+	"bunker": ["Sığınak", "Sığınağınız", "sığınağı"],
+	"construction_site": ["İnşaat", "İnşaatınız", "inşaatı"],
 	"cargo_plane": ["Kargo Uçağı", "Kargo uçağınız", "kargo uçağı"],
 	"decoy_tank": ["Sahte Tank", "Sahte tankınız", "sahte tankı"],
 	"decoy_radar": ["Sahte Radar", "Sahte radarınız", "sahte radarı"],
@@ -242,6 +254,9 @@ func show_selection(sel: Array, orders) -> void:
 		if pressure > 0.0:
 			lines.append("Baskı altında: %%%d%s" % [roundi(pressure * 100.0),
 				"  YERE YATTI (ilerleyemez)" if u.get("pinned", false) else ""])
+		if u.get("building") != null:
+			lines.append("İnşaat: %s, %d tur iş kaldı (yanında istihkâm durmalı)" % [
+				TYPE_NAMES.get(u.building.type_id, u.building.type_id), int(u.building.turns_left)])
 		if u.get("carried_by") != null:
 			lines.append("Araçta: #%d (inmek için N)" % int(u.carried_by))
 		if int(u.get("unsupplied_turns", 0)) > 0:

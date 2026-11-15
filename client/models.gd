@@ -11,11 +11,11 @@ const METAL := Color(0.42, 0.44, 0.43)
 const KHAKI := Color(0.62, 0.56, 0.4)
 const SKIN := Color(0.25, 0.3, 0.2)
 # Types drawn with another type's model until they get their own.
-const LOOKS_LIKE := {"radar_mobile": "gsr", "ambulance": "supply", "mg_team": "atgm", "rocket_inf": "atgm", "ad_site": "shorad", "cargo_plane": "uav", "decoy_tank": "mbt", "decoy_radar": "gsr", "harpy": "rocket", "cb_radar": "gsr", "coastal_battery": "rocket"}
+const LOOKS_LIKE := {"radar_mobile": "gsr", "ambulance": "supply", "mg_team": "atgm", "rocket_inf": "atgm", "ad_site": "shorad", "cargo_plane": "uav", "decoy_tank": "mbt", "decoy_radar": "gsr", "harpy": "rocket", "cb_radar": "gsr", "coastal_battery": "rocket", "engineer": "supply"}
 # Placeholder hulls: type -> [length m, beam m, superstructure height m (0 = submarine)].
 const SHIPS := {"patrol_boat": [12.0, 4.0, 3.0], "corvette": [28.0, 6.0, 6.0], "submarine": [22.0, 4.0, 0.0],
 	"landing_ship": [26.0, 8.0, 4.0], "supply_ship": [26.0, 7.0, 5.0]}
-const STRUCTURES := ["radar_tower", "field_hospital", "logistics_base", "depot", "airfield", "port", "hq_bunker"]
+const STRUCTURES := ["radar_tower", "field_hospital", "logistics_base", "depot", "airfield", "port", "hq_bunker", "repair_tent", "aid_tent", "relay_tower", "bunker", "construction_site"]
 const DISH_PIVOT := Vector3(0, 7.2, 1.6) * SCALE  # gsr radar head / jammer glow centre (scaled)
 
 static var _cache := {}

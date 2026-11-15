@@ -765,6 +765,24 @@ x = 25350.0
 y = 29350.0
 heading_deg = 90.0
 
+# ---- M8: one engineer per side next to its logistics base
+
+[[unit]]
+id = 95
+owner = 0
+type = "engineer"
+x = 23460.0
+y = 12713.0
+heading_deg = 90.0
+
+[[unit]]
+id = 96
+owner = 1
+type = "engineer"
+x = 19681.0
+y = 27897.0
+heading_deg = 270.0
+
 [[zone]]
 id = 1
 name_tr = "Sağlık"

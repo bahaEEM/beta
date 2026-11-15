@@ -450,6 +450,10 @@ impl Match {
                         self.game.world.tick,
                     )
                 }),
+                building: u.building.as_ref().map(|b| p::BuildingView {
+                    type_id: b.type_id.clone(),
+                    turns_left: b.turns_left,
+                }),
             })
             .collect();
         let contacts = contacts(&self.game.tracks, &self.game.world, &self.rules, player)
@@ -498,6 +502,7 @@ impl Match {
                         type_id: t.id.clone(),
                         cost: t.cost,
                         build_turns: t.build_turns,
+                        build: t.class == sim::data::UnitClass::Structure,
                         sites: self
                             .game
                             .world
@@ -513,6 +518,13 @@ impl Match {
                                     s.id,
                                 )
                                 .is_some()
+                                    || sim::engineer::can_build(
+                                        &self.game,
+                                        &self.catalog,
+                                        player,
+                                        s.id,
+                                        t,
+                                    )
                             })
                             .map(|s| s.id.0)
                             .collect(),

@@ -6,7 +6,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::fmt;
 use std::io::Read;
 
-pub const PROTOCOL_VERSION: u32 = 8;
+pub const PROTOCOL_VERSION: u32 = 9;
 /// Maximum size of a message's JSON (uncompressed).
 pub const MAX_MESSAGE_BYTES: usize = 1024 * 1024;
 const ZSTD_LEVEL: i32 = 3;
@@ -72,6 +72,10 @@ pub enum Order {
     /// Radio silence on or off. A silent unit never transmits (enemy ESM cannot hear its
     /// radio) but takes no other new order unless it is on the HQ's road wire.
     SetSilence { units: Vec<UnitId>, on: bool },
+    /// One engineer starts building a structure from the `shop` list (entries with
+    /// `build`) where it stands: only in an own region, paid at once. It has to stay
+    /// next to the site until the work is done.
+    Build { units: Vec<UnitId>, type_id: String },
     /// Buy a unit from the `shop` list of the view. The price is paid at once; the unit
     /// appears at the structure `site` after its build time. Costs no KBG.
     Buy { type_id: String, site: UnitId },
@@ -128,6 +132,15 @@ pub struct OwnUnit {
     /// Concealment right now: enemy optical ranges against this unit are multiplied by
     /// this factor (1 = none; lower = harder to see).
     pub conceal: f64,
+    /// Building sites only: what this becomes and the turns of work still needed; an
+    /// engineer has to stand next to it at the end of a turn for the turn to count.
+    pub building: Option<BuildingView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BuildingView {
+    pub type_id: String,
+    pub turns_left: u32,
 }
 
 /// An enemy unit as known to this player. `type_id` is only present at quality >= 2.
@@ -189,7 +202,11 @@ pub struct ShopItem {
     pub type_id: String,
     pub cost: u32,
     pub build_turns: u32,
-    /// Own structures that can raise this unit right now (empty = none).
+    /// False: a unit, ordered with `buy` at one of `sites`. True: a structure, ordered
+    /// with `build` to one of the engineers in `sites`.
+    pub build: bool,
+    /// Own structures that can raise this unit right now, or own engineers that can
+    /// build this structure where they stand (empty = none).
     pub sites: Vec<UnitId>,
 }
 
@@ -415,6 +432,10 @@ mod tests {
                         type_id: "mbt".into(),
                         site: 40,
                     },
+                    Order::Build {
+                        units: vec![95],
+                        type_id: "bunker".into(),
+                    },
                 ],
             },
             ClientMsg::RequestPreview {
@@ -461,6 +482,7 @@ mod tests {
                         pinned: false,
                         silent: false,
                         conceal: 0.35,
+                        building: None,
                     }],
                     contacts: vec![
                         Contact {
@@ -503,6 +525,7 @@ mod tests {
                         type_id: "mbt".into(),
                         cost: 500,
                         build_turns: 4,
+                        build: false,
                         sites: vec![40],
                     }],
                 },
